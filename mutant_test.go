@@ -28,7 +28,7 @@ func find(t testing.TB, name, src string) []mutant.Mutant {
 	if err != nil {
 		t.Fatal(err)
 	}
-	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
 	conf := types.Config{Importer: importer.Default()}
 	if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func Load(name string) ([]byte, error) {
 			`,
 		},
 		{
-			name: "statements in a block are deleted, := is not since it would leave names undefined",
+			name: "statements in a block are deleted, := is not since it would leave names undefined; i keeps a use",
 			src: `package p
 
 import "fmt"
@@ -113,7 +113,7 @@ func Sum(xs []int) int {
 }
 `,
 			want: `
-				discount.go:8:3 SDL total += xs[i] → (deleted)
+				discount.go:8:3 SDL total += xs[i] → _ = i
 				discount.go:8:9 AOR total += xs[i] → total -= xs[i]
 				discount.go:8:9 AOR total += xs[i] → total *= xs[i]
 				discount.go:8:9 AOR total += xs[i] → total /= xs[i]
@@ -145,6 +145,99 @@ func greet(name string) string { return "hi " + name }
 				discount.go:3:56 AOR sum / n → sum + n
 				discount.go:3:56 AOR sum / n → sum - n
 				discount.go:3:56 AOR sum / n → sum * n
+			`,
+		},
+		{
+			name: "a condition that holds the only use of locals keeps them used",
+			src: `package p
+
+func cmp(a, b []int) int {
+	si, oi := len(a), len(b)
+	if si > oi {
+		return 1
+	}
+	return -1
+}
+`,
+			want: `
+				discount.go:5:5 COR si > oi → func() bool { _, _ = si, oi; return true }()
+				discount.go:5:5 COR si > oi → func() bool { _, _ = si, oi; return false }()
+				discount.go:5:8 ROR si > oi → si < oi
+				discount.go:5:8 ROR si > oi → si <= oi
+				discount.go:5:8 ROR si > oi → si >= oi
+				discount.go:5:8 ROR si > oi → si == oi
+				discount.go:5:8 ROR si > oi → si != oi
+			`,
+		},
+		{
+			name: "a deleted statement that holds the only use of a local keeps it used; assigning is not using",
+			src: `package p
+
+func last(xs []int) (n int) {
+	for _, x := range xs {
+		n = x
+	}
+	return
+}
+`,
+			want: `
+				discount.go:5:3 SDL n = x → _ = x
+			`,
+		},
+		{
+			name: "x++ uses x, so a condition need not keep it used",
+			src: `package p
+
+func spin(n int) {
+	for i := 0; ; i++ {
+		if i >= n {
+			return
+		}
+	}
+}
+`,
+			want: `
+				discount.go:5:6 COR i >= n → true
+				discount.go:5:6 COR i >= n → false
+				discount.go:5:8 ROR i >= n → i < n
+				discount.go:5:8 ROR i >= n → i <= n
+				discount.go:5:8 ROR i >= n → i > n
+				discount.go:5:8 ROR i >= n → i == n
+				discount.go:5:8 ROR i >= n → i != n
+			`,
+		},
+		{
+			name: "a value that cannot be negative compared with 0: != is >, == is <=",
+			src: `package p
+
+func empty(s []int, u uint) bool { return len(s) == 0 || u != 0 }
+`,
+			want: `
+				discount.go:3:50 ROR len(s) == 0 → len(s) < 0
+				discount.go:3:50 ROR len(s) == 0 → len(s) <= 0 [equivalent: nonnegative vs 0]
+				discount.go:3:50 ROR len(s) == 0 → len(s) > 0
+				discount.go:3:50 ROR len(s) == 0 → len(s) >= 0
+				discount.go:3:50 ROR len(s) == 0 → len(s) != 0
+				discount.go:3:55 COR len(s) == 0 || u != 0 → len(s) == 0 && u != 0
+				discount.go:3:60 ROR u != 0 → u < 0
+				discount.go:3:60 ROR u != 0 → u <= 0
+				discount.go:3:60 ROR u != 0 → u > 0 [equivalent: nonnegative vs 0]
+				discount.go:3:60 ROR u != 0 → u >= 0
+				discount.go:3:60 ROR u != 0 → u == 0
+			`,
+		},
+		{
+			name: "0 on the left mirrors the rule",
+			src: `package p
+
+func any(n uint) bool { return 0 < n }
+`,
+			want: `
+				discount.go:3:34 ROR 0 < n → 0 <= n
+				discount.go:3:34 ROR 0 < n → 0 > n
+				discount.go:3:34 ROR 0 < n → 0 >= n
+				discount.go:3:34 ROR 0 < n → 0 == n
+				discount.go:3:34 ROR 0 < n → 0 != n [equivalent: nonnegative vs 0]
 			`,
 		},
 		{
@@ -247,7 +340,7 @@ func Max(a, b int) int {
 `
 	fset := token.NewFileSet()
 	f, _ := parser.ParseFile(fset, "max.go", src, 0)
-	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
 	_, _ = new(types.Config).Check("p", fset, []*ast.File{f}, info)
 
 	ms := mutant.Find(fset, f, []byte(src), info)
