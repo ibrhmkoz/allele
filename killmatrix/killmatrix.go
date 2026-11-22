@@ -272,7 +272,12 @@ func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top string) []Test 
 	for _, leaf := range leaves {
 		passed := 0
 		for _, rep := range reports {
-			if rep.status(leaf) == Survived {
+			// Unlike against a mutant, a leaf a baseline run did not
+			// report did not pass: its name may change from run to run.
+			// The exception is the top-level test standing in for a run
+			// that crashed before reporting anything.
+			p, seen := rep.passed[leaf]
+			if seen && p || !seen && leaf == top && len(rep.order) == 0 && rep.ok {
 				passed++
 			}
 		}

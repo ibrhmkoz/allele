@@ -1,7 +1,9 @@
 package killmatrix_test
 
 import (
+	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,7 +13,7 @@ import (
 
 func TestRun(t *testing.T) {
 	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: 300 * time.Millisecond}
-	m, err := r.Run(t.Context(), "testdata", "./...")
+	m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,4 +72,35 @@ func TestRun(t *testing.T) {
 		  M27 K  K  K  K    table.go:6:7 ROR x < 0 → x == 0
 		  M28 .  .  K  .    table.go:6:7 ROR x < 0 → x != 0
 	`)
+}
+
+// TestUnstableNames checks that a leaf whose name changes between runs is
+// flaky, gets no results, and that no parent test becomes a column.
+func TestUnstableNames(t *testing.T) {
+	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: 300 * time.Millisecond}
+	m, err := r.Run(t.Context(), "testdata", "./unstable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	ok := map[int]bool{}
+	for _, tt := range m.Tests {
+		name := tt.Name
+		if strings.HasPrefix(name, "TestClockName/") {
+			name = "TestClockName/<clock>"
+		}
+		got = append(got, fmt.Sprintf("%s %s", name, tt.State))
+		ok[tt.ID] = tt.State == killmatrix.OK
+	}
+	xtesting.EqualText(t, strings.Join(got, "\n"), `
+		TestClockName/<clock> flaky
+		TestClockName/<clock> flaky
+		TestClockName/<clock> flaky
+		TestDouble ok
+	`)
+	for _, res := range m.Results {
+		if !ok[res.TestID] {
+			t.Errorf("result for flaky test T%d", res.TestID)
+		}
+	}
 }
