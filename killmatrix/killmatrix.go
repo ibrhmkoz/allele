@@ -48,8 +48,11 @@ type Mutant struct {
 	Node     string          `json:"node"`
 	Original string          `json:"original"`
 	Mutated  string          `json:"mutated"`
-	Compiled bool            `json:"compiled"`
-	BuildMS  float64         `json:"build_ms"`
+	// Equivalent and Repaired are as in mutant.Mutant.
+	Equivalent string  `json:"equivalent"`
+	Repaired   bool    `json:"repaired"`
+	Compiled   bool    `json:"compiled"`
+	BuildMS    float64 `json:"build_ms"`
 
 	m mutant.Mutant
 }
@@ -205,16 +208,18 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		}
 		for _, mu := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
 			m.Mutants = append(m.Mutants, Mutant{
-				ID:       len(m.Mutants) + 1,
-				Pkg:      pkg.PkgPath,
-				File:     filepath.Base(name),
-				Line:     mu.Pos.Line,
-				Col:      mu.Pos.Column,
-				Operator: mu.Operator,
-				Node:     mu.Node,
-				Original: mu.Original,
-				Mutated:  mu.Mutated,
-				m:        mu,
+				ID:         len(m.Mutants) + 1,
+				Pkg:        pkg.PkgPath,
+				File:       filepath.Base(name),
+				Line:       mu.Pos.Line,
+				Col:        mu.Pos.Column,
+				Operator:   mu.Operator,
+				Node:       mu.Node,
+				Original:   mu.Original,
+				Mutated:    mu.Mutated,
+				Equivalent: mu.Equivalent,
+				Repaired:   mu.Repaired,
+				m:          mu,
 			})
 		}
 	}
