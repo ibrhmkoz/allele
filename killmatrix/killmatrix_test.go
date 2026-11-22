@@ -17,6 +17,8 @@ func TestRun(t *testing.T) {
 	}
 	// M5 is the boundary test the suite lacks (price == 100), M18 is
 	// equivalent for n >= 0, M14 loops forever and M21 leaves x unused.
+	// Each subtest of TestAbs is a column; where index panics, the subtests
+	// it hides count as killed too (M23, M25-M27).
 	xtesting.Prints(t, m, `
 		fixture/discount
 		  T1 TestVIPOver100
@@ -52,5 +54,20 @@ func TestRun(t *testing.T) {
 		  M19 K  .   loop.go:8:8 ROR i >= n → i != n
 		  M20 K  .   loop.go:11:3 SDL c++ → (deleted)
 		  M21 B  B   loop.go:18:3 SDL last = x → (deleted)
+
+		fixture/table
+		  T7 TestAbs/index
+		  T8 TestAbs/negative
+		  T9 TestAbs/positive
+		  T10 TestAbs/zero
+
+		      T7 T8 T9 T10
+		  M22 .  .  K  .    table.go:6:5 COR x < 0 → true
+		  M23 K  K  K  K    table.go:6:5 COR x < 0 → false
+		  M24 .  .  .  .    table.go:6:7 ROR x < 0 → x <= 0
+		  M25 K  K  K  K    table.go:6:7 ROR x < 0 → x > 0
+		  M26 K  K  K  K    table.go:6:7 ROR x < 0 → x >= 0
+		  M27 K  K  K  K    table.go:6:7 ROR x < 0 → x == 0
+		  M28 .  .  K  .    table.go:6:7 ROR x < 0 → x != 0
 	`)
 }

@@ -64,8 +64,13 @@ const (
 	Failing TestState = "failing"
 )
 
-// Test is a top-level test, example or fuzz target. BaselineMS is its median
-// time on the unmutated package.
+// Test is a leaf test: a subtest with no subtests of its own, or a
+// top-level test, example or fuzz target with none. Table-driven tests put
+// many cases in one top-level test, so leaves keep the matrix from
+// collapsing them into one column.
+//
+// Leaves of one top-level test run in one process. BaselineMS is the median
+// time of that process on the unmutated package.
 type Test struct {
 	ID         int       `json:"id"`
 	Pkg        string    `json:"pkg"`
@@ -85,7 +90,8 @@ const (
 	Timeout Status = "timeout"
 )
 
-// Result is one test run against one mutant.
+// Result is how one leaf test did against one mutant. MS is the time of
+// the process that ran its top-level test, shared by its sibling leaves.
 type Result struct {
 	MutantID int     `json:"mutant_id"`
 	TestID   int     `json:"test_id"`
@@ -173,16 +179,19 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		return nil // no test files
 	}
 
-	names, err := list(ctx, dir, bin)
+	tops, err := list(ctx, dir, bin)
 	if err != nil {
 		return err
 	}
 	firstTest := len(m.Tests)
-	for _, name := range names {
-		m.Tests = append(m.Tests, r.baseline(ctx, dir, bin, len(m.Tests)+1, pkg.PkgPath, name))
+	for _, top := range tops {
+		for _, t := range r.baseline(ctx, dir, bin, pkg.PkgPath, top) {
+			t.ID = len(m.Tests) + 1
+			m.Tests = append(m.Tests, t)
+		}
 	}
 	tests := m.Tests[firstTest:]
-	r.logf("%s: %d tests\n", pkg.PkgPath, len(tests))
+	r.logf("%s: %d top-level tests, %d leaves\n", pkg.PkgPath, len(tops), len(tests))
 
 	firstMutant := len(m.Mutants)
 	for _, f := range pkg.Syntax {
@@ -237,27 +246,47 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	return nil
 }
 
-// baseline runs a test BaselineRuns times on the unmutated package.
-func (r Runner) baseline(ctx context.Context, dir, bin string, id int, pkg, name string) Test {
+// baseline runs a top-level test BaselineRuns times on the unmutated
+// package and returns its leaves. A leaf that fails or is missing in some
+// runs is flaky; one that never passes is failing.
+func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top string) []Test {
 	var times []time.Duration
-	passed := 0
+	var reports []report
+	var names []string
 	for range r.BaselineRuns {
-		ok, elapsed, _ := run(ctx, dir, bin, name, 0)
-		times = append(times, elapsed)
-		if ok {
-			passed++
+		rep := run(ctx, dir, bin, top, 0)
+		times = append(times, rep.elapsed)
+		reports = append(reports, rep)
+		for _, name := range rep.order {
+			if !slices.Contains(names, name) {
+				names = append(names, name)
+			}
 		}
 	}
 	slices.Sort(times)
-	state := OK
-	switch passed {
-	case 0:
-		state = Failing
-	case r.BaselineRuns:
-	default:
-		state = Flaky
+	leaves := leavesOf(names)
+	if len(leaves) == 0 {
+		leaves = []string{top} // the binary crashed before reporting
 	}
-	return Test{ID: id, Pkg: pkg, Name: name, BaselineMS: ms(times[len(times)/2]), State: state}
+	var tests []Test
+	for _, leaf := range leaves {
+		passed := 0
+		for _, rep := range reports {
+			if rep.status(leaf) == Survived {
+				passed++
+			}
+		}
+		state := OK
+		switch passed {
+		case 0:
+			state = Failing
+		case r.BaselineRuns:
+		default:
+			state = Flaky
+		}
+		tests = append(tests, Test{Pkg: pkg, Name: leaf, BaselineMS: ms(times[len(times)/2]), State: state})
+	}
+	return tests
 }
 
 func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, tests []Test) ([]Result, error) {
@@ -299,23 +328,20 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 	}
 
 	var results []Result
+	var rep report
+	ran := "" // the top-level test rep is from
 	for _, t := range tests {
 		if t.State != OK {
 			continue
 		}
-		limit := time.Duration(float64(t.BaselineMS)*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-		ok, elapsed, timedOut := run(ctx, dir, bin, t.Name, limit)
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
+		if top := topOf(t.Name); top != ran {
+			limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+			rep, ran = run(ctx, dir, bin, top, limit), top
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 		}
-		status := Killed
-		switch {
-		case timedOut:
-			status = Timeout
-		case ok:
-			status = Survived
-		}
-		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(elapsed)})
+		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: rep.status(t.Name), MS: ms(rep.elapsed)})
 	}
 	r.logf("M%d done\n", mu.ID)
 	return results, nil
@@ -351,19 +377,22 @@ func list(ctx context.Context, dir, bin string) ([]string, error) {
 	return names, nil
 }
 
-// run runs one test of bin in dir. A limit of 0 means no time limit.
-func run(ctx context.Context, dir, bin, name string, limit time.Duration) (ok bool, elapsed time.Duration, timedOut bool) {
+// run runs one top-level test of bin in dir. A limit of 0 means no limit.
+func run(ctx context.Context, dir, bin, top string, limit time.Duration) report {
 	if limit > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, limit)
 		defer cancel()
 	}
-	cmd := exec.CommandContext(ctx, bin, "-test.run", "^"+name+"$", "-test.count=1")
+	cmd := exec.CommandContext(ctx, bin, "-test.run", "^"+top+"$", "-test.count=1", "-test.v=test2json")
 	cmd.Dir = dir
 	start := time.Now()
-	err := cmd.Run()
-	elapsed = time.Since(start)
-	return err == nil, elapsed, limit > 0 && errors.Is(ctx.Err(), context.DeadlineExceeded)
+	out, err := cmd.Output()
+	return (&report{
+		ok:       err == nil,
+		timedOut: limit > 0 && errors.Is(ctx.Err(), context.DeadlineExceeded),
+		elapsed:  time.Since(start),
+	}).parse(out)
 }
 
 // Log is progress only; a failed write must not stop a run.
