@@ -1,0 +1,685 @@
+{"repo":"glob","seed":1,"strategy":"all","control":false,"mutants":1105,"total":1105,"cost":1,"tests":29.505,"score":1,"random":0.23679999999999993}
+{"repo":"glob","seed":1,"strategy":"ROR only","control":false,"mutants":479,"total":1105,"cost":0.4018491928224674,"tests":20.615,"score":0.6562000000000008,"random":0.17919999999999983}
+{"repo":"glob","seed":1,"strategy":"ROR only","control":true,"mutants":479,"total":1105,"cost":0.4335984272601293,"tests":23.520000000000003,"score":0.7724000000000002,"random":0.1966000000000001}
+{"repo":"glob","seed":1,"strategy":"COR only","control":false,"mutants":218,"total":1105,"cost":0.18951283635579144,"tests":19.285,"score":0.6148000000000002,"random":0.16619999999999976}
+{"repo":"glob","seed":1,"strategy":"COR only","control":true,"mutants":218,"total":1105,"cost":0.19576524682864754,"tests":18.310000000000002,"score":0.5818,"random":0.1642000000000001}
+{"repo":"glob","seed":1,"strategy":"AOR only","control":false,"mutants":208,"total":1105,"cost":0.219025729016211,"tests":13.385,"score":0.43179999999999985,"random":0.11939999999999977}
+{"repo":"glob","seed":1,"strategy":"AOR only","control":true,"mutants":208,"total":1105,"cost":0.18899947540674678,"tests":18.094999999999995,"score":0.58,"random":0.17180000000000012}
+{"repo":"glob","seed":1,"strategy":"SDL only","control":false,"mutants":185,"total":1105,"cost":0.1775075352033341,"tests":15.055,"score":0.44100000000000006,"random":0.12639999999999968}
+{"repo":"glob","seed":1,"strategy":"SDL only","control":true,"mutants":185,"total":1105,"cost":0.16579161173862073,"tests":17.13,"score":0.5488000000000002,"random":0.1476000000000001}
+{"repo":"glob","seed":1,"strategy":"ERR only","control":false,"mutants":15,"total":1105,"cost":0.012104706602194973,"tests":4.865,"score":0.14860000000000018,"random":0.04839999999999994}
+{"repo":"glob","seed":1,"strategy":"ERR only","control":true,"mutants":15,"total":1105,"cost":0.01327363176468747,"tests":4.325000000000001,"score":0.11440000000000006,"random":0.04840000000000002}
+{"repo":"glob","seed":1,"strategy":"all but ROR","control":false,"mutants":626,"total":1105,"cost":0.5981508071775326,"tests":26.36,"score":0.8841999999999992,"random":0.21339999999999978}
+{"repo":"glob","seed":1,"strategy":"all but ROR","control":true,"mutants":626,"total":1105,"cost":0.5620692637722736,"tests":25.05,"score":0.8386000000000001,"random":0.2042000000000001}
+{"repo":"glob","seed":1,"strategy":"all but COR","control":false,"mutants":887,"total":1105,"cost":0.8104871636442088,"tests":26.855,"score":0.9161999999999978,"random":0.22559999999999994}
+{"repo":"glob","seed":1,"strategy":"all but COR","control":true,"mutants":887,"total":1105,"cost":0.8027028208770588,"tests":27.805,"score":0.9358000000000001,"random":0.2322000000000001}
+{"repo":"glob","seed":1,"strategy":"all but AOR","control":false,"mutants":897,"total":1105,"cost":0.7809742709837894,"tests":27.91,"score":0.9201999999999978,"random":0.22399999999999992}
+{"repo":"glob","seed":1,"strategy":"all but AOR","control":true,"mutants":897,"total":1105,"cost":0.8107458125472915,"tests":27.65500000000001,"score":0.9364000000000002,"random":0.21820000000000003}
+{"repo":"glob","seed":1,"strategy":"all but SDL","control":false,"mutants":920,"total":1105,"cost":0.8224924647966654,"tests":28.375,"score":0.9678000000000005,"random":0.22959999999999992}
+{"repo":"glob","seed":1,"strategy":"all but SDL","control":true,"mutants":920,"total":1105,"cost":0.8329633868905921,"tests":27.974999999999987,"score":0.9506000000000003,"random":0.23400000000000007}
+{"repo":"glob","seed":1,"strategy":"all but ERR","control":false,"mutants":1090,"total":1105,"cost":0.987895293397805,"tests":28.38,"score":0.9600000000000009,"random":0.23819999999999997}
+{"repo":"glob","seed":1,"strategy":"all but ERR","control":true,"mutants":1090,"total":1105,"cost":0.9858317583794056,"tests":29.115000000000002,"score":0.9942,"random":0.2406000000000001}
+{"repo":"glob","seed":1,"strategy":"one per line","control":false,"mutants":359,"total":1105,"cost":0.32171754968369315,"tests":22.54000000000001,"score":0.7084,"random":0.2022000000000001}
+{"repo":"glob","seed":1,"strategy":"one per line","control":true,"mutants":359,"total":1105,"cost":0.3260653560867116,"tests":21.795,"score":0.7021999999999998,"random":0.18880000000000013}
+{"repo":"glob","seed":2,"strategy":"all","control":false,"mutants":1105,"total":1105,"cost":1,"tests":29.105,"score":1,"random":0.22979999999999998}
+{"repo":"glob","seed":2,"strategy":"ROR only","control":false,"mutants":479,"total":1105,"cost":0.4018491928224674,"tests":20.605,"score":0.6626000000000006,"random":0.18259999999999973}
+{"repo":"glob","seed":2,"strategy":"ROR only","control":true,"mutants":479,"total":1105,"cost":0.430884566628183,"tests":23.165,"score":0.7758,"random":0.19100000000000011}
+{"repo":"glob","seed":2,"strategy":"COR only","control":false,"mutants":218,"total":1105,"cost":0.18951283635579144,"tests":19.06,"score":0.6153999999999998,"random":0.16599999999999995}
+{"repo":"glob","seed":2,"strategy":"COR only","control":true,"mutants":218,"total":1105,"cost":0.19478064298033776,"tests":17.640000000000004,"score":0.5632,"random":0.15200000000000008}
+{"repo":"glob","seed":2,"strategy":"AOR only","control":false,"mutants":208,"total":1105,"cost":0.219025729016211,"tests":13.46,"score":0.42859999999999976,"random":0.13019999999999976}
+{"repo":"glob","seed":2,"strategy":"AOR only","control":true,"mutants":208,"total":1105,"cost":0.18849951194736247,"tests":17.735000000000003,"score":0.5516,"random":0.1496000000000001}
+{"repo":"glob","seed":2,"strategy":"SDL only","control":false,"mutants":185,"total":1105,"cost":0.1775075352033341,"tests":15.29,"score":0.43679999999999986,"random":0.14679999999999982}
+{"repo":"glob","seed":2,"strategy":"SDL only","control":true,"mutants":185,"total":1105,"cost":0.16795272156984198,"tests":16.450000000000003,"score":0.522,"random":0.1518000000000001}
+{"repo":"glob","seed":2,"strategy":"ERR only","control":false,"mutants":15,"total":1105,"cost":0.012104706602194973,"tests":4.845,"score":0.1510000000000002,"random":0.04819999999999994}
+{"repo":"glob","seed":2,"strategy":"ERR only","control":true,"mutants":15,"total":1105,"cost":0.01396263534029373,"tests":4.505000000000001,"score":0.11520000000000005,"random":0.046400000000000025}
+{"repo":"glob","seed":2,"strategy":"all but ROR","control":false,"mutants":626,"total":1105,"cost":0.5981508071775326,"tests":26.51,"score":0.8783999999999991,"random":0.2138}
+{"repo":"glob","seed":2,"strategy":"all but ROR","control":true,"mutants":626,"total":1105,"cost":0.5661745914992915,"tests":25.259999999999998,"score":0.8446000000000001,"random":0.20840000000000009}
+{"repo":"glob","seed":2,"strategy":"all but COR","control":false,"mutants":887,"total":1105,"cost":0.8104871636442088,"tests":26.835,"score":0.9163999999999984,"random":0.21799999999999986}
+{"repo":"glob","seed":2,"strategy":"all but COR","control":true,"mutants":887,"total":1105,"cost":0.8018009717229735,"tests":27.494999999999994,"score":0.9270000000000002,"random":0.22780000000000009}
+{"repo":"glob","seed":2,"strategy":"all but AOR","control":false,"mutants":897,"total":1105,"cost":0.7809742709837894,"tests":27.725,"score":0.9215999999999971,"random":0.2207999999999999}
+{"repo":"glob","seed":2,"strategy":"all but AOR","control":true,"mutants":897,"total":1105,"cost":0.8097787848409903,"tests":28.28,"score":0.9466000000000003,"random":0.22180000000000008}
+{"repo":"glob","seed":2,"strategy":"all but SDL","control":false,"mutants":920,"total":1105,"cost":0.8224924647966654,"tests":27.93,"score":0.9664000000000007,"random":0.22879999999999995}
+{"repo":"glob","seed":2,"strategy":"all but SDL","control":true,"mutants":920,"total":1105,"cost":0.8325198658512735,"tests":28.349999999999994,"score":0.9575999999999999,"random":0.2228000000000001}
+{"repo":"glob","seed":2,"strategy":"all but ERR","control":false,"mutants":1090,"total":1105,"cost":0.987895293397805,"tests":28,"score":0.9600000000000009,"random":0.21919999999999995}
+{"repo":"glob","seed":2,"strategy":"all but ERR","control":true,"mutants":1090,"total":1105,"cost":0.9869458499430384,"tests":29.330000000000002,"score":0.9940000000000001,"random":0.2298000000000001}
+{"repo":"glob","seed":2,"strategy":"one per line","control":false,"mutants":359,"total":1105,"cost":0.3205723265459342,"tests":22.540000000000003,"score":0.6952,"random":0.18560000000000013}
+{"repo":"glob","seed":2,"strategy":"one per line","control":true,"mutants":359,"total":1105,"cost":0.3253570942747227,"tests":21.389999999999997,"score":0.7042,"random":0.18380000000000013}
+{"repo":"glob","seed":3,"strategy":"all","control":false,"mutants":1105,"total":1105,"cost":1,"tests":29.48,"score":1,"random":0.23440000000000005}
+{"repo":"glob","seed":3,"strategy":"ROR only","control":false,"mutants":479,"total":1105,"cost":0.4018491928224674,"tests":20.925,"score":0.6606000000000007,"random":0.17159999999999984}
+{"repo":"glob","seed":3,"strategy":"ROR only","control":true,"mutants":479,"total":1105,"cost":0.43386176798790477,"tests":23.675000000000004,"score":0.7832000000000003,"random":0.19220000000000012}
+{"repo":"glob","seed":3,"strategy":"COR only","control":false,"mutants":218,"total":1105,"cost":0.18951283635579144,"tests":19.185,"score":0.6098000000000005,"random":0.15959999999999971}
+{"repo":"glob","seed":3,"strategy":"COR only","control":true,"mutants":218,"total":1105,"cost":0.19621514237556897,"tests":18.369999999999997,"score":0.5716000000000002,"random":0.1722000000000001}
+{"repo":"glob","seed":3,"strategy":"AOR only","control":false,"mutants":208,"total":1105,"cost":0.219025729016211,"tests":13.35,"score":0.4371999999999997,"random":0.12959999999999983}
+{"repo":"glob","seed":3,"strategy":"AOR only","control":true,"mutants":208,"total":1105,"cost":0.19059185357923775,"tests":17.9,"score":0.5700000000000001,"random":0.1558000000000001}
+{"repo":"glob","seed":3,"strategy":"SDL only","control":false,"mutants":185,"total":1105,"cost":0.1775075352033341,"tests":15.165,"score":0.4348,"random":0.12859999999999966}
+{"repo":"glob","seed":3,"strategy":"SDL only","control":true,"mutants":185,"total":1105,"cost":0.16824960397443178,"tests":17.679999999999996,"score":0.5480000000000002,"random":0.15260000000000007}
+{"repo":"glob","seed":3,"strategy":"ERR only","control":false,"mutants":15,"total":1105,"cost":0.012104706602194973,"tests":4.855,"score":0.1502000000000001,"random":0.04879999999999998}
+{"repo":"glob","seed":3,"strategy":"ERR only","control":true,"mutants":15,"total":1105,"cost":0.01421494576807398,"tests":4.625,"score":0.13220000000000007,"random":0.051000000000000024}
+{"repo":"glob","seed":3,"strategy":"all but ROR","control":false,"mutants":626,"total":1105,"cost":0.5981508071775326,"tests":26.305,"score":0.8765999999999998,"random":0.21479999999999982}
+{"repo":"glob","seed":3,"strategy":"all but ROR","control":true,"mutants":626,"total":1105,"cost":0.5691638385339999,"tests":25.545,"score":0.8456000000000001,"random":0.21860000000000007}
+{"repo":"glob","seed":3,"strategy":"all but COR","control":false,"mutants":887,"total":1105,"cost":0.8104871636442088,"tests":27.11,"score":0.9133999999999979,"random":0.22239999999999988}
+{"repo":"glob","seed":3,"strategy":"all but COR","control":true,"mutants":887,"total":1105,"cost":0.8032123335763621,"tests":27.975,"score":0.9460000000000004,"random":0.2268000000000001}
+{"repo":"glob","seed":3,"strategy":"all but AOR","control":false,"mutants":897,"total":1105,"cost":0.7809742709837894,"tests":27.745,"score":0.9209999999999987,"random":0.2281999999999999}
+{"repo":"glob","seed":3,"strategy":"all but AOR","control":true,"mutants":897,"total":1105,"cost":0.8132772503524363,"tests":27.955000000000005,"score":0.945,"random":0.23000000000000007}
+{"repo":"glob","seed":3,"strategy":"all but SDL","control":false,"mutants":920,"total":1105,"cost":0.8224924647966654,"tests":28.26,"score":0.9670000000000009,"random":0.22839999999999996}
+{"repo":"glob","seed":3,"strategy":"all but SDL","control":true,"mutants":920,"total":1105,"cost":0.8320221660574895,"tests":27.685000000000002,"score":0.9550000000000003,"random":0.2302000000000001}
+{"repo":"glob","seed":3,"strategy":"all but ERR","control":false,"mutants":1090,"total":1105,"cost":0.987895293397805,"tests":28.525,"score":0.9600000000000009,"random":0.22840000000000008}
+{"repo":"glob","seed":3,"strategy":"all but ERR","control":true,"mutants":1090,"total":1105,"cost":0.9859274899506403,"tests":29.134999999999998,"score":0.9967999999999998,"random":0.23220000000000005}
+{"repo":"glob","seed":3,"strategy":"one per line","control":false,"mutants":359,"total":1105,"cost":0.32091617432186437,"tests":22.525,"score":0.7056000000000002,"random":0.19320000000000012}
+{"repo":"glob","seed":3,"strategy":"one per line","control":true,"mutants":359,"total":1105,"cost":0.3256852715421616,"tests":21.65,"score":0.7121999999999999,"random":0.18280000000000013}
+{"repo":"glob","seed":4,"strategy":"all","control":false,"mutants":1105,"total":1105,"cost":1,"tests":29.5,"score":1,"random":0.23759999999999995}
+{"repo":"glob","seed":4,"strategy":"ROR only","control":false,"mutants":479,"total":1105,"cost":0.4018491928224674,"tests":20.515,"score":0.652600000000001,"random":0.1841999999999998}
+{"repo":"glob","seed":4,"strategy":"ROR only","control":true,"mutants":479,"total":1105,"cost":0.43384300244828794,"tests":23.454999999999995,"score":0.7768000000000002,"random":0.20040000000000013}
+{"repo":"glob","seed":4,"strategy":"COR only","control":false,"mutants":218,"total":1105,"cost":0.18951283635579144,"tests":19.27,"score":0.607,"random":0.17039999999999988}
+{"repo":"glob","seed":4,"strategy":"COR only","control":true,"mutants":218,"total":1105,"cost":0.19836645923586244,"tests":18.139999999999997,"score":0.5673999999999999,"random":0.1672000000000001}
+{"repo":"glob","seed":4,"strategy":"AOR only","control":false,"mutants":208,"total":1105,"cost":0.219025729016211,"tests":13.545,"score":0.43820000000000014,"random":0.1269999999999997}
+{"repo":"glob","seed":4,"strategy":"AOR only","control":true,"mutants":208,"total":1105,"cost":0.18674454894662593,"tests":18.22,"score":0.5768000000000002,"random":0.16160000000000008}
+{"repo":"glob","seed":4,"strategy":"SDL only","control":false,"mutants":185,"total":1105,"cost":0.1775075352033341,"tests":15.195,"score":0.4471999999999997,"random":0.12799999999999975}
+{"repo":"glob","seed":4,"strategy":"SDL only","control":true,"mutants":185,"total":1105,"cost":0.1687735872929804,"tests":17.245,"score":0.5454000000000001,"random":0.15300000000000008}
+{"repo":"glob","seed":4,"strategy":"ERR only","control":false,"mutants":15,"total":1105,"cost":0.012104706602194973,"tests":4.845,"score":0.15060000000000015,"random":0.044399999999999995}
+{"repo":"glob","seed":4,"strategy":"ERR only","control":true,"mutants":15,"total":1105,"cost":0.013773789149264633,"tests":4.760000000000001,"score":0.13540000000000008,"random":0.04300000000000002}
+{"repo":"glob","seed":4,"strategy":"all but ROR","control":false,"mutants":626,"total":1105,"cost":0.5981508071775326,"tests":26.17,"score":0.8741999999999992,"random":0.21479999999999982}
+{"repo":"glob","seed":4,"strategy":"all but ROR","control":true,"mutants":626,"total":1105,"cost":0.5684084514535133,"tests":24.68,"score":0.8299999999999998,"random":0.20480000000000015}
+{"repo":"glob","seed":4,"strategy":"all but COR","control":false,"mutants":887,"total":1105,"cost":0.8104871636442088,"tests":26.845,"score":0.9143999999999975,"random":0.22459999999999997}
+{"repo":"glob","seed":4,"strategy":"all but COR","control":true,"mutants":887,"total":1105,"cost":0.8017281213410274,"tests":28.160000000000007,"score":0.9310000000000003,"random":0.22920000000000007}
+{"repo":"glob","seed":4,"strategy":"all but AOR","control":false,"mutants":897,"total":1105,"cost":0.7809742709837894,"tests":27.72,"score":0.9209999999999978,"random":0.22779999999999972}
+{"repo":"glob","seed":4,"strategy":"all but AOR","control":true,"mutants":897,"total":1105,"cost":0.8121073684530542,"tests":27.869999999999997,"score":0.9451999999999998,"random":0.22460000000000005}
+{"repo":"glob","seed":4,"strategy":"all but SDL","control":false,"mutants":920,"total":1105,"cost":0.8224924647966654,"tests":28.21,"score":0.9676000000000006,"random":0.2299999999999999}
+{"repo":"glob","seed":4,"strategy":"all but SDL","control":true,"mutants":920,"total":1105,"cost":0.8330927878884602,"tests":28.23,"score":0.9624000000000003,"random":0.2234000000000001}
+{"repo":"glob","seed":4,"strategy":"all but ERR","control":false,"mutants":1090,"total":1105,"cost":0.987895293397805,"tests":28.455,"score":0.9600000000000009,"random":0.2295999999999998}
+{"repo":"glob","seed":4,"strategy":"all but ERR","control":true,"mutants":1090,"total":1105,"cost":0.9863850620203227,"tests":29.189999999999998,"score":0.9979999999999999,"random":0.23160000000000008}
+{"repo":"glob","seed":4,"strategy":"one per line","control":false,"mutants":359,"total":1105,"cost":0.3212458116416071,"tests":22.825000000000003,"score":0.7162,"random":0.1954000000000001}
+{"repo":"glob","seed":4,"strategy":"one per line","control":true,"mutants":359,"total":1105,"cost":0.32223860206661653,"tests":21.374999999999996,"score":0.6878000000000001,"random":0.1696000000000001}
+{"repo":"glob","seed":5,"strategy":"all","control":false,"mutants":1105,"total":1105,"cost":1,"tests":29.37,"score":1,"random":0.23239999999999988}
+{"repo":"glob","seed":5,"strategy":"ROR only","control":false,"mutants":479,"total":1105,"cost":0.4018491928224674,"tests":20.54,"score":0.6580000000000008,"random":0.1677999999999999}
+{"repo":"glob","seed":5,"strategy":"ROR only","control":true,"mutants":479,"total":1105,"cost":0.43357569533967694,"tests":23.425000000000004,"score":0.7622000000000001,"random":0.1932000000000001}
+{"repo":"glob","seed":5,"strategy":"COR only","control":false,"mutants":218,"total":1105,"cost":0.18951283635579144,"tests":19.475,"score":0.6187999999999999,"random":0.16579999999999978}
+{"repo":"glob","seed":5,"strategy":"COR only","control":true,"mutants":218,"total":1105,"cost":0.19838223179753928,"tests":17.795,"score":0.5750000000000001,"random":0.1660000000000001}
+{"repo":"glob","seed":5,"strategy":"AOR only","control":false,"mutants":208,"total":1105,"cost":0.219025729016211,"tests":13.43,"score":0.4273999999999997,"random":0.12039999999999976}
+{"repo":"glob","seed":5,"strategy":"AOR only","control":true,"mutants":208,"total":1105,"cost":0.18654848469569923,"tests":17.550000000000004,"score":0.5530000000000002,"random":0.1588000000000001}
+{"repo":"glob","seed":5,"strategy":"SDL only","control":false,"mutants":185,"total":1105,"cost":0.1775075352033341,"tests":15.315,"score":0.44079999999999964,"random":0.13319999999999987}
+{"repo":"glob","seed":5,"strategy":"SDL only","control":true,"mutants":185,"total":1105,"cost":0.16685417081592785,"tests":17.009999999999998,"score":0.5435999999999999,"random":0.1506000000000001}
+{"repo":"glob","seed":5,"strategy":"ERR only","control":false,"mutants":15,"total":1105,"cost":0.012104706602194973,"tests":4.875,"score":0.14420000000000016,"random":0.05139999999999996}
+{"repo":"glob","seed":5,"strategy":"ERR only","control":true,"mutants":15,"total":1105,"cost":0.013229576308915553,"tests":4.599999999999999,"score":0.12440000000000007,"random":0.04340000000000003}
+{"repo":"glob","seed":5,"strategy":"all but ROR","control":false,"mutants":626,"total":1105,"cost":0.5981508071775326,"tests":26.61,"score":0.8793999999999991,"random":0.21520000000000006}
+{"repo":"glob","seed":5,"strategy":"all but ROR","control":true,"mutants":626,"total":1105,"cost":0.5642598253224637,"tests":25.055,"score":0.8356000000000001,"random":0.21860000000000007}
+{"repo":"glob","seed":5,"strategy":"all but COR","control":false,"mutants":887,"total":1105,"cost":0.8104871636442088,"tests":26.975,"score":0.9131999999999978,"random":0.21639999999999976}
+{"repo":"glob","seed":5,"strategy":"all but COR","control":true,"mutants":887,"total":1105,"cost":0.8010232004979644,"tests":28.145,"score":0.9446000000000003,"random":0.22700000000000004}
+{"repo":"glob","seed":5,"strategy":"all but AOR","control":false,"mutants":897,"total":1105,"cost":0.7809742709837894,"tests":27.61,"score":0.9201999999999978,"random":0.23039999999999983}
+{"repo":"glob","seed":5,"strategy":"all but AOR","control":true,"mutants":897,"total":1105,"cost":0.8129201760776048,"tests":27.854999999999997,"score":0.9503999999999999,"random":0.22400000000000003}
+{"repo":"glob","seed":5,"strategy":"all but SDL","control":false,"mutants":920,"total":1105,"cost":0.8224924647966654,"tests":28.265,"score":0.9670000000000007,"random":0.23179999999999992}
+{"repo":"glob","seed":5,"strategy":"all but SDL","control":true,"mutants":920,"total":1105,"cost":0.8325564063458367,"tests":28.035000000000004,"score":0.9432000000000003,"random":0.22960000000000008}
+{"repo":"glob","seed":5,"strategy":"all but ERR","control":false,"mutants":1090,"total":1105,"cost":0.987895293397805,"tests":28.54,"score":0.9600000000000009,"random":0.23739999999999994}
+{"repo":"glob","seed":5,"strategy":"all but ERR","control":true,"mutants":1090,"total":1105,"cost":0.9862036828442353,"tests":29.314999999999998,"score":0.9984,"random":0.2354000000000001}
+{"repo":"glob","seed":5,"strategy":"one per line","control":false,"mutants":359,"total":1105,"cost":0.32073855333465445,"tests":22.744999999999997,"score":0.7160000000000001,"random":0.19940000000000013}
+{"repo":"glob","seed":5,"strategy":"one per line","control":true,"mutants":359,"total":1105,"cost":0.3256939929104362,"tests":21.729999999999997,"score":0.7092,"random":0.1830000000000001}
+{"repo":"go-humanize","seed":1,"strategy":"all","control":false,"mutants":1085,"total":1085,"cost":1.0000000000000004,"tests":35.91,"score":1,"random":0.46790322580645205}
+{"repo":"go-humanize","seed":1,"strategy":"ROR only","control":false,"mutants":435,"total":1085,"cost":0.39534396024909213,"tests":27.92,"score":0.7424193548387096,"random":0.37000000000000066}
+{"repo":"go-humanize","seed":1,"strategy":"ROR only","control":true,"mutants":435,"total":1085,"cost":0.40217733466038313,"tests":31.8,"score":0.8648387096774192,"random":0.4156451612903225}
+{"repo":"go-humanize","seed":1,"strategy":"COR only","control":false,"mutants":157,"total":1085,"cost":0.13939231916005937,"tests":26.89,"score":0.7301612903225799,"random":0.3525806451612904}
+{"repo":"go-humanize","seed":1,"strategy":"COR only","control":true,"mutants":157,"total":1085,"cost":0.1444387523546563,"tests":25.354999999999997,"score":0.6617741935483872,"random":0.3417741935483872}
+{"repo":"go-humanize","seed":1,"strategy":"AOR only","control":false,"mutants":378,"total":1085,"cost":0.35209459588753056,"tests":21.73,"score":0.5556451612903215,"random":0.29274193548387073}
+{"repo":"go-humanize","seed":1,"strategy":"AOR only","control":true,"mutants":378,"total":1085,"cost":0.34719607338495173,"tests":30.57,"score":0.8306451612903224,"random":0.4087096774193548}
+{"repo":"go-humanize","seed":1,"strategy":"SDL only","control":false,"mutants":105,"total":1085,"cost":0.10362821031924485,"tests":19.05,"score":0.5043548387096773,"random":0.25483870967741945}
+{"repo":"go-humanize","seed":1,"strategy":"SDL only","control":true,"mutants":105,"total":1085,"cost":0.09753309297407448,"tests":22.745,"score":0.5846774193548387,"random":0.3082258064516129}
+{"repo":"go-humanize","seed":1,"strategy":"ERR only","control":false,"mutants":10,"total":1085,"cost":0.00954091438407414,"tests":4.3,"score":0.1351612903225805,"random":0.056935483870967814}
+{"repo":"go-humanize","seed":1,"strategy":"ERR only","control":true,"mutants":10,"total":1085,"cost":0.008896014651953565,"tests":7,"score":0.17451612903225808,"random":0.10290322580645159}
+{"repo":"go-humanize","seed":1,"strategy":"all but ROR","control":false,"mutants":650,"total":1085,"cost":0.6046560397509084,"tests":33.06,"score":0.9148387096774212,"random":0.4325806451612911}
+{"repo":"go-humanize","seed":1,"strategy":"all but ROR","control":true,"mutants":650,"total":1085,"cost":0.5982762894535721,"tests":33.51499999999999,"score":0.9254838709677419,"random":0.4395161290322581}
+{"repo":"go-humanize","seed":1,"strategy":"all but COR","control":false,"mutants":928,"total":1085,"cost":0.8606076808399411,"tests":34.1,"score":0.9456451612903237,"random":0.4472580645161298}
+{"repo":"go-humanize","seed":1,"strategy":"all but COR","control":true,"mutants":928,"total":1085,"cost":0.8559466694636104,"tests":35.14500000000001,"score":0.9777419354838711,"random":0.4554838709677421}
+{"repo":"go-humanize","seed":1,"strategy":"all but AOR","control":false,"mutants":707,"total":1085,"cost":0.6479054041124698,"tests":32.1,"score":0.8887096774193567,"random":0.4175806451612909}
+{"repo":"go-humanize","seed":1,"strategy":"all but AOR","control":true,"mutants":707,"total":1085,"cost":0.6521042447679799,"tests":34.084999999999994,"score":0.938709677419355,"random":0.44387096774193535}
+{"repo":"go-humanize","seed":1,"strategy":"all but SDL","control":false,"mutants":980,"total":1085,"cost":0.8963717896807553,"tests":34.4,"score":0.9516129032258075,"random":0.444354838709678}
+{"repo":"go-humanize","seed":1,"strategy":"all but SDL","control":true,"mutants":980,"total":1085,"cost":0.9031710578918354,"tests":35.69499999999999,"score":0.9851612903225806,"random":0.465}
+{"repo":"go-humanize","seed":1,"strategy":"all but ERR","control":false,"mutants":1075,"total":1085,"cost":0.990459085615926,"tests":35.89,"score":1,"random":0.46758064516129083}
+{"repo":"go-humanize","seed":1,"strategy":"all but ERR","control":true,"mutants":1075,"total":1085,"cost":0.9909687408125352,"tests":35.91999999999999,"score":0.9996774193548387,"random":0.47467741935483876}
+{"repo":"go-humanize","seed":1,"strategy":"one per line","control":false,"mutants":243,"total":1085,"cost":0.23009001021691508,"tests":30.72000000000001,"score":0.8459677419354839,"random":0.4040322580645162}
+{"repo":"go-humanize","seed":1,"strategy":"one per line","control":true,"mutants":243,"total":1085,"cost":0.2241565312919104,"tests":28.355000000000008,"score":0.7520967741935484,"random":0.37467741935483867}
+{"repo":"go-humanize","seed":2,"strategy":"all","control":false,"mutants":1085,"total":1085,"cost":1.0000000000000004,"tests":35.945,"score":1,"random":0.47241935483871006}
+{"repo":"go-humanize","seed":2,"strategy":"ROR only","control":false,"mutants":435,"total":1085,"cost":0.39534396024909213,"tests":27.66,"score":0.7398387096774188,"random":0.3701612903225808}
+{"repo":"go-humanize","seed":2,"strategy":"ROR only","control":true,"mutants":435,"total":1085,"cost":0.39980032407749205,"tests":31.369999999999997,"score":0.8558064516129033,"random":0.4183870967741936}
+{"repo":"go-humanize","seed":2,"strategy":"COR only","control":false,"mutants":157,"total":1085,"cost":0.13939231916005937,"tests":26.885,"score":0.7243548387096763,"random":0.35661290322580663}
+{"repo":"go-humanize","seed":2,"strategy":"COR only","control":true,"mutants":157,"total":1085,"cost":0.1441976762968326,"tests":25.484999999999996,"score":0.6729032258064517,"random":0.33338709677419365}
+{"repo":"go-humanize","seed":2,"strategy":"AOR only","control":false,"mutants":378,"total":1085,"cost":0.35209459588753056,"tests":22.025,"score":0.56032258064516,"random":0.29177419354838713}
+{"repo":"go-humanize","seed":2,"strategy":"AOR only","control":true,"mutants":378,"total":1085,"cost":0.34835987997498663,"tests":30.454999999999995,"score":0.8187096774193549,"random":0.40951612903225804}
+{"repo":"go-humanize","seed":2,"strategy":"SDL only","control":false,"mutants":105,"total":1085,"cost":0.10362821031924485,"tests":19.02,"score":0.5027419354838709,"random":0.26032258064516134}
+{"repo":"go-humanize","seed":2,"strategy":"SDL only","control":true,"mutants":105,"total":1085,"cost":0.09700207263874293,"tests":22.43,"score":0.5762903225806452,"random":0.29790322580645145}
+{"repo":"go-humanize","seed":2,"strategy":"ERR only","control":false,"mutants":10,"total":1085,"cost":0.00954091438407414,"tests":4.285,"score":0.13483870967741923,"random":0.05645161290322591}
+{"repo":"go-humanize","seed":2,"strategy":"ERR only","control":true,"mutants":10,"total":1085,"cost":0.009133735949743347,"tests":6.864999999999999,"score":0.17080645161290323,"random":0.09274193548387097}
+{"repo":"go-humanize","seed":2,"strategy":"all but ROR","control":false,"mutants":650,"total":1085,"cost":0.6046560397509084,"tests":33.11,"score":0.9137096774193567,"random":0.4382258064516135}
+{"repo":"go-humanize","seed":2,"strategy":"all but ROR","control":true,"mutants":650,"total":1085,"cost":0.5985653490671441,"tests":33.94499999999999,"score":0.9319354838709677,"random":0.4491935483870968}
+{"repo":"go-humanize","seed":2,"strategy":"all but COR","control":false,"mutants":928,"total":1085,"cost":0.8606076808399411,"tests":34.405,"score":0.9446774193548398,"random":0.45387096774193625}
+{"repo":"go-humanize","seed":2,"strategy":"all but COR","control":true,"mutants":928,"total":1085,"cost":0.8549877197040623,"tests":35.16000000000001,"score":0.973387096774194,"random":0.46435483870967753}
+{"repo":"go-humanize","seed":2,"strategy":"all but AOR","control":false,"mutants":707,"total":1085,"cost":0.6479054041124698,"tests":32.315,"score":0.8898387096774214,"random":0.42483870967742027}
+{"repo":"go-humanize","seed":2,"strategy":"all but AOR","control":true,"mutants":707,"total":1085,"cost":0.6513393657388201,"tests":33.614999999999995,"score":0.9288709677419359,"random":0.44225806451612903}
+{"repo":"go-humanize","seed":2,"strategy":"all but SDL","control":false,"mutants":980,"total":1085,"cost":0.8963717896807553,"tests":34.36,"score":0.9514516129032268,"random":0.44790322580645214}
+{"repo":"go-humanize","seed":2,"strategy":"all but SDL","control":true,"mutants":980,"total":1085,"cost":0.9028923440426683,"tests":35.35499999999999,"score":0.985,"random":0.46403225806451615}
+{"repo":"go-humanize","seed":2,"strategy":"all but ERR","control":false,"mutants":1075,"total":1085,"cost":0.990459085615926,"tests":35.95,"score":1,"random":0.4656451612903232}
+{"repo":"go-humanize","seed":2,"strategy":"all but ERR","control":true,"mutants":1075,"total":1085,"cost":0.991117696390876,"tests":36.19500000000001,"score":1,"random":0.4740322580645161}
+{"repo":"go-humanize","seed":2,"strategy":"one per line","control":false,"mutants":243,"total":1085,"cost":0.22981198518083773,"tests":30.884999999999998,"score":0.8474193548387099,"random":0.4061290322580645}
+{"repo":"go-humanize","seed":2,"strategy":"one per line","control":true,"mutants":243,"total":1085,"cost":0.22336864126208508,"tests":28.315000000000005,"score":0.7535483870967743,"random":0.38241935483870965}
+{"repo":"go-humanize","seed":3,"strategy":"all","control":false,"mutants":1085,"total":1085,"cost":1.0000000000000004,"tests":35.995,"score":1,"random":0.47838709677419383}
+{"repo":"go-humanize","seed":3,"strategy":"ROR only","control":false,"mutants":435,"total":1085,"cost":0.39534396024909213,"tests":27.94,"score":0.7414516129032258,"random":0.369193548387097}
+{"repo":"go-humanize","seed":3,"strategy":"ROR only","control":true,"mutants":435,"total":1085,"cost":0.40164422133096933,"tests":31.380000000000003,"score":0.856451612903226,"random":0.41758064516129034}
+{"repo":"go-humanize","seed":3,"strategy":"COR only","control":false,"mutants":157,"total":1085,"cost":0.13939231916005937,"tests":26.79,"score":0.7280645161290314,"random":0.35290322580645195}
+{"repo":"go-humanize","seed":3,"strategy":"COR only","control":true,"mutants":157,"total":1085,"cost":0.1443513535291272,"tests":25.425000000000004,"score":0.6635483870967742,"random":0.3375806451612903}
+{"repo":"go-humanize","seed":3,"strategy":"AOR only","control":false,"mutants":378,"total":1085,"cost":0.35209459588753056,"tests":21.94,"score":0.5598387096774183,"random":0.2875806451612903}
+{"repo":"go-humanize","seed":3,"strategy":"AOR only","control":true,"mutants":378,"total":1085,"cost":0.34902975861211044,"tests":30.170000000000005,"score":0.8190322580645162,"random":0.4033870967741936}
+{"repo":"go-humanize","seed":3,"strategy":"SDL only","control":false,"mutants":105,"total":1085,"cost":0.10362821031924485,"tests":18.81,"score":0.5009677419354839,"random":0.25064516129032277}
+{"repo":"go-humanize","seed":3,"strategy":"SDL only","control":true,"mutants":105,"total":1085,"cost":0.09678706952451435,"tests":22.869999999999997,"score":0.5853225806451613,"random":0.30564516129032265}
+{"repo":"go-humanize","seed":3,"strategy":"ERR only","control":false,"mutants":10,"total":1085,"cost":0.00954091438407414,"tests":4.325,"score":0.13419354838709663,"random":0.06161290322580652}
+{"repo":"go-humanize","seed":3,"strategy":"ERR only","control":true,"mutants":10,"total":1085,"cost":0.009248284258108998,"tests":6.585000000000001,"score":0.157741935483871,"random":0.0882258064516129}
+{"repo":"go-humanize","seed":3,"strategy":"all but ROR","control":false,"mutants":650,"total":1085,"cost":0.6046560397509084,"tests":33.33,"score":0.9166129032258082,"random":0.43500000000000066}
+{"repo":"go-humanize","seed":3,"strategy":"all but ROR","control":true,"mutants":650,"total":1085,"cost":0.5980483813670399,"tests":32.885000000000005,"score":0.9041935483870971,"random":0.4338709677419355}
+{"repo":"go-humanize","seed":3,"strategy":"all but COR","control":false,"mutants":928,"total":1085,"cost":0.8606076808399411,"tests":34.12,"score":0.9430645161290334,"random":0.4562903225806458}
+{"repo":"go-humanize","seed":3,"strategy":"all but COR","control":true,"mutants":928,"total":1085,"cost":0.8553340344861944,"tests":35.63000000000001,"score":0.9790322580645163,"random":0.46516129032258063}
+{"repo":"go-humanize","seed":3,"strategy":"all but AOR","control":false,"mutants":707,"total":1085,"cost":0.6479054041124698,"tests":31.93,"score":0.8867741935483887,"random":0.4204838709677424}
+{"repo":"go-humanize","seed":3,"strategy":"all but AOR","control":true,"mutants":707,"total":1085,"cost":0.6518284608020842,"tests":33.835,"score":0.9367741935483871,"random":0.45596774193548384}
+{"repo":"go-humanize","seed":3,"strategy":"all but SDL","control":false,"mutants":980,"total":1085,"cost":0.8963717896807553,"tests":34.635,"score":0.9519354838709688,"random":0.45596774193548417}
+{"repo":"go-humanize","seed":3,"strategy":"all but SDL","control":true,"mutants":980,"total":1085,"cost":0.9031364473508277,"tests":35.645000000000024,"score":0.9837096774193551,"random":0.46645161290322584}
+{"repo":"go-humanize","seed":3,"strategy":"all but ERR","control":false,"mutants":1075,"total":1085,"cost":0.990459085615926,"tests":36.065,"score":1,"random":0.475161290322581}
+{"repo":"go-humanize","seed":3,"strategy":"all but ERR","control":true,"mutants":1075,"total":1085,"cost":0.9906265014495748,"tests":36.06,"score":0.9991935483870968,"random":0.4812903225806453}
+{"repo":"go-humanize","seed":3,"strategy":"one per line","control":false,"mutants":243,"total":1085,"cost":0.23010203851047817,"tests":30.869999999999997,"score":0.8409677419354837,"random":0.40903225806451626}
+{"repo":"go-humanize","seed":3,"strategy":"one per line","control":true,"mutants":243,"total":1085,"cost":0.22367758585424657,"tests":28.790000000000003,"score":0.7698387096774194,"random":0.38193548387096776}
+{"repo":"go-humanize","seed":4,"strategy":"all","control":false,"mutants":1085,"total":1085,"cost":1.0000000000000004,"tests":35.76,"score":1,"random":0.4627419354838716}
+{"repo":"go-humanize","seed":4,"strategy":"ROR only","control":false,"mutants":435,"total":1085,"cost":0.39534396024909213,"tests":27.8,"score":0.7362903225806454,"random":0.37048387096774227}
+{"repo":"go-humanize","seed":4,"strategy":"ROR only","control":true,"mutants":435,"total":1085,"cost":0.40135088897604676,"tests":31.985000000000003,"score":0.8711290322580647,"random":0.4251612903225806}
+{"repo":"go-humanize","seed":4,"strategy":"COR only","control":false,"mutants":157,"total":1085,"cost":0.13939231916005937,"tests":26.705,"score":0.7287096774193539,"random":0.3567741935483875}
+{"repo":"go-humanize","seed":4,"strategy":"COR only","control":true,"mutants":157,"total":1085,"cost":0.1452238779181686,"tests":24.880000000000003,"score":0.6558064516129032,"random":0.3319354838709677}
+{"repo":"go-humanize","seed":4,"strategy":"AOR only","control":false,"mutants":378,"total":1085,"cost":0.35209459588753056,"tests":22.155,"score":0.5575806451612891,"random":0.2940322580645161}
+{"repo":"go-humanize","seed":4,"strategy":"AOR only","control":true,"mutants":378,"total":1085,"cost":0.3486917845376261,"tests":31.110000000000007,"score":0.8451612903225805,"random":0.4129032258064516}
+{"repo":"go-humanize","seed":4,"strategy":"SDL only","control":false,"mutants":105,"total":1085,"cost":0.10362821031924485,"tests":18.935,"score":0.4991935483870968,"random":0.2538709677419357}
+{"repo":"go-humanize","seed":4,"strategy":"SDL only","control":true,"mutants":105,"total":1085,"cost":0.09666971816022722,"tests":22.539999999999996,"score":0.5754838709677419,"random":0.31}
+{"repo":"go-humanize","seed":4,"strategy":"ERR only","control":false,"mutants":10,"total":1085,"cost":0.00954091438407414,"tests":4.315,"score":0.1348387096774193,"random":0.05887096774193557}
+{"repo":"go-humanize","seed":4,"strategy":"ERR only","control":true,"mutants":10,"total":1085,"cost":0.009287590785188274,"tests":7.07,"score":0.16967741935483874,"random":0.09419354838709679}
+{"repo":"go-humanize","seed":4,"strategy":"all but ROR","control":false,"mutants":650,"total":1085,"cost":0.6046560397509084,"tests":33.25,"score":0.9185483870967759,"random":0.44274193548387136}
+{"repo":"go-humanize","seed":4,"strategy":"all but ROR","control":true,"mutants":650,"total":1085,"cost":0.5994668961454297,"tests":33.29,"score":0.9193548387096773,"random":0.4382258064516128}
+{"repo":"go-humanize","seed":4,"strategy":"all but COR","control":false,"mutants":928,"total":1085,"cost":0.8606076808399411,"tests":34.235,"score":0.9443548387096786,"random":0.4472580645161297}
+{"repo":"go-humanize","seed":4,"strategy":"all but COR","control":true,"mutants":928,"total":1085,"cost":0.8550002654357683,"tests":35.519999999999996,"score":0.9825806451612904,"random":0.471451612903226}
+{"repo":"go-humanize","seed":4,"strategy":"all but AOR","control":false,"mutants":707,"total":1085,"cost":0.6479054041124698,"tests":32.355,"score":0.890000000000002,"random":0.4241935483870975}
+{"repo":"go-humanize","seed":4,"strategy":"all but AOR","control":true,"mutants":707,"total":1085,"cost":0.6516255673856215,"tests":33.875,"score":0.9367741935483871,"random":0.43741935483870975}
+{"repo":"go-humanize","seed":4,"strategy":"all but SDL","control":false,"mutants":980,"total":1085,"cost":0.8963717896807553,"tests":34.52,"score":0.9538709677419365,"random":0.44483870967742006}
+{"repo":"go-humanize","seed":4,"strategy":"all but SDL","control":true,"mutants":980,"total":1085,"cost":0.9030857791979239,"tests":35.385,"score":0.9782258064516132,"random":0.4670967741935484}
+{"repo":"go-humanize","seed":4,"strategy":"all but ERR","control":false,"mutants":1075,"total":1085,"cost":0.990459085615926,"tests":35.945,"score":1,"random":0.47290322580645183}
+{"repo":"go-humanize","seed":4,"strategy":"all but ERR","control":true,"mutants":1075,"total":1085,"cost":0.9903314386412472,"tests":36.19499999999999,"score":0.9979032258064517,"random":0.466774193548387}
+{"repo":"go-humanize","seed":4,"strategy":"one per line","control":false,"mutants":243,"total":1085,"cost":0.23020015021162837,"tests":30.609999999999996,"score":0.8314516129032254,"random":0.41338709677419355}
+{"repo":"go-humanize","seed":4,"strategy":"one per line","control":true,"mutants":243,"total":1085,"cost":0.22472737163330084,"tests":28.360000000000007,"score":0.7548387096774192,"random":0.37564516129032255}
+{"repo":"go-humanize","seed":5,"strategy":"all","control":false,"mutants":1085,"total":1085,"cost":1.0000000000000004,"tests":36.34,"score":1,"random":0.47645161290322596}
+{"repo":"go-humanize","seed":5,"strategy":"ROR only","control":false,"mutants":435,"total":1085,"cost":0.39534396024909213,"tests":27.89,"score":0.7412903225806443,"random":0.3708064516129038}
+{"repo":"go-humanize","seed":5,"strategy":"ROR only","control":true,"mutants":435,"total":1085,"cost":0.40147120814979526,"tests":31.399999999999995,"score":0.8611290322580645,"random":0.4096774193548388}
+{"repo":"go-humanize","seed":5,"strategy":"COR only","control":false,"mutants":157,"total":1085,"cost":0.13939231916005937,"tests":26.76,"score":0.7279032258064508,"random":0.34870967741935494}
+{"repo":"go-humanize","seed":5,"strategy":"COR only","control":true,"mutants":157,"total":1085,"cost":0.14511803236893897,"tests":25.59499999999999,"score":0.6672580645161291,"random":0.34161290322580645}
+{"repo":"go-humanize","seed":5,"strategy":"AOR only","control":false,"mutants":378,"total":1085,"cost":0.35209459588753056,"tests":21.975,"score":0.5570967741935474,"random":0.29290322580645156}
+{"repo":"go-humanize","seed":5,"strategy":"AOR only","control":true,"mutants":378,"total":1085,"cost":0.34849589546801696,"tests":30.79,"score":0.8379032258064514,"random":0.40354838709677426}
+{"repo":"go-humanize","seed":5,"strategy":"SDL only","control":false,"mutants":105,"total":1085,"cost":0.10362821031924485,"tests":18.97,"score":0.4993548387096775,"random":0.24580645161290338}
+{"repo":"go-humanize","seed":5,"strategy":"SDL only","control":true,"mutants":105,"total":1085,"cost":0.09702441863841169,"tests":22.94,"score":0.5895161290322581,"random":0.302258064516129}
+{"repo":"go-humanize","seed":5,"strategy":"ERR only","control":false,"mutants":10,"total":1085,"cost":0.00954091438407414,"tests":4.26,"score":0.13370967741935472,"random":0.05483870967741941}
+{"repo":"go-humanize","seed":5,"strategy":"ERR only","control":true,"mutants":10,"total":1085,"cost":0.009349638355216853,"tests":6.949999999999998,"score":0.16806451612903223,"random":0.09741935483870967}
+{"repo":"go-humanize","seed":5,"strategy":"all but ROR","control":false,"mutants":650,"total":1085,"cost":0.6046560397509084,"tests":33.17,"score":0.9148387096774212,"random":0.43177419354838803}
+{"repo":"go-humanize","seed":5,"strategy":"all but ROR","control":true,"mutants":650,"total":1085,"cost":0.5989465210043274,"tests":33.74,"score":0.9301612903225804,"random":0.45370967741935486}
+{"repo":"go-humanize","seed":5,"strategy":"all but COR","control":false,"mutants":928,"total":1085,"cost":0.8606076808399411,"tests":34.265,"score":0.9448387096774205,"random":0.44096774193548455}
+{"repo":"go-humanize","seed":5,"strategy":"all but COR","control":true,"mutants":928,"total":1085,"cost":0.8554863344264808,"tests":35.315000000000005,"score":0.9811290322580646,"random":0.46451612903225803}
+{"repo":"go-humanize","seed":5,"strategy":"all but AOR","control":false,"mutants":707,"total":1085,"cost":0.6479054041124698,"tests":32.245,"score":0.8877419354838727,"random":0.42112903225806514}
+{"repo":"go-humanize","seed":5,"strategy":"all but AOR","control":true,"mutants":707,"total":1085,"cost":0.6532766011615816,"tests":34.285000000000004,"score":0.9493548387096775,"random":0.4588709677419355}
+{"repo":"go-humanize","seed":5,"strategy":"all but SDL","control":false,"mutants":980,"total":1085,"cost":0.8963717896807553,"tests":34.745,"score":0.9532258064516139,"random":0.45193548387096827}
+{"repo":"go-humanize","seed":5,"strategy":"all but SDL","control":true,"mutants":980,"total":1085,"cost":0.902976233685586,"tests":35.60000000000001,"score":0.9837096774193549,"random":0.4606451612903225}
+{"repo":"go-humanize","seed":5,"strategy":"all but ERR","control":false,"mutants":1075,"total":1085,"cost":0.990459085615926,"tests":35.92,"score":1,"random":0.47209677419354873}
+{"repo":"go-humanize","seed":5,"strategy":"all but ERR","control":true,"mutants":1075,"total":1085,"cost":0.9908024412190694,"tests":35.964999999999996,"score":0.9985483870967743,"random":0.47467741935483876}
+{"repo":"go-humanize","seed":5,"strategy":"one per line","control":false,"mutants":243,"total":1085,"cost":0.23054391249688014,"tests":30.694999999999993,"score":0.8393548387096772,"random":0.4056451612903227}
+{"repo":"go-humanize","seed":5,"strategy":"one per line","control":true,"mutants":243,"total":1085,"cost":0.2245420634192973,"tests":28.335,"score":0.7491935483870968,"random":0.37467741935483856}
+{"repo":"go-version","seed":1,"strategy":"all","control":false,"mutants":522,"total":522,"cost":1.0000000000000004,"tests":22,"score":1,"random":0.6547500000000004}
+{"repo":"go-version","seed":1,"strategy":"ROR only","control":false,"mutants":311,"total":522,"cost":0.6263779422172345,"tests":16.695,"score":0.7347500000000002,"random":0.5052499999999998}
+{"repo":"go-version","seed":1,"strategy":"ROR only","control":true,"mutants":311,"total":522,"cost":0.6011869601445351,"tests":20.294999999999998,"score":0.9112500000000001,"random":0.5995000000000001}
+{"repo":"go-version","seed":1,"strategy":"COR only","control":false,"mutants":129,"total":522,"cost":0.2282407267097722,"tests":16.53,"score":0.7272500000000002,"random":0.49499999999999994}
+{"repo":"go-version","seed":1,"strategy":"COR only","control":true,"mutants":129,"total":522,"cost":0.24044501938013213,"tests":15.074999999999998,"score":0.6567500000000001,"random":0.4579999999999999}
+{"repo":"go-version","seed":1,"strategy":"AOR only","control":false,"mutants":24,"total":522,"cost":0.04758535214455523,"tests":3.045,"score":0.09725000000000009,"random":0.0920000000000001}
+{"repo":"go-version","seed":1,"strategy":"AOR only","control":true,"mutants":24,"total":522,"cost":0.04623790115847361,"tests":7.089999999999998,"score":0.30049999999999993,"random":0.23000000000000004}
+{"repo":"go-version","seed":1,"strategy":"SDL only","control":false,"mutants":40,"total":522,"cost":0.06809057177040705,"tests":9.45,"score":0.3424999999999998,"random":0.2944999999999999}
+{"repo":"go-version","seed":1,"strategy":"SDL only","control":true,"mutants":40,"total":522,"cost":0.08457134370121953,"tests":9.404999999999998,"score":0.40424999999999994,"random":0.29624999999999996}
+{"repo":"go-version","seed":1,"strategy":"ERR only","control":false,"mutants":18,"total":522,"cost":0.02970540715803169,"tests":5.34,"score":0.24650000000000016,"random":0.16299999999999998}
+{"repo":"go-version","seed":1,"strategy":"ERR only","control":true,"mutants":18,"total":522,"cost":0.03463401017895672,"tests":5.845,"score":0.23575,"random":0.18224999999999997}
+{"repo":"go-version","seed":1,"strategy":"all but ROR","control":false,"mutants":211,"total":522,"cost":0.37362205778276614,"tests":18.96,"score":0.837249999999999,"random":0.5654999999999998}
+{"repo":"go-version","seed":1,"strategy":"all but ROR","control":true,"mutants":211,"total":522,"cost":0.4034338209565752,"tests":18.320000000000004,"score":0.81525,"random":0.5529999999999999}
+{"repo":"go-version","seed":1,"strategy":"all but COR","control":false,"mutants":393,"total":522,"cost":0.771759273290228,"tests":21.515,"score":0.9789999999999992,"random":0.6345000000000003}
+{"repo":"go-version","seed":1,"strategy":"all but COR","control":true,"mutants":393,"total":522,"cost":0.751547804596213,"tests":21.37,"score":0.9737500000000001,"random":0.6365000000000001}
+{"repo":"go-version","seed":1,"strategy":"all but AOR","control":false,"mutants":498,"total":522,"cost":0.9524146478554453,"tests":22.015,"score":1,"random":0.6492500000000002}
+{"repo":"go-version","seed":1,"strategy":"all but AOR","control":true,"mutants":498,"total":522,"cost":0.956167540040308,"tests":21.839999999999996,"score":0.9952500000000001,"random":0.6380000000000002}
+{"repo":"go-version","seed":1,"strategy":"all but SDL","control":false,"mutants":482,"total":522,"cost":0.9319094282295937,"tests":20.895,"score":0.9345000000000004,"random":0.6197499999999997}
+{"repo":"go-version","seed":1,"strategy":"all but SDL","control":true,"mutants":482,"total":522,"cost":0.9262470662769331,"tests":21.825,"score":0.9904999999999999,"random":0.64225}
+{"repo":"go-version","seed":1,"strategy":"all but ERR","control":false,"mutants":504,"total":522,"cost":0.9702945928419691,"tests":21.205,"score":0.960249999999998,"random":0.62975}
+{"repo":"go-version","seed":1,"strategy":"all but ERR","control":true,"mutants":504,"total":522,"cost":0.9662838487882948,"tests":22.019999999999992,"score":0.9975000000000002,"random":0.65925}
+{"repo":"go-version","seed":1,"strategy":"one per line","control":false,"mutants":132,"total":522,"cost":0.2424648664574523,"tests":18.910000000000004,"score":0.8407500000000002,"random":0.567}
+{"repo":"go-version","seed":1,"strategy":"one per line","control":true,"mutants":132,"total":522,"cost":0.254028075009071,"tests":15.564999999999994,"score":0.6752500000000002,"random":0.4702499999999999}
+{"repo":"go-version","seed":2,"strategy":"all","control":false,"mutants":522,"total":522,"cost":1.0000000000000004,"tests":22.115,"score":1,"random":0.64875}
+{"repo":"go-version","seed":2,"strategy":"ROR only","control":false,"mutants":311,"total":522,"cost":0.6263779422172345,"tests":16.735,"score":0.7335000000000004,"random":0.5050000000000001}
+{"repo":"go-version","seed":2,"strategy":"ROR only","control":true,"mutants":311,"total":522,"cost":0.5927314600829298,"tests":20.475,"score":0.9259999999999998,"random":0.6049999999999998}
+{"repo":"go-version","seed":2,"strategy":"COR only","control":false,"mutants":129,"total":522,"cost":0.2282407267097722,"tests":16.59,"score":0.7277500000000002,"random":0.4985000000000001}
+{"repo":"go-version","seed":2,"strategy":"COR only","control":true,"mutants":129,"total":522,"cost":0.25151234073629275,"tests":15.475,"score":0.6717499999999998,"random":0.4565}
+{"repo":"go-version","seed":2,"strategy":"AOR only","control":false,"mutants":24,"total":522,"cost":0.04758535214455523,"tests":3.04,"score":0.09925000000000013,"random":0.09425000000000004}
+{"repo":"go-version","seed":2,"strategy":"AOR only","control":true,"mutants":24,"total":522,"cost":0.046694725308106186,"tests":7.37,"score":0.29925,"random":0.2305}
+{"repo":"go-version","seed":2,"strategy":"SDL only","control":false,"mutants":40,"total":522,"cost":0.06809057177040705,"tests":9.285,"score":0.33899999999999975,"random":0.2885}
+{"repo":"go-version","seed":2,"strategy":"SDL only","control":true,"mutants":40,"total":522,"cost":0.07394146856849707,"tests":9.065000000000001,"score":0.3882500000000001,"random":0.27624999999999994}
+{"repo":"go-version","seed":2,"strategy":"ERR only","control":false,"mutants":18,"total":522,"cost":0.02970540715803169,"tests":5.475,"score":0.25175000000000014,"random":0.17274999999999988}
+{"repo":"go-version","seed":2,"strategy":"ERR only","control":true,"mutants":18,"total":522,"cost":0.03361063904750429,"tests":5.835000000000001,"score":0.2325,"random":0.18050000000000002}
+{"repo":"go-version","seed":2,"strategy":"all but ROR","control":false,"mutants":211,"total":522,"cost":0.37362205778276614,"tests":19.075,"score":0.8420000000000001,"random":0.5634999999999998}
+{"repo":"go-version","seed":2,"strategy":"all but ROR","control":true,"mutants":211,"total":522,"cost":0.397470408620987,"tests":18.335000000000004,"score":0.8160000000000002,"random":0.544}
+{"repo":"go-version","seed":2,"strategy":"all but COR","control":false,"mutants":393,"total":522,"cost":0.771759273290228,"tests":21.675,"score":0.9797499999999988,"random":0.6417500000000002}
+{"repo":"go-version","seed":2,"strategy":"all but COR","control":true,"mutants":393,"total":522,"cost":0.7569705846831104,"tests":21.09,"score":0.9592499999999999,"random":0.61925}
+{"repo":"go-version","seed":2,"strategy":"all but AOR","control":false,"mutants":498,"total":522,"cost":0.9524146478554453,"tests":21.925,"score":1,"random":0.6472500000000002}
+{"repo":"go-version","seed":2,"strategy":"all but AOR","control":true,"mutants":498,"total":522,"cost":0.953446315370107,"tests":22.075,"score":0.9952500000000001,"random":0.6497499999999998}
+{"repo":"go-version","seed":2,"strategy":"all but SDL","control":false,"mutants":482,"total":522,"cost":0.9319094282295937,"tests":20.815,"score":0.9385000000000006,"random":0.611}
+{"repo":"go-version","seed":2,"strategy":"all but SDL","control":true,"mutants":482,"total":522,"cost":0.92680266103548,"tests":21.925,"score":0.9909999999999999,"random":0.6477499999999999}
+{"repo":"go-version","seed":2,"strategy":"all but ERR","control":false,"mutants":504,"total":522,"cost":0.9702945928419691,"tests":21.15,"score":0.9609999999999982,"random":0.6280000000000003}
+{"repo":"go-version","seed":2,"strategy":"all but ERR","control":true,"mutants":504,"total":522,"cost":0.9663240312838605,"tests":22.000000000000004,"score":0.998,"random":0.6569999999999999}
+{"repo":"go-version","seed":2,"strategy":"one per line","control":false,"mutants":132,"total":522,"cost":0.24900780570849074,"tests":19.155,"score":0.8545,"random":0.5705000000000001}
+{"repo":"go-version","seed":2,"strategy":"one per line","control":true,"mutants":132,"total":522,"cost":0.24780292153175926,"tests":15.844999999999999,"score":0.7045,"random":0.47650000000000026}
+{"repo":"go-version","seed":3,"strategy":"all","control":false,"mutants":522,"total":522,"cost":1.0000000000000004,"tests":22.095,"score":1,"random":0.6567499999999998}
+{"repo":"go-version","seed":3,"strategy":"ROR only","control":false,"mutants":311,"total":522,"cost":0.6263779422172345,"tests":16.66,"score":0.7310000000000001,"random":0.50175}
+{"repo":"go-version","seed":3,"strategy":"ROR only","control":true,"mutants":311,"total":522,"cost":0.592091355746734,"tests":20.215,"score":0.9072499999999998,"random":0.59825}
+{"repo":"go-version","seed":3,"strategy":"COR only","control":false,"mutants":129,"total":522,"cost":0.2282407267097722,"tests":16.71,"score":0.7315000000000004,"random":0.5012500000000001}
+{"repo":"go-version","seed":3,"strategy":"COR only","control":true,"mutants":129,"total":522,"cost":0.2563370014305508,"tests":15.405000000000005,"score":0.6672499999999999,"random":0.46699999999999997}
+{"repo":"go-version","seed":3,"strategy":"AOR only","control":false,"mutants":24,"total":522,"cost":0.04758535214455523,"tests":3.035,"score":0.09400000000000013,"random":0.09725000000000014}
+{"repo":"go-version","seed":3,"strategy":"AOR only","control":true,"mutants":24,"total":522,"cost":0.043815153027966264,"tests":7.450000000000001,"score":0.30199999999999994,"random":0.22950000000000004}
+{"repo":"go-version","seed":3,"strategy":"SDL only","control":false,"mutants":40,"total":522,"cost":0.06809057177040705,"tests":9.26,"score":0.34174999999999967,"random":0.2820000000000001}
+{"repo":"go-version","seed":3,"strategy":"SDL only","control":true,"mutants":40,"total":522,"cost":0.07292741663134503,"tests":9.285000000000002,"score":0.39425,"random":0.2965}
+{"repo":"go-version","seed":3,"strategy":"ERR only","control":false,"mutants":18,"total":522,"cost":0.02970540715803169,"tests":5.485,"score":0.25775000000000003,"random":0.1749999999999998}
+{"repo":"go-version","seed":3,"strategy":"ERR only","control":true,"mutants":18,"total":522,"cost":0.035550344694575624,"tests":6.160000000000001,"score":0.2525,"random":0.19399999999999998}
+{"repo":"go-version","seed":3,"strategy":"all but ROR","control":false,"mutants":211,"total":522,"cost":0.37362205778276614,"tests":18.99,"score":0.8347500000000001,"random":0.5622499999999996}
+{"repo":"go-version","seed":3,"strategy":"all but ROR","control":true,"mutants":211,"total":522,"cost":0.40828126828798633,"tests":18.390000000000008,"score":0.8139999999999998,"random":0.5520000000000002}
+{"repo":"go-version","seed":3,"strategy":"all but COR","control":false,"mutants":393,"total":522,"cost":0.771759273290228,"tests":21.535,"score":0.9814999999999989,"random":0.6295000000000001}
+{"repo":"go-version","seed":3,"strategy":"all but COR","control":true,"mutants":393,"total":522,"cost":0.7501137188083398,"tests":21.230000000000004,"score":0.9599999999999997,"random":0.6234999999999999}
+{"repo":"go-version","seed":3,"strategy":"all but AOR","control":false,"mutants":498,"total":522,"cost":0.9524146478554453,"tests":22.01,"score":1,"random":0.6550000000000001}
+{"repo":"go-version","seed":3,"strategy":"all but AOR","control":true,"mutants":498,"total":522,"cost":0.9556082779348086,"tests":22.1,"score":0.9955,"random":0.6547500000000002}
+{"repo":"go-version","seed":3,"strategy":"all but SDL","control":false,"mutants":482,"total":522,"cost":0.9319094282295937,"tests":20.845,"score":0.9395000000000003,"random":0.6182499999999999}
+{"repo":"go-version","seed":3,"strategy":"all but SDL","control":true,"mutants":482,"total":522,"cost":0.9251718887044348,"tests":21.884999999999998,"score":0.9895000000000002,"random":0.6369999999999998}
+{"repo":"go-version","seed":3,"strategy":"all but ERR","control":false,"mutants":504,"total":522,"cost":0.9702945928419691,"tests":21.4,"score":0.9584999999999978,"random":0.6342500000000004}
+{"repo":"go-version","seed":3,"strategy":"all but ERR","control":true,"mutants":504,"total":522,"cost":0.9625931032826636,"tests":21.964999999999996,"score":0.9984999999999999,"random":0.655}
+{"repo":"go-version","seed":3,"strategy":"one per line","control":false,"mutants":132,"total":522,"cost":0.25015087448093587,"tests":19.169999999999998,"score":0.8480000000000001,"random":0.57}
+{"repo":"go-version","seed":3,"strategy":"one per line","control":true,"mutants":132,"total":522,"cost":0.25182390027354723,"tests":15.775000000000006,"score":0.70075,"random":0.47649999999999987}
+{"repo":"go-version","seed":4,"strategy":"all","control":false,"mutants":522,"total":522,"cost":1.0000000000000004,"tests":21.89,"score":1,"random":0.64975}
+{"repo":"go-version","seed":4,"strategy":"ROR only","control":false,"mutants":311,"total":522,"cost":0.6263779422172345,"tests":16.65,"score":0.7334999999999998,"random":0.5095}
+{"repo":"go-version","seed":4,"strategy":"ROR only","control":true,"mutants":311,"total":522,"cost":0.5920701217530228,"tests":20.2,"score":0.9117500000000002,"random":0.6042499999999998}
+{"repo":"go-version","seed":4,"strategy":"COR only","control":false,"mutants":129,"total":522,"cost":0.2282407267097722,"tests":16.585,"score":0.7287500000000002,"random":0.49724999999999964}
+{"repo":"go-version","seed":4,"strategy":"COR only","control":true,"mutants":129,"total":522,"cost":0.24898645769923541,"tests":15.804999999999998,"score":0.6902500000000003,"random":0.47574999999999984}
+{"repo":"go-version","seed":4,"strategy":"AOR only","control":false,"mutants":24,"total":522,"cost":0.04758535214455523,"tests":3.065,"score":0.09675000000000013,"random":0.10175000000000005}
+{"repo":"go-version","seed":4,"strategy":"AOR only","control":true,"mutants":24,"total":522,"cost":0.04405582425848806,"tests":7.089999999999999,"score":0.289,"random":0.2230000000000001}
+{"repo":"go-version","seed":4,"strategy":"SDL only","control":false,"mutants":40,"total":522,"cost":0.06809057177040705,"tests":9.385,"score":0.3439999999999999,"random":0.2904999999999998}
+{"repo":"go-version","seed":4,"strategy":"SDL only","control":true,"mutants":40,"total":522,"cost":0.07675368061283168,"tests":9.189999999999998,"score":0.379,"random":0.28425}
+{"repo":"go-version","seed":4,"strategy":"ERR only","control":false,"mutants":18,"total":522,"cost":0.02970540715803169,"tests":5.375,"score":0.24775,"random":0.17124999999999976}
+{"repo":"go-version","seed":4,"strategy":"ERR only","control":true,"mutants":18,"total":522,"cost":0.035451965798294634,"tests":6.225,"score":0.253,"random":0.20125}
+{"repo":"go-version","seed":4,"strategy":"all but ROR","control":false,"mutants":211,"total":522,"cost":0.37362205778276614,"tests":19.115,"score":0.8359999999999995,"random":0.5837499999999995}
+{"repo":"go-version","seed":4,"strategy":"all but ROR","control":true,"mutants":211,"total":522,"cost":0.4031112248133013,"tests":18.365000000000002,"score":0.8237499999999999,"random":0.549}
+{"repo":"go-version","seed":4,"strategy":"all but COR","control":false,"mutants":393,"total":522,"cost":0.771759273290228,"tests":21.485,"score":0.9784999999999989,"random":0.6382500000000002}
+{"repo":"go-version","seed":4,"strategy":"all but COR","control":true,"mutants":393,"total":522,"cost":0.7513163662721379,"tests":21.085,"score":0.9567499999999998,"random":0.6212500000000001}
+{"repo":"go-version","seed":4,"strategy":"all but AOR","control":false,"mutants":498,"total":522,"cost":0.9524146478554453,"tests":21.97,"score":1,"random":0.63975}
+{"repo":"go-version","seed":4,"strategy":"all but AOR","control":true,"mutants":498,"total":522,"cost":0.9531690930812102,"tests":21.979999999999997,"score":0.9944999999999998,"random":0.6405000000000001}
+{"repo":"go-version","seed":4,"strategy":"all but SDL","control":false,"mutants":482,"total":522,"cost":0.9319094282295937,"tests":20.935,"score":0.9387500000000005,"random":0.6257500000000001}
+{"repo":"go-version","seed":4,"strategy":"all but SDL","control":true,"mutants":482,"total":522,"cost":0.920748680907343,"tests":21.869999999999997,"score":0.9882500000000001,"random":0.6482500000000001}
+{"repo":"go-version","seed":4,"strategy":"all but ERR","control":false,"mutants":504,"total":522,"cost":0.9702945928419691,"tests":21.345,"score":0.9587499999999983,"random":0.63275}
+{"repo":"go-version","seed":4,"strategy":"all but ERR","control":true,"mutants":504,"total":522,"cost":0.9660138749742945,"tests":21.95499999999999,"score":0.9970000000000001,"random":0.6559999999999999}
+{"repo":"go-version","seed":4,"strategy":"one per line","control":false,"mutants":132,"total":522,"cost":0.25059920284185794,"tests":19.195,"score":0.857,"random":0.5725}
+{"repo":"go-version","seed":4,"strategy":"one per line","control":true,"mutants":132,"total":522,"cost":0.25941346801732046,"tests":15.85,"score":0.6992500000000001,"random":0.47650000000000003}
+{"repo":"go-version","seed":5,"strategy":"all","control":false,"mutants":522,"total":522,"cost":1.0000000000000004,"tests":22.01,"score":1,"random":0.6477499999999998}
+{"repo":"go-version","seed":5,"strategy":"ROR only","control":false,"mutants":311,"total":522,"cost":0.6263779422172345,"tests":16.67,"score":0.7340000000000001,"random":0.5047499999999998}
+{"repo":"go-version","seed":5,"strategy":"ROR only","control":true,"mutants":311,"total":522,"cost":0.599002879166418,"tests":20.145000000000003,"score":0.9132499999999999,"random":0.5815}
+{"repo":"go-version","seed":5,"strategy":"COR only","control":false,"mutants":129,"total":522,"cost":0.2282407267097722,"tests":16.69,"score":0.7252500000000006,"random":0.49975000000000025}
+{"repo":"go-version","seed":5,"strategy":"COR only","control":true,"mutants":129,"total":522,"cost":0.24235179015966019,"tests":15.215000000000003,"score":0.66875,"random":0.46799999999999986}
+{"repo":"go-version","seed":5,"strategy":"AOR only","control":false,"mutants":24,"total":522,"cost":0.04758535214455523,"tests":3.025,"score":0.10075000000000012,"random":0.09575000000000015}
+{"repo":"go-version","seed":5,"strategy":"AOR only","control":true,"mutants":24,"total":522,"cost":0.04341675625765553,"tests":6.92,"score":0.2875,"random":0.2145}
+{"repo":"go-version","seed":5,"strategy":"SDL only","control":false,"mutants":40,"total":522,"cost":0.06809057177040705,"tests":9.435,"score":0.34199999999999986,"random":0.29074999999999995}
+{"repo":"go-version","seed":5,"strategy":"SDL only","control":true,"mutants":40,"total":522,"cost":0.07586904491383371,"tests":8.929999999999998,"score":0.3670000000000001,"random":0.27975}
+{"repo":"go-version","seed":5,"strategy":"ERR only","control":false,"mutants":18,"total":522,"cost":0.02970540715803169,"tests":5.41,"score":0.24750000000000022,"random":0.16599999999999981}
+{"repo":"go-version","seed":5,"strategy":"ERR only","control":true,"mutants":18,"total":522,"cost":0.03444341027024206,"tests":6.555,"score":0.2675,"random":0.2155000000000001}
+{"repo":"go-version","seed":5,"strategy":"all but ROR","control":false,"mutants":211,"total":522,"cost":0.37362205778276614,"tests":18.985,"score":0.8420000000000002,"random":0.5642499999999994}
+{"repo":"go-version","seed":5,"strategy":"all but ROR","control":true,"mutants":211,"total":522,"cost":0.40545538415889404,"tests":18.295,"score":0.81275,"random":0.5367500000000001}
+{"repo":"go-version","seed":5,"strategy":"all but COR","control":false,"mutants":393,"total":522,"cost":0.771759273290228,"tests":21.535,"score":0.9859999999999993,"random":0.6359999999999998}
+{"repo":"go-version","seed":5,"strategy":"all but COR","control":true,"mutants":393,"total":522,"cost":0.7597883137696575,"tests":21.185,"score":0.9615,"random":0.624}
+{"repo":"go-version","seed":5,"strategy":"all but AOR","control":false,"mutants":498,"total":522,"cost":0.9524146478554453,"tests":21.94,"score":1,"random":0.6482500000000004}
+{"repo":"go-version","seed":5,"strategy":"all but AOR","control":true,"mutants":498,"total":522,"cost":0.9531789119856899,"tests":22.195000000000004,"score":0.99825,"random":0.65575}
+{"repo":"go-version","seed":5,"strategy":"all but SDL","control":false,"mutants":482,"total":522,"cost":0.9319094282295937,"tests":20.91,"score":0.9350000000000006,"random":0.6192500000000003}
+{"repo":"go-version","seed":5,"strategy":"all but SDL","control":true,"mutants":482,"total":522,"cost":0.9255570471929883,"tests":22.009999999999998,"score":0.9935,"random":0.6532500000000001}
+{"repo":"go-version","seed":5,"strategy":"all but ERR","control":false,"mutants":504,"total":522,"cost":0.9702945928419691,"tests":21.175,"score":0.9577499999999978,"random":0.6194999999999999}
+{"repo":"go-version","seed":5,"strategy":"all but ERR","control":true,"mutants":504,"total":522,"cost":0.9641452664665845,"tests":21.870000000000005,"score":0.9932500000000001,"random":0.6395}
+{"repo":"go-version","seed":5,"strategy":"one per line","control":false,"mutants":132,"total":522,"cost":0.25274367417329957,"tests":18.970000000000002,"score":0.8345000000000005,"random":0.5675}
+{"repo":"go-version","seed":5,"strategy":"one per line","control":true,"mutants":132,"total":522,"cost":0.2508017732251314,"tests":15.775000000000002,"score":0.6922500000000003,"random":0.47925000000000006}
+{"repo":"semver","seed":1,"strategy":"all","control":false,"mutants":1176,"total":1176,"cost":1,"tests":34.91,"score":1,"random":0.42560606060605993}
+{"repo":"semver","seed":1,"strategy":"ROR only","control":false,"mutants":584,"total":1176,"cost":0.4943709845501375,"tests":24.89,"score":0.6872727272727286,"random":0.30833333333333374}
+{"repo":"semver","seed":1,"strategy":"ROR only","control":true,"mutants":584,"total":1176,"cost":0.4965963621178574,"tests":31.224999999999987,"score":0.8851515151515151,"random":0.3812121212121212}
+{"repo":"semver","seed":1,"strategy":"COR only","control":false,"mutants":343,"total":1176,"cost":0.29195851428696873,"tests":27.93,"score":0.7906060606060572,"random":0.33954545454545476}
+{"repo":"semver","seed":1,"strategy":"COR only","control":true,"mutants":343,"total":1176,"cost":0.29180288806702487,"tests":27.319999999999993,"score":0.7722727272727271,"random":0.33742424242424246}
+{"repo":"semver","seed":1,"strategy":"AOR only","control":false,"mutants":16,"total":1176,"cost":0.013375338663224167,"tests":2,"score":0.03818181818181815,"random":0.02833333333333331}
+{"repo":"semver","seed":1,"strategy":"AOR only","control":true,"mutants":16,"total":1176,"cost":0.013578536508480931,"tests":5.929999999999999,"score":0.15727272727272723,"random":0.0759090909090909}
+{"repo":"semver","seed":1,"strategy":"SDL only","control":false,"mutants":103,"total":1176,"cost":0.08935169639843775,"tests":17.63,"score":0.4815151515151511,"random":0.21696969696969706}
+{"repo":"semver","seed":1,"strategy":"SDL only","control":true,"mutants":103,"total":1176,"cost":0.0875532409878748,"tests":16.594999999999995,"score":0.44878787878787885,"random":0.21348484848484847}
+{"repo":"semver","seed":1,"strategy":"ERR only","control":false,"mutants":130,"total":1176,"cost":0.11094346610123133,"tests":23.54,"score":0.6815151515151527,"random":0.29212121212121256}
+{"repo":"semver","seed":1,"strategy":"ERR only","control":true,"mutants":130,"total":1176,"cost":0.11050502020285088,"tests":18.684999999999995,"score":0.5183333333333333,"random":0.2313636363636363}
+{"repo":"semver","seed":1,"strategy":"all but ROR","control":false,"mutants":592,"total":1176,"cost":0.5056290154498623,"tests":30.025,"score":0.8557575757575735,"random":0.36000000000000015}
+{"repo":"semver","seed":1,"strategy":"all but ROR","control":true,"mutants":592,"total":1176,"cost":0.5033618264869189,"tests":31.505000000000006,"score":0.9,"random":0.3913636363636363}
+{"repo":"semver","seed":1,"strategy":"all but COR","control":false,"mutants":833,"total":1176,"cost":0.7080414857130308,"tests":34.55,"score":0.9930303030303028,"random":0.42469696969696896}
+{"repo":"semver","seed":1,"strategy":"all but COR","control":true,"mutants":833,"total":1176,"cost":0.7085692681760165,"tests":33.474999999999994,"score":0.9530303030303029,"random":0.41348484848484846}
+{"repo":"semver","seed":1,"strategy":"all but AOR","control":false,"mutants":1160,"total":1176,"cost":0.9866246613367762,"tests":34.975,"score":1,"random":0.4213636363636357}
+{"repo":"semver","seed":1,"strategy":"all but AOR","control":true,"mutants":1160,"total":1176,"cost":0.9863133631481192,"tests":34.67,"score":0.9978787878787878,"random":0.42151515151515156}
+{"repo":"semver","seed":1,"strategy":"all but SDL","control":false,"mutants":1073,"total":1176,"cost":0.9106483036015625,"tests":33.31,"score":0.9495454545454532,"random":0.4057575757575752}
+{"repo":"semver","seed":1,"strategy":"all but SDL","control":true,"mutants":1073,"total":1176,"cost":0.9123770344956771,"tests":34.55499999999999,"score":0.9886363636363635,"random":0.41893939393939383}
+{"repo":"semver","seed":1,"strategy":"all but ERR","control":false,"mutants":1046,"total":1176,"cost":0.8890565338987689,"tests":34.93,"score":1,"random":0.42818181818181755}
+{"repo":"semver","seed":1,"strategy":"all but ERR","control":true,"mutants":1046,"total":1176,"cost":0.8893086506015738,"tests":34.42499999999999,"score":0.9846969696969696,"random":0.4254545454545455}
+{"repo":"semver","seed":1,"strategy":"one per line","control":false,"mutants":361,"total":1176,"cost":0.3087606396506955,"tests":31.95,"score":0.9121212121212119,"random":0.3993939393939394}
+{"repo":"semver","seed":1,"strategy":"one per line","control":true,"mutants":361,"total":1176,"cost":0.3066556102623729,"tests":27.77,"score":0.784848484848485,"random":0.33818181818181825}
+{"repo":"semver","seed":2,"strategy":"all","control":false,"mutants":1176,"total":1176,"cost":1,"tests":34.775,"score":1,"random":0.4224242424242419}
+{"repo":"semver","seed":2,"strategy":"ROR only","control":false,"mutants":584,"total":1176,"cost":0.4943709845501375,"tests":24.995,"score":0.6881818181818192,"random":0.31303030303030327}
+{"repo":"semver","seed":2,"strategy":"ROR only","control":true,"mutants":584,"total":1176,"cost":0.4968638934353938,"tests":31.15500000000001,"score":0.888939393939394,"random":0.38136363636363635}
+{"repo":"semver","seed":2,"strategy":"COR only","control":false,"mutants":343,"total":1176,"cost":0.29195851428696873,"tests":27.9,"score":0.789242424242421,"random":0.34984848484848463}
+{"repo":"semver","seed":2,"strategy":"COR only","control":true,"mutants":343,"total":1176,"cost":0.29163588526850803,"tests":27.055,"score":0.76,"random":0.33242424242424246}
+{"repo":"semver","seed":2,"strategy":"AOR only","control":false,"mutants":16,"total":1176,"cost":0.013375338663224167,"tests":2,"score":0.03621212121212118,"random":0.028787878787878765}
+{"repo":"semver","seed":2,"strategy":"AOR only","control":true,"mutants":16,"total":1176,"cost":0.013639963034806347,"tests":6.055,"score":0.1607575757575758,"random":0.07833333333333334}
+{"repo":"semver","seed":2,"strategy":"SDL only","control":false,"mutants":103,"total":1176,"cost":0.08935169639843775,"tests":17.68,"score":0.48181818181818137,"random":0.22257575757575765}
+{"repo":"semver","seed":2,"strategy":"SDL only","control":true,"mutants":103,"total":1176,"cost":0.08747353393572073,"tests":16.715,"score":0.4592424242424243,"random":0.2104545454545454}
+{"repo":"semver","seed":2,"strategy":"ERR only","control":false,"mutants":130,"total":1176,"cost":0.11094346610123133,"tests":23.52,"score":0.6810606060606075,"random":0.2809090909090912}
+{"repo":"semver","seed":2,"strategy":"ERR only","control":true,"mutants":130,"total":1176,"cost":0.11072485268333163,"tests":19.31000000000001,"score":0.5356060606060605,"random":0.23969696969696974}
+{"repo":"semver","seed":2,"strategy":"all but ROR","control":false,"mutants":592,"total":1176,"cost":0.5056290154498623,"tests":30.14,"score":0.8563636363636339,"random":0.3628787878787878}
+{"repo":"semver","seed":2,"strategy":"all but ROR","control":true,"mutants":592,"total":1176,"cost":0.5035482659952035,"tests":31.590000000000003,"score":0.8978787878787878,"random":0.39121212121212123}
+{"repo":"semver","seed":2,"strategy":"all but COR","control":false,"mutants":833,"total":1176,"cost":0.7080414857130308,"tests":34.56,"score":0.9899999999999998,"random":0.42196969696969616}
+{"repo":"semver","seed":2,"strategy":"all but COR","control":true,"mutants":833,"total":1176,"cost":0.708196756862831,"tests":33.495,"score":0.9571212121212123,"random":0.40636363636363637}
+{"repo":"semver","seed":2,"strategy":"all but AOR","control":false,"mutants":1160,"total":1176,"cost":0.9866246613367762,"tests":35,"score":1,"random":0.42363636363636287}
+{"repo":"semver","seed":2,"strategy":"all but AOR","control":true,"mutants":1160,"total":1176,"cost":0.9863896704119218,"tests":34.97000000000001,"score":0.998030303030303,"random":0.4212121212121212}
+{"repo":"semver","seed":2,"strategy":"all but SDL","control":false,"mutants":1073,"total":1176,"cost":0.9106483036015625,"tests":33.25,"score":0.9498484848484836,"random":0.40196969696969637}
+{"repo":"semver","seed":2,"strategy":"all but SDL","control":true,"mutants":1073,"total":1176,"cost":0.9123969186467171,"tests":34.425000000000004,"score":0.9839393939393938,"random":0.4234848484848485}
+{"repo":"semver","seed":2,"strategy":"all but ERR","control":false,"mutants":1046,"total":1176,"cost":0.8890565338987689,"tests":34.805,"score":1,"random":0.41136363636363593}
+{"repo":"semver","seed":2,"strategy":"all but ERR","control":true,"mutants":1046,"total":1176,"cost":0.8894293356549221,"tests":34.345,"score":0.9853030303030301,"random":0.41530303030303034}
+{"repo":"semver","seed":2,"strategy":"one per line","control":false,"mutants":361,"total":1176,"cost":0.3087065687390434,"tests":31.759999999999998,"score":0.907272727272727,"random":0.38181818181818183}
+{"repo":"semver","seed":2,"strategy":"one per line","control":true,"mutants":361,"total":1176,"cost":0.3069464867868766,"tests":27.590000000000003,"score":0.7851515151515149,"random":0.33787878787878783}
+{"repo":"semver","seed":3,"strategy":"all","control":false,"mutants":1176,"total":1176,"cost":1,"tests":34.915,"score":1,"random":0.4199999999999994}
+{"repo":"semver","seed":3,"strategy":"ROR only","control":false,"mutants":584,"total":1176,"cost":0.4943709845501375,"tests":24.97,"score":0.6868181818181831,"random":0.29575757575757605}
+{"repo":"semver","seed":3,"strategy":"ROR only","control":true,"mutants":584,"total":1176,"cost":0.49645896262798506,"tests":31.244999999999987,"score":0.8953030303030305,"random":0.378030303030303}
+{"repo":"semver","seed":3,"strategy":"COR only","control":false,"mutants":343,"total":1176,"cost":0.29195851428696873,"tests":27.86,"score":0.7899999999999967,"random":0.3422727272727273}
+{"repo":"semver","seed":3,"strategy":"COR only","control":true,"mutants":343,"total":1176,"cost":0.29172032844681534,"tests":27.505000000000006,"score":0.7793939393939392,"random":0.3295454545454546}
+{"repo":"semver","seed":3,"strategy":"AOR only","control":false,"mutants":16,"total":1176,"cost":0.013375338663224167,"tests":2,"score":0.03515151515151513,"random":0.028484848484848464}
+{"repo":"semver","seed":3,"strategy":"AOR only","control":true,"mutants":16,"total":1176,"cost":0.013570388115174446,"tests":6.290000000000001,"score":0.16303030303030305,"random":0.0796969696969697}
+{"repo":"semver","seed":3,"strategy":"SDL only","control":false,"mutants":103,"total":1176,"cost":0.08935169639843775,"tests":17.505,"score":0.47833333333333283,"random":0.21969696969696964}
+{"repo":"semver","seed":3,"strategy":"SDL only","control":true,"mutants":103,"total":1176,"cost":0.08758405704081415,"tests":17.075,"score":0.46757575757575764,"random":0.2140909090909091}
+{"repo":"semver","seed":3,"strategy":"ERR only","control":false,"mutants":130,"total":1176,"cost":0.11094346610123133,"tests":23.46,"score":0.6810606060606075,"random":0.2883333333333336}
+{"repo":"semver","seed":3,"strategy":"ERR only","control":true,"mutants":130,"total":1176,"cost":0.11057548439133832,"tests":18.699999999999996,"score":0.5160606060606061,"random":0.23999999999999994}
+{"repo":"semver","seed":3,"strategy":"all but ROR","control":false,"mutants":592,"total":1176,"cost":0.5056290154498623,"tests":29.94,"score":0.8560606060606036,"random":0.36575757575757534}
+{"repo":"semver","seed":3,"strategy":"all but ROR","control":true,"mutants":592,"total":1176,"cost":0.5035126080449037,"tests":31.52,"score":0.8966666666666665,"random":0.39272727272727276}
+{"repo":"semver","seed":3,"strategy":"all but COR","control":false,"mutants":833,"total":1176,"cost":0.7080414857130308,"tests":34.575,"score":0.9890909090909088,"random":0.41409090909090834}
+{"repo":"semver","seed":3,"strategy":"all but COR","control":true,"mutants":833,"total":1176,"cost":0.7083898497676671,"tests":33.485,"score":0.9578787878787878,"random":0.4042424242424242}
+{"repo":"semver","seed":3,"strategy":"all but AOR","control":false,"mutants":1160,"total":1176,"cost":0.9866246613367762,"tests":34.91,"score":1,"random":0.4296969696969692}
+{"repo":"semver","seed":3,"strategy":"all but AOR","control":true,"mutants":1160,"total":1176,"cost":0.9863477076740796,"tests":34.78499999999999,"score":0.9978787878787878,"random":0.4253030303030304}
+{"repo":"semver","seed":3,"strategy":"all but SDL","control":false,"mutants":1073,"total":1176,"cost":0.9106483036015625,"tests":33.32,"score":0.9469696969696956,"random":0.41378787878787804}
+{"repo":"semver","seed":3,"strategy":"all but SDL","control":true,"mutants":1073,"total":1176,"cost":0.9125270450644696,"tests":34.54,"score":0.9887878787878787,"random":0.4242424242424243}
+{"repo":"semver","seed":3,"strategy":"all but ERR","control":false,"mutants":1046,"total":1176,"cost":0.8890565338987689,"tests":34.82,"score":1,"random":0.42303030303030253}
+{"repo":"semver","seed":3,"strategy":"all but ERR","control":true,"mutants":1046,"total":1176,"cost":0.8893409920539019,"tests":34.17,"score":0.9813636363636364,"random":0.4089393939393939}
+{"repo":"semver","seed":3,"strategy":"one per line","control":false,"mutants":361,"total":1176,"cost":0.30867791514399434,"tests":31.839999999999996,"score":0.9074242424242422,"random":0.383030303030303}
+{"repo":"semver","seed":3,"strategy":"one per line","control":true,"mutants":361,"total":1176,"cost":0.3067340752691604,"tests":27.04,"score":0.7672727272727273,"random":0.33393939393939387}
+{"repo":"semver","seed":4,"strategy":"all","control":false,"mutants":1176,"total":1176,"cost":1,"tests":34.895,"score":1,"random":0.4166666666666659}
+{"repo":"semver","seed":4,"strategy":"ROR only","control":false,"mutants":584,"total":1176,"cost":0.4943709845501375,"tests":24.9,"score":0.6904545454545468,"random":0.30909090909090936}
+{"repo":"semver","seed":4,"strategy":"ROR only","control":true,"mutants":584,"total":1176,"cost":0.49667329061047216,"tests":31.425000000000004,"score":0.8966666666666667,"random":0.37545454545454543}
+{"repo":"semver","seed":4,"strategy":"COR only","control":false,"mutants":343,"total":1176,"cost":0.29195851428696873,"tests":28,"score":0.792424242424239,"random":0.33878787878787897}
+{"repo":"semver","seed":4,"strategy":"COR only","control":true,"mutants":343,"total":1176,"cost":0.29153439571133055,"tests":27.340000000000003,"score":0.7696969696969698,"random":0.3392424242424241}
+{"repo":"semver","seed":4,"strategy":"AOR only","control":false,"mutants":16,"total":1176,"cost":0.013375338663224167,"tests":2,"score":0.035454545454545426,"random":0.025909090909090892}
+{"repo":"semver","seed":4,"strategy":"AOR only","control":true,"mutants":16,"total":1176,"cost":0.013603440898907772,"tests":5.874999999999999,"score":0.15469696969696972,"random":0.07393939393939394}
+{"repo":"semver","seed":4,"strategy":"SDL only","control":false,"mutants":103,"total":1176,"cost":0.08935169639843775,"tests":17.48,"score":0.48121212121212087,"random":0.22681818181818175}
+{"repo":"semver","seed":4,"strategy":"SDL only","control":true,"mutants":103,"total":1176,"cost":0.08750464655325016,"tests":17.275,"score":0.4734848484848485,"random":0.2098484848484848}
+{"repo":"semver","seed":4,"strategy":"ERR only","control":false,"mutants":130,"total":1176,"cost":0.11094346610123133,"tests":23.425,"score":0.6804545454545469,"random":0.2810606060606064}
+{"repo":"semver","seed":4,"strategy":"ERR only","control":true,"mutants":130,"total":1176,"cost":0.11053572003002313,"tests":18.564999999999998,"score":0.5130303030303031,"random":0.23803030303030304}
+{"repo":"semver","seed":4,"strategy":"all but ROR","control":false,"mutants":592,"total":1176,"cost":0.5056290154498623,"tests":30.13,"score":0.8566666666666641,"random":0.3727272727272725}
+{"repo":"semver","seed":4,"strategy":"all but ROR","control":true,"mutants":592,"total":1176,"cost":0.5033059987142325,"tests":31.54,"score":0.8939393939393939,"random":0.38181818181818183}
+{"repo":"semver","seed":4,"strategy":"all but COR","control":false,"mutants":833,"total":1176,"cost":0.7080414857130308,"tests":34.515,"score":0.9890909090909088,"random":0.41424242424242363}
+{"repo":"semver","seed":4,"strategy":"all but COR","control":true,"mutants":833,"total":1176,"cost":0.7081050548133242,"tests":33.55,"score":0.957272727272727,"random":0.4036363636363637}
+{"repo":"semver","seed":4,"strategy":"all but AOR","control":false,"mutants":1160,"total":1176,"cost":0.9866246613367762,"tests":34.89,"score":1,"random":0.410454545454545}
+{"repo":"semver","seed":4,"strategy":"all but AOR","control":true,"mutants":1160,"total":1176,"cost":0.9864148494938941,"tests":34.79499999999999,"score":0.9974242424242424,"random":0.42515151515151517}
+{"repo":"semver","seed":4,"strategy":"all but SDL","control":false,"mutants":1073,"total":1176,"cost":0.9106483036015625,"tests":33.065,"score":0.9487878787878775,"random":0.4027272727272719}
+{"repo":"semver","seed":4,"strategy":"all but SDL","control":true,"mutants":1073,"total":1176,"cost":0.9125616583050485,"tests":34.41000000000001,"score":0.9830303030303031,"random":0.4125757575757575}
+{"repo":"semver","seed":4,"strategy":"all but ERR","control":false,"mutants":1046,"total":1176,"cost":0.8890565338987689,"tests":34.96,"score":1,"random":0.42590909090909024}
+{"repo":"semver","seed":4,"strategy":"all but ERR","control":true,"mutants":1046,"total":1176,"cost":0.8893239683588584,"tests":34.50500000000001,"score":0.9857575757575756,"random":0.42121212121212126}
+{"repo":"semver","seed":4,"strategy":"one per line","control":false,"mutants":361,"total":1176,"cost":0.30869165041010166,"tests":31.710000000000008,"score":0.9065151515151513,"random":0.38030303030303025}
+{"repo":"semver","seed":4,"strategy":"one per line","control":true,"mutants":361,"total":1176,"cost":0.3068360054245546,"tests":27.590000000000003,"score":0.7796969696969698,"random":0.3442424242424241}
+{"repo":"semver","seed":5,"strategy":"all","control":false,"mutants":1176,"total":1176,"cost":1,"tests":34.835,"score":1,"random":0.41090909090909006}
+{"repo":"semver","seed":5,"strategy":"ROR only","control":false,"mutants":584,"total":1176,"cost":0.4943709845501375,"tests":24.97,"score":0.6913636363636375,"random":0.3019696969696973}
+{"repo":"semver","seed":5,"strategy":"ROR only","control":true,"mutants":584,"total":1176,"cost":0.4964709847546634,"tests":31.504999999999995,"score":0.8999999999999998,"random":0.38333333333333336}
+{"repo":"semver","seed":5,"strategy":"COR only","control":false,"mutants":343,"total":1176,"cost":0.29195851428696873,"tests":27.86,"score":0.7909090909090877,"random":0.33969696969696966}
+{"repo":"semver","seed":5,"strategy":"COR only","control":true,"mutants":343,"total":1176,"cost":0.29168604119019736,"tests":27.065000000000005,"score":0.7600000000000001,"random":0.3362121212121213}
+{"repo":"semver","seed":5,"strategy":"AOR only","control":false,"mutants":16,"total":1176,"cost":0.013375338663224167,"tests":2,"score":0.03166666666666664,"random":0.02696969696969695}
+{"repo":"semver","seed":5,"strategy":"AOR only","control":true,"mutants":16,"total":1176,"cost":0.013567917606068175,"tests":5.750000000000002,"score":0.1531818181818182,"random":0.07757575757575759}
+{"repo":"semver","seed":5,"strategy":"SDL only","control":false,"mutants":103,"total":1176,"cost":0.08935169639843775,"tests":17.665,"score":0.481363636363636,"random":0.21500000000000008}
+{"repo":"semver","seed":5,"strategy":"SDL only","control":true,"mutants":103,"total":1176,"cost":0.08746534468803892,"tests":16.645000000000003,"score":0.45727272727272733,"random":0.21469696969696975}
+{"repo":"semver","seed":5,"strategy":"ERR only","control":false,"mutants":130,"total":1176,"cost":0.11094346610123133,"tests":23.42,"score":0.6792424242424256,"random":0.2877272727272731}
+{"repo":"semver","seed":5,"strategy":"ERR only","control":true,"mutants":130,"total":1176,"cost":0.11037191269483407,"tests":18.75,"score":0.5210606060606062,"random":0.23424242424242422}
+{"repo":"semver","seed":5,"strategy":"all but ROR","control":false,"mutants":592,"total":1176,"cost":0.5056290154498623,"tests":30.14,"score":0.856363636363634,"random":0.3754545454545448}
+{"repo":"semver","seed":5,"strategy":"all but ROR","control":true,"mutants":592,"total":1176,"cost":0.5032824657486091,"tests":31.52,"score":0.8983333333333329,"random":0.39363636363636345}
+{"repo":"semver","seed":5,"strategy":"all but COR","control":false,"mutants":833,"total":1176,"cost":0.7080414857130308,"tests":34.5,"score":0.9887878787878784,"random":0.40954545454545405}
+{"repo":"semver","seed":5,"strategy":"all but COR","control":true,"mutants":833,"total":1176,"cost":0.708427628838312,"tests":32.955,"score":0.9446969696969696,"random":0.4001515151515152}
+{"repo":"semver","seed":5,"strategy":"all but AOR","control":false,"mutants":1160,"total":1176,"cost":0.9866246613367762,"tests":34.82,"score":1,"random":0.4283333333333325}
+{"repo":"semver","seed":5,"strategy":"all but AOR","control":true,"mutants":1160,"total":1176,"cost":0.9863868854389489,"tests":34.815000000000005,"score":0.9971212121212121,"random":0.4204545454545455}
+{"repo":"semver","seed":5,"strategy":"all but SDL","control":false,"mutants":1073,"total":1176,"cost":0.9106483036015625,"tests":33.265,"score":0.9489393939393926,"random":0.3992424242424235}
+{"repo":"semver","seed":5,"strategy":"all but SDL","control":true,"mutants":1073,"total":1176,"cost":0.9123923696012634,"tests":34.755,"score":0.9925757575757576,"random":0.4174242424242425}
+{"repo":"semver","seed":5,"strategy":"all but ERR","control":false,"mutants":1046,"total":1176,"cost":0.8890565338987689,"tests":35.05,"score":1,"random":0.4215151515151509}
+{"repo":"semver","seed":5,"strategy":"all but ERR","control":true,"mutants":1046,"total":1176,"cost":0.8895370524401427,"tests":34.510000000000005,"score":0.9880303030303027,"random":0.42303030303030303}
+{"repo":"semver","seed":5,"strategy":"one per line","control":false,"mutants":361,"total":1176,"cost":0.30878564671638375,"tests":31.905,"score":0.9165151515151514,"random":0.39075757575757586}
+{"repo":"semver","seed":5,"strategy":"one per line","control":true,"mutants":361,"total":1176,"cost":0.30690127798692335,"tests":27.544999999999998,"score":0.7772727272727273,"random":0.3342424242424243}
+{"repo":"shlex","seed":1,"strategy":"all","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.305,"score":1,"random":0.5975}
+{"repo":"shlex","seed":1,"strategy":"ROR only","control":false,"mutants":19,"total":93,"cost":0.1933723702616994,"tests":2.125,"score":1,"random":0.54}
+{"repo":"shlex","seed":1,"strategy":"ROR only","control":true,"mutants":19,"total":93,"cost":0.19921757926633166,"tests":2.0550000000000006,"score":0.8875,"random":0.51}
+{"repo":"shlex","seed":1,"strategy":"COR only","control":false,"mutants":17,"total":93,"cost":0.17719237512356656,"tests":2.24,"score":1,"random":0.5725}
+{"repo":"shlex","seed":1,"strategy":"COR only","control":true,"mutants":17,"total":93,"cost":0.18624483680001577,"tests":2.0099999999999993,"score":0.8625000000000002,"random":0.525}
+{"repo":"shlex","seed":1,"strategy":"AOR only","control":false,"mutants":0,"total":93,"cost":0,"tests":0,"score":0,"random":0}
+{"repo":"shlex","seed":1,"strategy":"SDL only","control":false,"mutants":40,"total":93,"cost":0.45684997291728874,"tests":1.665,"score":0.655,"random":0.425}
+{"repo":"shlex","seed":1,"strategy":"SDL only","control":true,"mutants":40,"total":93,"cost":0.43007583596271176,"tests":2.275000000000001,"score":0.9875,"random":0.5499999999999998}
+{"repo":"shlex","seed":1,"strategy":"ERR only","control":false,"mutants":17,"total":93,"cost":0.17258528169744547,"tests":1.29,"score":0.545,"random":0.3425}
+{"repo":"shlex","seed":1,"strategy":"ERR only","control":true,"mutants":17,"total":93,"cost":0.18334406233948844,"tests":2.07,"score":0.8675,"random":0.505}
+{"repo":"shlex","seed":1,"strategy":"all but ROR","control":false,"mutants":74,"total":93,"cost":0.8066276297383008,"tests":2.355,"score":1,"random":0.585}
+{"repo":"shlex","seed":1,"strategy":"all but ROR","control":true,"mutants":74,"total":93,"cost":0.795674889950007,"tests":2.2800000000000007,"score":1,"random":0.5900000000000001}
+{"repo":"shlex","seed":1,"strategy":"all but COR","control":false,"mutants":76,"total":93,"cost":0.8228076248764337,"tests":2.305,"score":1,"random":0.58}
+{"repo":"shlex","seed":1,"strategy":"all but COR","control":true,"mutants":76,"total":93,"cost":0.814058907217875,"tests":2.2300000000000013,"score":1,"random":0.5924999999999998}
+{"repo":"shlex","seed":1,"strategy":"all but AOR","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.27,"score":1,"random":0.5725}
+{"repo":"shlex","seed":1,"strategy":"all but AOR","control":true,"mutants":93,"total":93,"cost":0.9999999999999986,"tests":2.3,"score":1,"random":0.6050000000000002}
+{"repo":"shlex","seed":1,"strategy":"all but SDL","control":false,"mutants":53,"total":93,"cost":0.5431500270827114,"tests":2.25,"score":1,"random":0.5775}
+{"repo":"shlex","seed":1,"strategy":"all but SDL","control":true,"mutants":53,"total":93,"cost":0.558677982776742,"tests":2.35,"score":1,"random":0.6024999999999998}
+{"repo":"shlex","seed":1,"strategy":"all but ERR","control":false,"mutants":76,"total":93,"cost":0.8274147183025546,"tests":2.34,"score":1,"random":0.5775}
+{"repo":"shlex","seed":1,"strategy":"all but ERR","control":true,"mutants":76,"total":93,"cost":0.8217785603077378,"tests":2.2700000000000005,"score":1,"random":0.5700000000000001}
+{"repo":"shlex","seed":1,"strategy":"one per line","control":false,"mutants":63,"total":93,"cost":0.6899703572806297,"tests":2.3000000000000007,"score":1,"random":0.5774999999999999}
+{"repo":"shlex","seed":1,"strategy":"one per line","control":true,"mutants":63,"total":93,"cost":0.6748455596095484,"tests":2.310000000000001,"score":1,"random":0.5974999999999999}
+{"repo":"shlex","seed":2,"strategy":"all","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.29,"score":1,"random":0.595}
+{"repo":"shlex","seed":2,"strategy":"ROR only","control":false,"mutants":19,"total":93,"cost":0.1933723702616994,"tests":2.135,"score":1,"random":0.53}
+{"repo":"shlex","seed":2,"strategy":"ROR only","control":true,"mutants":19,"total":93,"cost":0.2030929469859975,"tests":2.1100000000000003,"score":0.875,"random":0.4750000000000002}
+{"repo":"shlex","seed":2,"strategy":"COR only","control":false,"mutants":17,"total":93,"cost":0.17719237512356656,"tests":2.265,"score":1,"random":0.535}
+{"repo":"shlex","seed":2,"strategy":"COR only","control":true,"mutants":17,"total":93,"cost":0.18065925958497436,"tests":2.03,"score":0.8950000000000001,"random":0.5325}
+{"repo":"shlex","seed":2,"strategy":"AOR only","control":false,"mutants":0,"total":93,"cost":0,"tests":0,"score":0,"random":0}
+{"repo":"shlex","seed":2,"strategy":"SDL only","control":false,"mutants":40,"total":93,"cost":0.45684997291728874,"tests":1.62,"score":0.6575,"random":0.39}
+{"repo":"shlex","seed":2,"strategy":"SDL only","control":true,"mutants":40,"total":93,"cost":0.4275773960625278,"tests":2.3250000000000006,"score":1,"random":0.5875}
+{"repo":"shlex","seed":2,"strategy":"ERR only","control":false,"mutants":17,"total":93,"cost":0.17258528169744547,"tests":1.355,"score":0.535,"random":0.305}
+{"repo":"shlex","seed":2,"strategy":"ERR only","control":true,"mutants":17,"total":93,"cost":0.1823260837722721,"tests":2.0850000000000004,"score":0.885,"random":0.5225000000000002}
+{"repo":"shlex","seed":2,"strategy":"all but ROR","control":false,"mutants":74,"total":93,"cost":0.8066276297383008,"tests":2.325,"score":1,"random":0.585}
+{"repo":"shlex","seed":2,"strategy":"all but ROR","control":true,"mutants":74,"total":93,"cost":0.7929371096772989,"tests":2.2700000000000005,"score":1,"random":0.5574999999999999}
+{"repo":"shlex","seed":2,"strategy":"all but COR","control":false,"mutants":76,"total":93,"cost":0.8228076248764337,"tests":2.33,"score":1,"random":0.565}
+{"repo":"shlex","seed":2,"strategy":"all but COR","control":true,"mutants":76,"total":93,"cost":0.8028967705110095,"tests":2.3150000000000004,"score":1,"random":0.5850000000000001}
+{"repo":"shlex","seed":2,"strategy":"all but AOR","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.31,"score":1,"random":0.54}
+{"repo":"shlex","seed":2,"strategy":"all but AOR","control":true,"mutants":93,"total":93,"cost":0.9999999999999986,"tests":2.35,"score":1,"random":0.5700000000000001}
+{"repo":"shlex","seed":2,"strategy":"all but SDL","control":false,"mutants":53,"total":93,"cost":0.5431500270827114,"tests":2.23,"score":1,"random":0.565}
+{"repo":"shlex","seed":2,"strategy":"all but SDL","control":true,"mutants":53,"total":93,"cost":0.5641355613980781,"tests":2.2900000000000014,"score":1,"random":0.5725}
+{"repo":"shlex","seed":2,"strategy":"all but ERR","control":false,"mutants":76,"total":93,"cost":0.8274147183025546,"tests":2.27,"score":1,"random":0.57}
+{"repo":"shlex","seed":2,"strategy":"all but ERR","control":true,"mutants":76,"total":93,"cost":0.810920928480243,"tests":2.240000000000001,"score":1,"random":0.5775}
+{"repo":"shlex","seed":2,"strategy":"one per line","control":false,"mutants":63,"total":93,"cost":0.6935103618811754,"tests":2.335000000000001,"score":1,"random":0.595}
+{"repo":"shlex","seed":2,"strategy":"one per line","control":true,"mutants":63,"total":93,"cost":0.6749742816773957,"tests":2.2650000000000015,"score":1,"random":0.5449999999999999}
+{"repo":"shlex","seed":3,"strategy":"all","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.3,"score":1,"random":0.56}
+{"repo":"shlex","seed":3,"strategy":"ROR only","control":false,"mutants":19,"total":93,"cost":0.1933723702616994,"tests":2.13,"score":1,"random":0.555}
+{"repo":"shlex","seed":3,"strategy":"ROR only","control":true,"mutants":19,"total":93,"cost":0.2052147530456176,"tests":2.12,"score":0.8775000000000001,"random":0.5175}
+{"repo":"shlex","seed":3,"strategy":"COR only","control":false,"mutants":17,"total":93,"cost":0.17719237512356656,"tests":2.21,"score":1,"random":0.56}
+{"repo":"shlex","seed":3,"strategy":"COR only","control":true,"mutants":17,"total":93,"cost":0.18862270113820984,"tests":2.0550000000000006,"score":0.885,"random":0.5125}
+{"repo":"shlex","seed":3,"strategy":"AOR only","control":false,"mutants":0,"total":93,"cost":0,"tests":0,"score":0,"random":0}
+{"repo":"shlex","seed":3,"strategy":"SDL only","control":false,"mutants":40,"total":93,"cost":0.45684997291728874,"tests":1.66,"score":0.635,"random":0.4375}
+{"repo":"shlex","seed":3,"strategy":"SDL only","control":true,"mutants":40,"total":93,"cost":0.43036912437980784,"tests":2.250000000000001,"score":0.9875,"random":0.5599999999999999}
+{"repo":"shlex","seed":3,"strategy":"ERR only","control":false,"mutants":17,"total":93,"cost":0.17258528169744547,"tests":1.365,"score":0.565,"random":0.3425}
+{"repo":"shlex","seed":3,"strategy":"ERR only","control":true,"mutants":17,"total":93,"cost":0.18452248960881332,"tests":2.035,"score":0.8424999999999999,"random":0.49250000000000005}
+{"repo":"shlex","seed":3,"strategy":"all but ROR","control":false,"mutants":74,"total":93,"cost":0.8066276297383008,"tests":2.365,"score":1,"random":0.56}
+{"repo":"shlex","seed":3,"strategy":"all but ROR","control":true,"mutants":74,"total":93,"cost":0.7905606634402538,"tests":2.2750000000000004,"score":1,"random":0.5725}
+{"repo":"shlex","seed":3,"strategy":"all but COR","control":false,"mutants":76,"total":93,"cost":0.8228076248764337,"tests":2.24,"score":1,"random":0.5725}
+{"repo":"shlex","seed":3,"strategy":"all but COR","control":true,"mutants":76,"total":93,"cost":0.8231165990856237,"tests":2.2900000000000005,"score":1,"random":0.5775000000000001}
+{"repo":"shlex","seed":3,"strategy":"all but AOR","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.275,"score":1,"random":0.5725}
+{"repo":"shlex","seed":3,"strategy":"all but AOR","control":true,"mutants":93,"total":93,"cost":0.9999999999999986,"tests":2.3300000000000005,"score":1,"random":0.5800000000000001}
+{"repo":"shlex","seed":3,"strategy":"all but SDL","control":false,"mutants":53,"total":93,"cost":0.5431500270827114,"tests":2.28,"score":1,"random":0.5775}
+{"repo":"shlex","seed":3,"strategy":"all but SDL","control":true,"mutants":53,"total":93,"cost":0.5664417700460034,"tests":2.3000000000000016,"score":0.9974999999999999,"random":0.5875}
+{"repo":"shlex","seed":3,"strategy":"all but ERR","control":false,"mutants":76,"total":93,"cost":0.8274147183025546,"tests":2.33,"score":1,"random":0.595}
+{"repo":"shlex","seed":3,"strategy":"all but ERR","control":true,"mutants":76,"total":93,"cost":0.8216596332508427,"tests":2.270000000000001,"score":1,"random":0.5850000000000001}
+{"repo":"shlex","seed":3,"strategy":"one per line","control":false,"mutants":63,"total":93,"cost":0.694194664948085,"tests":2.3900000000000015,"score":1,"random":0.5375}
+{"repo":"shlex","seed":3,"strategy":"one per line","control":true,"mutants":63,"total":93,"cost":0.682044568246568,"tests":2.3150000000000004,"score":1,"random":0.58}
+{"repo":"shlex","seed":4,"strategy":"all","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.33,"score":1,"random":0.5775}
+{"repo":"shlex","seed":4,"strategy":"ROR only","control":false,"mutants":19,"total":93,"cost":0.1933723702616994,"tests":2.085,"score":1,"random":0.53}
+{"repo":"shlex","seed":4,"strategy":"ROR only","control":true,"mutants":19,"total":93,"cost":0.20298756053821934,"tests":2.0850000000000004,"score":0.9075,"random":0.5299999999999999}
+{"repo":"shlex","seed":4,"strategy":"COR only","control":false,"mutants":17,"total":93,"cost":0.17719237512356656,"tests":2.21,"score":1,"random":0.595}
+{"repo":"shlex","seed":4,"strategy":"COR only","control":true,"mutants":17,"total":93,"cost":0.17765922647111998,"tests":1.9950000000000003,"score":0.8375,"random":0.48500000000000015}
+{"repo":"shlex","seed":4,"strategy":"AOR only","control":false,"mutants":0,"total":93,"cost":0,"tests":0,"score":0,"random":0}
+{"repo":"shlex","seed":4,"strategy":"SDL only","control":false,"mutants":40,"total":93,"cost":0.45684997291728874,"tests":1.7,"score":0.6725,"random":0.4425}
+{"repo":"shlex","seed":4,"strategy":"SDL only","control":true,"mutants":40,"total":93,"cost":0.4300879817862965,"tests":2.285,"score":1,"random":0.5799999999999998}
+{"repo":"shlex","seed":4,"strategy":"ERR only","control":false,"mutants":17,"total":93,"cost":0.17258528169744547,"tests":1.245,"score":0.5225,"random":0.3225}
+{"repo":"shlex","seed":4,"strategy":"ERR only","control":true,"mutants":17,"total":93,"cost":0.18542042094890315,"tests":2.1500000000000004,"score":0.905,"random":0.48999999999999994}
+{"repo":"shlex","seed":4,"strategy":"all but ROR","control":false,"mutants":74,"total":93,"cost":0.8066276297383008,"tests":2.305,"score":1,"random":0.57}
+{"repo":"shlex","seed":4,"strategy":"all but ROR","control":true,"mutants":74,"total":93,"cost":0.7916531438975125,"tests":2.305000000000001,"score":1,"random":0.5824999999999999}
+{"repo":"shlex","seed":4,"strategy":"all but COR","control":false,"mutants":76,"total":93,"cost":0.8228076248764337,"tests":2.305,"score":1,"random":0.595}
+{"repo":"shlex","seed":4,"strategy":"all but COR","control":true,"mutants":76,"total":93,"cost":0.8198767857288927,"tests":2.3600000000000003,"score":1,"random":0.6225}
+{"repo":"shlex","seed":4,"strategy":"all but AOR","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.29,"score":1,"random":0.5625}
+{"repo":"shlex","seed":4,"strategy":"all but AOR","control":true,"mutants":93,"total":93,"cost":0.9999999999999986,"tests":2.2700000000000005,"score":1,"random":0.5649999999999998}
+{"repo":"shlex","seed":4,"strategy":"all but SDL","control":false,"mutants":53,"total":93,"cost":0.5431500270827114,"tests":2.2,"score":1,"random":0.5275}
+{"repo":"shlex","seed":4,"strategy":"all but SDL","control":true,"mutants":53,"total":93,"cost":0.5741367516067168,"tests":2.3500000000000005,"score":1,"random":0.5675000000000001}
+{"repo":"shlex","seed":4,"strategy":"all but ERR","control":false,"mutants":76,"total":93,"cost":0.8274147183025546,"tests":2.315,"score":1,"random":0.5825}
+{"repo":"shlex","seed":4,"strategy":"all but ERR","control":true,"mutants":76,"total":93,"cost":0.8107836268580954,"tests":2.2700000000000005,"score":1,"random":0.6099999999999999}
+{"repo":"shlex","seed":4,"strategy":"one per line","control":false,"mutants":63,"total":93,"cost":0.6921070219735144,"tests":2.295000000000001,"score":1,"random":0.5975}
+{"repo":"shlex","seed":4,"strategy":"one per line","control":true,"mutants":63,"total":93,"cost":0.6759109768157161,"tests":2.2750000000000012,"score":1,"random":0.5950000000000002}
+{"repo":"shlex","seed":5,"strategy":"all","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.33,"score":1,"random":0.58}
+{"repo":"shlex","seed":5,"strategy":"ROR only","control":false,"mutants":19,"total":93,"cost":0.1933723702616994,"tests":2.095,"score":1,"random":0.5075}
+{"repo":"shlex","seed":5,"strategy":"ROR only","control":true,"mutants":19,"total":93,"cost":0.21073009514974167,"tests":2.0550000000000006,"score":0.8675,"random":0.4749999999999999}
+{"repo":"shlex","seed":5,"strategy":"COR only","control":false,"mutants":17,"total":93,"cost":0.17719237512356656,"tests":2.21,"score":1,"random":0.5325}
+{"repo":"shlex","seed":5,"strategy":"COR only","control":true,"mutants":17,"total":93,"cost":0.18026323267669714,"tests":1.9850000000000005,"score":0.8675000000000003,"random":0.5}
+{"repo":"shlex","seed":5,"strategy":"AOR only","control":false,"mutants":0,"total":93,"cost":0,"tests":0,"score":0,"random":0}
+{"repo":"shlex","seed":5,"strategy":"SDL only","control":false,"mutants":40,"total":93,"cost":0.45684997291728874,"tests":1.625,"score":0.6575,"random":0.4175}
+{"repo":"shlex","seed":5,"strategy":"SDL only","control":true,"mutants":40,"total":93,"cost":0.42820732504171666,"tests":2.2300000000000013,"score":0.9875,"random":0.5825}
+{"repo":"shlex","seed":5,"strategy":"ERR only","control":false,"mutants":17,"total":93,"cost":0.17258528169744547,"tests":1.29,"score":0.525,"random":0.32}
+{"repo":"shlex","seed":5,"strategy":"ERR only","control":true,"mutants":17,"total":93,"cost":0.178186219974724,"tests":1.9850000000000008,"score":0.8724999999999999,"random":0.4875}
+{"repo":"shlex","seed":5,"strategy":"all but ROR","control":false,"mutants":74,"total":93,"cost":0.8066276297383008,"tests":2.3,"score":1,"random":0.56}
+{"repo":"shlex","seed":5,"strategy":"all but ROR","control":true,"mutants":74,"total":93,"cost":0.7915112265243354,"tests":2.2850000000000006,"score":1,"random":0.5824999999999999}
+{"repo":"shlex","seed":5,"strategy":"all but COR","control":false,"mutants":76,"total":93,"cost":0.8228076248764337,"tests":2.255,"score":1,"random":0.56}
+{"repo":"shlex","seed":5,"strategy":"all but COR","control":true,"mutants":76,"total":93,"cost":0.8157823924596757,"tests":2.2900000000000014,"score":1,"random":0.5425000000000001}
+{"repo":"shlex","seed":5,"strategy":"all but AOR","control":false,"mutants":93,"total":93,"cost":1.0000000000000004,"tests":2.315,"score":1,"random":0.56}
+{"repo":"shlex","seed":5,"strategy":"all but AOR","control":true,"mutants":93,"total":93,"cost":0.9999999999999986,"tests":2.31,"score":1,"random":0.5875000000000001}
+{"repo":"shlex","seed":5,"strategy":"all but SDL","control":false,"mutants":53,"total":93,"cost":0.5431500270827114,"tests":2.26,"score":1,"random":0.5775}
+{"repo":"shlex","seed":5,"strategy":"all but SDL","control":true,"mutants":53,"total":93,"cost":0.5713035412884323,"tests":2.330000000000001,"score":1,"random":0.5624999999999999}
+{"repo":"shlex","seed":5,"strategy":"all but ERR","control":false,"mutants":76,"total":93,"cost":0.8274147183025546,"tests":2.32,"score":1,"random":0.5875}
+{"repo":"shlex","seed":5,"strategy":"all but ERR","control":true,"mutants":76,"total":93,"cost":0.8190439837100267,"tests":2.380000000000001,"score":1,"random":0.6000000000000002}
+{"repo":"shlex","seed":5,"strategy":"one per line","control":false,"mutants":63,"total":93,"cost":0.6936438985460904,"tests":2.335,"score":1,"random":0.5425}
+{"repo":"shlex","seed":5,"strategy":"one per line","control":true,"mutants":63,"total":93,"cost":0.6761059298183636,"tests":2.2800000000000002,"score":1,"random":0.5825000000000001}
+{"repo":"uuid","seed":1,"strategy":"all","control":false,"mutants":659,"total":659,"cost":1.0000000000000007,"tests":38.195,"score":1,"random":0.22027027027027046}
+{"repo":"uuid","seed":1,"strategy":"ROR only","control":false,"mutants":213,"total":659,"cost":0.3162643286702492,"tests":13.875,"score":0.35770270270270305,"random":0.08486486486486487}
+{"repo":"uuid","seed":1,"strategy":"ROR only","control":true,"mutants":213,"total":659,"cost":0.32284168288694814,"tests":27.93,"score":0.7282432432432434,"random":0.17283783783783785}
+{"repo":"uuid","seed":1,"strategy":"COR only","control":false,"mutants":114,"total":659,"cost":0.17463293656327591,"tests":26.445,"score":0.7004054054054061,"random":0.15918918918918934}
+{"repo":"uuid","seed":1,"strategy":"COR only","control":true,"mutants":114,"total":659,"cost":0.1730845545641631,"tests":21.89,"score":0.572972972972973,"random":0.1368918918918919}
+{"repo":"uuid","seed":1,"strategy":"AOR only","control":false,"mutants":157,"total":659,"cost":0.24455464348143657,"tests":11.665,"score":0.31445945945945974,"random":0.0727027027027027}
+{"repo":"uuid","seed":1,"strategy":"AOR only","control":true,"mutants":157,"total":659,"cost":0.238105430365944,"tests":25.120000000000005,"score":0.655,"random":0.155}
+{"repo":"uuid","seed":1,"strategy":"SDL only","control":false,"mutants":126,"total":659,"cost":0.1900070761443431,"tests":20.325,"score":0.5431081081081094,"random":0.13283783783783798}
+{"repo":"uuid","seed":1,"strategy":"SDL only","control":true,"mutants":126,"total":659,"cost":0.19114272779348324,"tests":23.350000000000005,"score":0.6082432432432432,"random":0.14148648648648646}
+{"repo":"uuid","seed":1,"strategy":"ERR only","control":false,"mutants":49,"total":659,"cost":0.07454101514069492,"tests":16.445,"score":0.43513513513513497,"random":0.10310810810810819}
+{"repo":"uuid","seed":1,"strategy":"ERR only","control":true,"mutants":49,"total":659,"cost":0.07434246577084011,"tests":15.215000000000007,"score":0.39797297297297296,"random":0.09770270270270272}
+{"repo":"uuid","seed":1,"strategy":"all but ROR","control":false,"mutants":446,"total":659,"cost":0.6837356713297514,"tests":37.34,"score":0.9832432432432416,"random":0.22067567567567564}
+{"repo":"uuid","seed":1,"strategy":"all but ROR","control":true,"mutants":446,"total":659,"cost":0.6764500835641412,"tests":35.25000000000001,"score":0.9239189189189192,"random":0.22891891891891897}
+{"repo":"uuid","seed":1,"strategy":"all but COR","control":false,"mutants":545,"total":659,"cost":0.8253670634367252,"tests":32.795,"score":0.8625675675675691,"random":0.19878378378378372}
+{"repo":"uuid","seed":1,"strategy":"all but COR","control":true,"mutants":545,"total":659,"cost":0.8265981727021527,"tests":36.64,"score":0.9633783783783784,"random":0.22405405405405415}
+{"repo":"uuid","seed":1,"strategy":"all but AOR","control":false,"mutants":502,"total":659,"cost":0.755445356518564,"tests":37.555,"score":0.9858108108108092,"random":0.23297297297297298}
+{"repo":"uuid","seed":1,"strategy":"all but AOR","control":true,"mutants":502,"total":659,"cost":0.7616527008590952,"tests":35.775,"score":0.9401351351351351,"random":0.21027027027027034}
+{"repo":"uuid","seed":1,"strategy":"all but SDL","control":false,"mutants":533,"total":659,"cost":0.8099929238556574,"tests":33.52,"score":0.888918918918919,"random":0.20351351351351363}
+{"repo":"uuid","seed":1,"strategy":"all but SDL","control":true,"mutants":533,"total":659,"cost":0.8083007588562292,"tests":36.74,"score":0.9654054054054055,"random":0.21743243243243252}
+{"repo":"uuid","seed":1,"strategy":"all but ERR","control":false,"mutants":610,"total":659,"cost":0.9254589848593059,"tests":37.295,"score":0.9759459459459435,"random":0.2287837837837836}
+{"repo":"uuid","seed":1,"strategy":"all but ERR","control":true,"mutants":610,"total":659,"cost":0.9255700639943083,"tests":37.655,"score":0.9872972972972974,"random":0.2237837837837838}
+{"repo":"uuid","seed":1,"strategy":"one per line","control":false,"mutants":235,"total":659,"cost":0.35805822106016416,"tests":34.754999999999995,"score":0.9193243243243245,"random":0.20905405405405406}
+{"repo":"uuid","seed":1,"strategy":"one per line","control":true,"mutants":235,"total":659,"cost":0.35663150301068025,"tests":29.334999999999997,"score":0.7635135135135136,"random":0.17621621621621622}
+{"repo":"uuid","seed":2,"strategy":"all","control":false,"mutants":659,"total":659,"cost":1.0000000000000007,"tests":38.02,"score":1,"random":0.22594594594594608}
+{"repo":"uuid","seed":2,"strategy":"ROR only","control":false,"mutants":213,"total":659,"cost":0.3162643286702492,"tests":13.83,"score":0.3560810810810812,"random":0.08918918918918918}
+{"repo":"uuid","seed":2,"strategy":"ROR only","control":true,"mutants":213,"total":659,"cost":0.3232636023299524,"tests":27.954999999999995,"score":0.7347297297297299,"random":0.17824324324324325}
+{"repo":"uuid","seed":2,"strategy":"COR only","control":false,"mutants":114,"total":659,"cost":0.17463293656327591,"tests":26.505,"score":0.7020270270270279,"random":0.16013513513513536}
+{"repo":"uuid","seed":2,"strategy":"COR only","control":true,"mutants":114,"total":659,"cost":0.17322906373847485,"tests":22.05,"score":0.5728378378378379,"random":0.14121621621621622}
+{"repo":"uuid","seed":2,"strategy":"AOR only","control":false,"mutants":157,"total":659,"cost":0.24455464348143657,"tests":11.69,"score":0.31527027027027044,"random":0.07864864864864865}
+{"repo":"uuid","seed":2,"strategy":"AOR only","control":true,"mutants":157,"total":659,"cost":0.23842313931924433,"tests":25.345000000000006,"score":0.662972972972973,"random":0.1468918918918919}
+{"repo":"uuid","seed":2,"strategy":"SDL only","control":false,"mutants":126,"total":659,"cost":0.1900070761443431,"tests":20.33,"score":0.5464864864864876,"random":0.12297297297297309}
+{"repo":"uuid","seed":2,"strategy":"SDL only","control":true,"mutants":126,"total":659,"cost":0.1905689704323989,"tests":22.759999999999998,"score":0.5913513513513513,"random":0.14662162162162165}
+{"repo":"uuid","seed":2,"strategy":"ERR only","control":false,"mutants":49,"total":659,"cost":0.07454101514069492,"tests":16.39,"score":0.43608108108108096,"random":0.10635135135135144}
+{"repo":"uuid","seed":2,"strategy":"ERR only","control":true,"mutants":49,"total":659,"cost":0.07460215998457256,"tests":14.829999999999995,"score":0.38729729729729734,"random":0.09540540540540542}
+{"repo":"uuid","seed":2,"strategy":"all but ROR","control":false,"mutants":446,"total":659,"cost":0.6837356713297514,"tests":37.325,"score":0.9821621621621601,"random":0.22743243243243247}
+{"repo":"uuid","seed":2,"strategy":"all but ROR","control":true,"mutants":446,"total":659,"cost":0.6772056555462589,"tests":35.38999999999999,"score":0.9287837837837838,"random":0.2098648648648649}
+{"repo":"uuid","seed":2,"strategy":"all but COR","control":false,"mutants":545,"total":659,"cost":0.8253670634367252,"tests":32.9,"score":0.8625675675675695,"random":0.19878378378378392}
+{"repo":"uuid","seed":2,"strategy":"all but COR","control":true,"mutants":545,"total":659,"cost":0.8266911418146003,"tests":36.989999999999995,"score":0.9689189189189191,"random":0.23013513513513514}
+{"repo":"uuid","seed":2,"strategy":"all but AOR","control":false,"mutants":502,"total":659,"cost":0.755445356518564,"tests":37.32,"score":0.9841891891891876,"random":0.22405405405405399}
+{"repo":"uuid","seed":2,"strategy":"all but AOR","control":true,"mutants":502,"total":659,"cost":0.7617133305039354,"tests":35.879999999999995,"score":0.9427027027027031,"random":0.20945945945945948}
+{"repo":"uuid","seed":2,"strategy":"all but SDL","control":false,"mutants":533,"total":659,"cost":0.8099929238556574,"tests":33.705,"score":0.8898648648648658,"random":0.20472972972972972}
+{"repo":"uuid","seed":2,"strategy":"all but SDL","control":true,"mutants":533,"total":659,"cost":0.8089569371108241,"tests":36.384999999999984,"score":0.9572972972972973,"random":0.21851351351351353}
+{"repo":"uuid","seed":2,"strategy":"all but ERR","control":false,"mutants":610,"total":659,"cost":0.9254589848593059,"tests":37.23,"score":0.9762162162162137,"random":0.21932432432432442}
+{"repo":"uuid","seed":2,"strategy":"all but ERR","control":true,"mutants":610,"total":659,"cost":0.9259161732487271,"tests":37.635,"score":0.9855405405405409,"random":0.2313513513513513}
+{"repo":"uuid","seed":2,"strategy":"one per line","control":false,"mutants":235,"total":659,"cost":0.3580572022456575,"tests":34.8,"score":0.9189189189189193,"random":0.21162162162162165}
+{"repo":"uuid","seed":2,"strategy":"one per line","control":true,"mutants":235,"total":659,"cost":0.3567171024110813,"tests":29.084999999999997,"score":0.7585135135135135,"random":0.1783783783783784}
+{"repo":"uuid","seed":3,"strategy":"all","control":false,"mutants":659,"total":659,"cost":1.0000000000000007,"tests":37.96,"score":1,"random":0.22743243243243252}
+{"repo":"uuid","seed":3,"strategy":"ROR only","control":false,"mutants":213,"total":659,"cost":0.3162643286702492,"tests":13.81,"score":0.3558108108108109,"random":0.0891891891891892}
+{"repo":"uuid","seed":3,"strategy":"ROR only","control":true,"mutants":213,"total":659,"cost":0.3234177052199375,"tests":28.079999999999995,"score":0.731081081081081,"random":0.17351351351351352}
+{"repo":"uuid","seed":3,"strategy":"COR only","control":false,"mutants":114,"total":659,"cost":0.17463293656327591,"tests":26.605,"score":0.7017567567567577,"random":0.17108108108108105}
+{"repo":"uuid","seed":3,"strategy":"COR only","control":true,"mutants":114,"total":659,"cost":0.17307065339936012,"tests":22.505000000000003,"score":0.5879729729729729,"random":0.13256756756756757}
+{"repo":"uuid","seed":3,"strategy":"AOR only","control":false,"mutants":157,"total":659,"cost":0.24455464348143657,"tests":11.715,"score":0.31540540540540557,"random":0.07351351351351348}
+{"repo":"uuid","seed":3,"strategy":"AOR only","control":true,"mutants":157,"total":659,"cost":0.2380764222228388,"tests":24.699999999999996,"score":0.6506756756756755,"random":0.15243243243243249}
+{"repo":"uuid","seed":3,"strategy":"SDL only","control":false,"mutants":126,"total":659,"cost":0.1900070761443431,"tests":20.43,"score":0.5444594594594604,"random":0.13054054054054062}
+{"repo":"uuid","seed":3,"strategy":"SDL only","control":true,"mutants":126,"total":659,"cost":0.1907976952211608,"tests":23.229999999999997,"score":0.6087837837837838,"random":0.14554054054054055}
+{"repo":"uuid","seed":3,"strategy":"ERR only","control":false,"mutants":49,"total":659,"cost":0.07454101514069492,"tests":16.535,"score":0.43648648648648636,"random":0.10797297297297302}
+{"repo":"uuid","seed":3,"strategy":"ERR only","control":true,"mutants":49,"total":659,"cost":0.07424307605842703,"tests":14.715,"score":0.3858108108108109,"random":0.09283783783783785}
+{"repo":"uuid","seed":3,"strategy":"all but ROR","control":false,"mutants":446,"total":659,"cost":0.6837356713297514,"tests":37.395,"score":0.9828378378378361,"random":0.22500000000000003}
+{"repo":"uuid","seed":3,"strategy":"all but ROR","control":true,"mutants":446,"total":659,"cost":0.6778421587048064,"tests":35.31,"score":0.9227027027027027,"random":0.21702702702702706}
+{"repo":"uuid","seed":3,"strategy":"all but COR","control":false,"mutants":545,"total":659,"cost":0.8253670634367252,"tests":33.025,"score":0.861216216216218,"random":0.2002702702702704}
+{"repo":"uuid","seed":3,"strategy":"all but COR","control":true,"mutants":545,"total":659,"cost":0.8270015136948379,"tests":36.83,"score":0.9643243243243245,"random":0.22337837837837843}
+{"repo":"uuid","seed":3,"strategy":"all but AOR","control":false,"mutants":502,"total":659,"cost":0.755445356518564,"tests":37.385,"score":0.9848648648648632,"random":0.2233783783783783}
+{"repo":"uuid","seed":3,"strategy":"all but AOR","control":true,"mutants":502,"total":659,"cost":0.7616050714152124,"tests":35.975,"score":0.9459459459459462,"random":0.22094594594594597}
+{"repo":"uuid","seed":3,"strategy":"all but SDL","control":false,"mutants":533,"total":659,"cost":0.8099929238556574,"tests":33.41,"score":0.8854054054054065,"random":0.20229729729729723}
+{"repo":"uuid","seed":3,"strategy":"all but SDL","control":true,"mutants":533,"total":659,"cost":0.8086650959089159,"tests":36.480000000000004,"score":0.958918918918919,"random":0.22162162162162166}
+{"repo":"uuid","seed":3,"strategy":"all but ERR","control":false,"mutants":610,"total":659,"cost":0.9254589848593059,"tests":37.175,"score":0.9751351351351327,"random":0.22229729729729736}
+{"repo":"uuid","seed":3,"strategy":"all but ERR","control":true,"mutants":610,"total":659,"cost":0.9259962193391559,"tests":37.8,"score":0.9897297297297296,"random":0.2291891891891893}
+{"repo":"uuid","seed":3,"strategy":"one per line","control":false,"mutants":235,"total":659,"cost":0.3579409335634963,"tests":35.029999999999994,"score":0.923918918918919,"random":0.20891891891891895}
+{"repo":"uuid","seed":3,"strategy":"one per line","control":true,"mutants":235,"total":659,"cost":0.3561144629603814,"tests":28.529999999999994,"score":0.7490540540540542,"random":0.17770270270270275}
+{"repo":"uuid","seed":4,"strategy":"all","control":false,"mutants":659,"total":659,"cost":1.0000000000000007,"tests":37.99,"score":1,"random":0.23891891891891906}
+{"repo":"uuid","seed":4,"strategy":"ROR only","control":false,"mutants":213,"total":659,"cost":0.3162643286702492,"tests":13.765,"score":0.3541891891891894,"random":0.09067567567567568}
+{"repo":"uuid","seed":4,"strategy":"ROR only","control":true,"mutants":213,"total":659,"cost":0.3228313445860723,"tests":28.025,"score":0.7363513513513512,"random":0.16743243243243244}
+{"repo":"uuid","seed":4,"strategy":"COR only","control":false,"mutants":114,"total":659,"cost":0.17463293656327591,"tests":26.365,"score":0.6987837837837851,"random":0.1586486486486488}
+{"repo":"uuid","seed":4,"strategy":"COR only","control":true,"mutants":114,"total":659,"cost":0.173280094076011,"tests":22.025000000000006,"score":0.5775675675675676,"random":0.13743243243243247}
+{"repo":"uuid","seed":4,"strategy":"AOR only","control":false,"mutants":157,"total":659,"cost":0.24455464348143657,"tests":11.6,"score":0.31648648648648675,"random":0.0737837837837838}
+{"repo":"uuid","seed":4,"strategy":"AOR only","control":true,"mutants":157,"total":659,"cost":0.238382358449334,"tests":25.034999999999997,"score":0.6544594594594594,"random":0.15445945945945944}
+{"repo":"uuid","seed":4,"strategy":"SDL only","control":false,"mutants":126,"total":659,"cost":0.1900070761443431,"tests":20.33,"score":0.5443243243243255,"random":0.13108108108108119}
+{"repo":"uuid","seed":4,"strategy":"SDL only","control":true,"mutants":126,"total":659,"cost":0.19134232991216624,"tests":23.47,"score":0.6139189189189188,"random":0.13932432432432434}
+{"repo":"uuid","seed":4,"strategy":"ERR only","control":false,"mutants":49,"total":659,"cost":0.07454101514069492,"tests":16.435,"score":0.437297297297297,"random":0.1024324324324325}
+{"repo":"uuid","seed":4,"strategy":"ERR only","control":true,"mutants":49,"total":659,"cost":0.07430372594349359,"tests":14.745000000000001,"score":0.38662162162162167,"random":0.08513513513513514}
+{"repo":"uuid","seed":4,"strategy":"all but ROR","control":false,"mutants":446,"total":659,"cost":0.6837356713297514,"tests":37.31,"score":0.9824324324324307,"random":0.22000000000000008}
+{"repo":"uuid","seed":4,"strategy":"all but ROR","control":true,"mutants":446,"total":659,"cost":0.676486210480089,"tests":35.17,"score":0.9200000000000002,"random":0.21648648648648652}
+{"repo":"uuid","seed":4,"strategy":"all but COR","control":false,"mutants":545,"total":659,"cost":0.8253670634367252,"tests":32.845,"score":0.8625675675675688,"random":0.1986486486486487}
+{"repo":"uuid","seed":4,"strategy":"all but COR","control":true,"mutants":545,"total":659,"cost":0.8267392430121259,"tests":36.485,"score":0.9610810810810809,"random":0.2182432432432432}
+{"repo":"uuid","seed":4,"strategy":"all but AOR","control":false,"mutants":502,"total":659,"cost":0.755445356518564,"tests":37.495,"score":0.9840540540540527,"random":0.22391891891891894}
+{"repo":"uuid","seed":4,"strategy":"all but AOR","control":true,"mutants":502,"total":659,"cost":0.7621566365270928,"tests":36.17,"score":0.9441891891891891,"random":0.22351351351351342}
+{"repo":"uuid","seed":4,"strategy":"all but SDL","control":false,"mutants":533,"total":659,"cost":0.8099929238556574,"tests":33.65,"score":0.8889189189189197,"random":0.21594594594594582}
+{"repo":"uuid","seed":4,"strategy":"all but SDL","control":true,"mutants":533,"total":659,"cost":0.8088083176512677,"tests":36.68499999999999,"score":0.9628378378378377,"random":0.22635135135135137}
+{"repo":"uuid","seed":4,"strategy":"all but ERR","control":false,"mutants":610,"total":659,"cost":0.9254589848593059,"tests":37.305,"score":0.9756756756756733,"random":0.22121621621621607}
+{"repo":"uuid","seed":4,"strategy":"all but ERR","control":true,"mutants":610,"total":659,"cost":0.9255761046582276,"tests":37.67000000000001,"score":0.9899999999999999,"random":0.22108108108108104}
+{"repo":"uuid","seed":4,"strategy":"one per line","control":false,"mutants":235,"total":659,"cost":0.35806248120550466,"tests":34.695,"score":0.915810810810811,"random":0.20824324324324328}
+{"repo":"uuid","seed":4,"strategy":"one per line","control":true,"mutants":235,"total":659,"cost":0.35635362138431037,"tests":29.560000000000002,"score":0.7704054054054051,"random":0.18040540540540537}
+{"repo":"uuid","seed":5,"strategy":"all","control":false,"mutants":659,"total":659,"cost":1.0000000000000007,"tests":38.08,"score":1,"random":0.22756756756756777}
+{"repo":"uuid","seed":5,"strategy":"ROR only","control":false,"mutants":213,"total":659,"cost":0.3162643286702492,"tests":13.675,"score":0.3547297297297298,"random":0.08283783783783777}
+{"repo":"uuid","seed":5,"strategy":"ROR only","control":true,"mutants":213,"total":659,"cost":0.3230941309259071,"tests":27.610000000000003,"score":0.7245945945945946,"random":0.1660810810810811}
+{"repo":"uuid","seed":5,"strategy":"COR only","control":false,"mutants":114,"total":659,"cost":0.17463293656327591,"tests":26.525,"score":0.7035135135135142,"random":0.16297297297297317}
+{"repo":"uuid","seed":5,"strategy":"COR only","control":true,"mutants":114,"total":659,"cost":0.17330739302550302,"tests":22.03,"score":0.5774324324324326,"random":0.13621621621621624}
+{"repo":"uuid","seed":5,"strategy":"AOR only","control":false,"mutants":157,"total":659,"cost":0.24455464348143657,"tests":11.78,"score":0.31581081081081114,"random":0.0747297297297297}
+{"repo":"uuid","seed":5,"strategy":"AOR only","control":true,"mutants":157,"total":659,"cost":0.23857847116339176,"tests":24.769999999999996,"score":0.6485135135135136,"random":0.14027027027027023}
+{"repo":"uuid","seed":5,"strategy":"SDL only","control":false,"mutants":126,"total":659,"cost":0.1900070761443431,"tests":20.39,"score":0.5431081081081093,"random":0.1312162162162163}
+{"repo":"uuid","seed":5,"strategy":"SDL only","control":true,"mutants":126,"total":659,"cost":0.19127491124877724,"tests":23.550000000000004,"score":0.6163513513513512,"random":0.13837837837837838}
+{"repo":"uuid","seed":5,"strategy":"ERR only","control":false,"mutants":49,"total":659,"cost":0.07454101514069492,"tests":16.645,"score":0.4385135135135134,"random":0.10243243243243245}
+{"repo":"uuid","seed":5,"strategy":"ERR only","control":true,"mutants":49,"total":659,"cost":0.07451693239724975,"tests":14.964999999999995,"score":0.3928378378378378,"random":0.09405405405405404}
+{"repo":"uuid","seed":5,"strategy":"all but ROR","control":false,"mutants":446,"total":659,"cost":0.6837356713297514,"tests":37.265,"score":0.9804054054054034,"random":0.23108108108108122}
+{"repo":"uuid","seed":5,"strategy":"all but ROR","control":true,"mutants":446,"total":659,"cost":0.6765357335189004,"tests":35.135000000000005,"score":0.9199999999999999,"random":0.21418918918918922}
+{"repo":"uuid","seed":5,"strategy":"all but COR","control":false,"mutants":545,"total":659,"cost":0.8253670634367252,"tests":32.755,"score":0.8627027027027043,"random":0.19702702702702715}
+{"repo":"uuid","seed":5,"strategy":"all but COR","control":true,"mutants":545,"total":659,"cost":0.8274637986207566,"tests":36.650000000000006,"score":0.9622972972972974,"random":0.22135135135135142}
+{"repo":"uuid","seed":5,"strategy":"all but AOR","control":false,"mutants":502,"total":659,"cost":0.755445356518564,"tests":37.53,"score":0.987162162162161,"random":0.2214864864864865}
+{"repo":"uuid","seed":5,"strategy":"all but AOR","control":true,"mutants":502,"total":659,"cost":0.7618862330171743,"tests":36.290000000000006,"score":0.9485135135135134,"random":0.22459459459459463}
+{"repo":"uuid","seed":5,"strategy":"all but SDL","control":false,"mutants":533,"total":659,"cost":0.8099929238556574,"tests":33.61,"score":0.8852702702702713,"random":0.20040540540540544}
+{"repo":"uuid","seed":5,"strategy":"all but SDL","control":true,"mutants":533,"total":659,"cost":0.8088097060274153,"tests":36.69000000000002,"score":0.9585135135135134,"random":0.22513513513513517}
+{"repo":"uuid","seed":5,"strategy":"all but ERR","control":false,"mutants":610,"total":659,"cost":0.9254589848593059,"tests":37.05,"score":0.9752702702702678,"random":0.2241891891891893}
+{"repo":"uuid","seed":5,"strategy":"all but ERR","control":true,"mutants":610,"total":659,"cost":0.9261589733390121,"tests":37.324999999999996,"score":0.9828378378378378,"random":0.2231081081081081}
+{"repo":"uuid","seed":5,"strategy":"one per line","control":false,"mutants":235,"total":659,"cost":0.3581514435896765,"tests":34.93,"score":0.9200000000000002,"random":0.2191891891891892}
+{"repo":"uuid","seed":5,"strategy":"one per line","control":true,"mutants":235,"total":659,"cost":0.35667292011185814,"tests":29.064999999999998,"score":0.7639189189189192,"random":0.17729729729729732}
