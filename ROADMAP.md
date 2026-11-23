@@ -53,33 +53,6 @@ selection, `-j 1` and extreme runs), verdicts of three services
   contexts;
 - a place to publish (Zenodo gives a DOI) and a citation.
 
-### Wild-caught mutants: operators from the corpus' own bug fixes
-Invert real fixes into operators (Beller et al., *What it would take to use
-mutation testing in industry*, ICSE SEIP 2021, call them wild-caught
-mutants): a fix that turned `x > n` into `x >= n` yields `>=` → `>`. This
-is not learning from a large corpus; it needs only the fix pairs §10
-already holds.
-
-The 12 real faults of §10 that no mutant on the fix's lines stands for say
-which operators to try. Their fixes (2026-11-23):
-
-| Pattern | Faults | Example fix | Inverse operator |
-|---|---:|---|---|
-| String or regexp literal | 6 | `\s*-\s*` → `\s+-\s+`; a space added to a `Sprintf` format | change a character, class or quantifier inside a literal |
-| Defensive copy | 2 | return a copy of `v.segments`; `new(big.Int).Set(b)` | return the original instead of the copy |
-| Error instead of panic | 1 | `panic(err)` → `return nil, err` | `return ..., err` → `panic(err)` |
-| Larger rewrite or refactor | 3 | | none |
-
-None of these is in `Find` today, so literal mutation comes first.
-
-The trap: operators derived from these 12 faults and measured on the same
-12 prove nothing. Measure on held-out faults: derive from some
-repositories and score the others, or mine more fixes with `cmd/faults`
-from repositories outside the corpus. The question to answer is the one
-§10 asks: does the share of faults coupled to a mutant on the fix's lines
-rise above 74%, and at what cost in mutants (literals are everywhere, so
-expect many, and many equivalent: a regexp's redundant character)?
-
 ### Arid rules: what they miss
 §13: every tagged survivor was unproductive, but 1 of 21 untagged ones was
 too: a mutant in an error message's arguments (`spec[eq+1:i]` quoted in
@@ -126,6 +99,14 @@ Kept so they are not retried without new evidence.
   original right away** (§13): the first keeps kills a loaded machine
   invents, the second throws away real ones. Kills the original also fails
   are rechecked alone at the end.
+- **Wild-caught operators** (§14): LIT, CPY and PNC, inverted from the
+  fixes of the 12 faults no old mutant stood for. They coupled 5 more of
+  the corpus' faults, the ones they came from, and none of 45 held-out
+  faults from five other repositories, for 15% more mutants. The code is
+  at tag `experiment/wild-caught` (`git checkout experiment/wild-caught --
+  mutant/mutant.go mutant/embed.go`). Worth retrying only with many more
+  held-out faults, such as govalidator's 60 candidates, which were left
+  unfinished.
 - **Single operators** (§2): ROR or AOR alone loses to as many random
   mutants; dropping any one operator is no better than dropping random
   ones. COR alone and one mutant per line beat random.

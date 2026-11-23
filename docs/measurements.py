@@ -915,6 +915,73 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
+def _(alt, db, mo, pd, title):
+    _docs = mo.notebook_dir()
+    _wild = "coalesce((to_json(coupled_on_fix_operators)->>'LIT')::int, 0) + coalesce((to_json(coupled_on_fix_operators)->>'CPY')::int, 0) + coalesce((to_json(coupled_on_fix_operators)->>'PNC')::int, 0)"
+    _f = db.sql(f"""
+        with f as (
+            select 'corpus (operators derived here)' grp, *, {_wild} wild from read_json_auto('{_docs}/data-faults-wild/*.ndjson', union_by_name=true) where status = 'ok'
+            union all by name
+            select 'held out (five other repositories)' grp, *, {_wild} wild from read_json_auto('{_docs}/data-faults-heldout/*.ndjson', union_by_name=true) where status = 'ok'
+        )
+        select grp, count(*) faults,
+            count(*) filter (where coupled_on_fix - wild > 0) old_ops,
+            count(*) filter (where coupled_on_fix > 0) with_wild,
+            avg(chance_on_fix) filter (where chance_on_fix >= 0) chance
+        from f group by grp
+    """).df()
+    _gained = db.sql(f"""
+        select repo, left(subject, 60) subject, to_json(coupled_on_fix_operators) ops
+        from read_json_auto('{_docs}/data-faults-wild/*.ndjson', union_by_name=true)
+        where status = 'ok' and coupled_on_fix > 0 and coupled_on_fix = {_wild}
+    """).df()
+    _long = pd.concat(
+        [
+            _f.assign(ops="old operators", share=_f.old_ops / _f.faults),
+            _f.assign(ops="with LIT, CPY, PNC", share=_f.with_wild / _f.faults),
+        ]
+    )
+    _long["label"] = _long.share.map(lambda x: f"{x:.0%}")
+    _bars = (
+        alt.Chart(_long)
+        .mark_bar()
+        .encode(
+            x=alt.X("share:Q", title="real faults coupled to a mutant on the fix's lines", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+            y=alt.Y("grp:N", title=None, sort=["corpus (operators derived here)", "held out (five other repositories)"]),
+            yOffset=alt.YOffset("ops:N", sort=["old operators", "with LIT, CPY, PNC"]),
+            color=alt.Color("ops:N", scale=alt.Scale(domain=["old operators", "with LIT, CPY, PNC"], range=["#9e9e9e", "#4c78a8"]), title=None, legend=alt.Legend(orient="top")),
+            tooltip=["grp", "ops", "faults", alt.Tooltip("share:Q", format=".1%")],
+        )
+    )
+    _text = _bars.mark_text(align="left", dx=4, fontSize=11).encode(text="label:N", color=alt.value("black"))
+    _h = _f.set_index("grp").loc["held out (five other repositories)"]
+    _chart = (_bars + _text).properties(
+        width=520,
+        height=150,
+        title=title(
+            f"Operators inverted from fixes add nothing on held-out faults: {int(_h.old_ops)} of {int(_h.faults)} coupled either way",
+            "Wild-caught operators: LIT (string and regexp literals), CPY (defensive copies), PNC (panic instead of returning the error).",
+        ),
+    )
+    _md = "| repo | fix | operator that couples it |\n|---|---|---|\n" + "".join(f"| {r.repo} | {r.subject} | `{r.ops}` |\n" for r in _gained.itertuples())
+    mo.vstack(
+        [
+            mo.md("## 14. Do operators inverted from real fixes help? (wild-caught mutants)"),
+            _chart,
+            mo.md(rf"""
+            - **Idea:** invert the corpus' own bug fixes into operators (Beller et al., ICSE SEIP 2021). Of the 12 faults of §10 that no mutant on the fix's lines stood for, 6 were fixes to string or regexp literals, 2 to defensive copies and 1 turned a panic into an error; LIT, CPY and PNC invert them.
+            - **On the faults they came from** they couple {len(_gained)} more (table below): expected, and proof of nothing.
+            - **On held-out faults** mined from blang/semver, spf13/cast, mitchellh/mapstructure, gorilla/mux and iancoleman/strcase, they couple none the old operators miss. govalidator, the most regexp-heavy candidate, was stopped after 71 minutes unfinished.
+            - **Cost:** 770 more mutants on the six libraries, 15% more (counted with the code at the tag).
+            - **Decision:** dropped. The code is at tag `experiment/wild-caught`; this section reads the stored runs (`data-faults-wild/`, `data-faults-heldout/`).
+            """),
+            mo.accordion({"Faults coupled only by the new operators": mo.md(_md)}),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
@@ -949,7 +1016,11 @@ def _(mo):
     SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh retryablehttp cron yamux
     uv run python mutant/docs/labels/sample_arid.py "$CORPUS_CACHE" > mutant/docs/labels/arid-sample.ndjson
 
-    # Sections 4-13 query the data directly; view everything
+    # Section 14: with the code at tag experiment/wild-caught, cmd/faults
+    # over the corpus (data-faults-wild/) and over held-out repositories
+    # (data-faults-heldout/)
+
+    # Sections 4-14 query the data directly; view everything
     make mutant-measurements
     ```
     """)
