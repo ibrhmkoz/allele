@@ -1,6 +1,6 @@
-{"repo":"glob","mutants":1205,"compiled":1105,"killable":643,"dominators":25,"tests":263,"raw_score":0.5819004524886878}
-{"repo":"go-humanize","mutants":1136,"compiled":1085,"killable":947,"dominators":31,"tests":82,"raw_score":0.8728110599078341}
-{"repo":"go-version","mutants":540,"compiled":522,"killable":432,"dominators":20,"tests":36,"raw_score":0.8275862068965517}
-{"repo":"semver","mutants":1215,"compiled":1176,"killable":903,"dominators":33,"tests":86,"raw_score":0.7678571428571429}
-{"repo":"shlex","mutants":95,"compiled":93,"killable":55,"dominators":2,"tests":4,"raw_score":0.5913978494623656}
-{"repo":"uuid","mutants":698,"compiled":659,"killable":450,"dominators":37,"tests":206,"raw_score":0.6828528072837633}
+{"repo":"glob","mutants":1205,"compiled":1199,"killable":698,"dominators":27,"dominators_unrepaired":24,"repaired":115,"equivalent":17,"tests":263,"raw_score":0.5821517931609674}
+{"repo":"go-humanize","mutants":1136,"compiled":1112,"killable":971,"dominators":32,"dominators_unrepaired":31,"repaired":27,"equivalent":4,"tests":82,"raw_score":0.8732014388489209}
+{"repo":"go-version","mutants":540,"compiled":540,"killable":450,"dominators":20,"dominators_unrepaired":20,"repaired":20,"equivalent":3,"tests":36,"raw_score":0.8333333333333334}
+{"repo":"semver","mutants":1215,"compiled":1215,"killable":940,"dominators":33,"dominators_unrepaired":32,"repaired":42,"equivalent":13,"tests":86,"raw_score":0.7736625514403292}
+{"repo":"shlex","mutants":95,"compiled":95,"killable":57,"dominators":2,"dominators_unrepaired":2,"repaired":2,"equivalent":0,"tests":4,"raw_score":0.6}
+{"repo":"uuid","mutants":698,"compiled":689,"killable":468,"dominators":36,"dominators_unrepaired":35,"repaired":36,"equivalent":3,"tests":206,"raw_score":0.6792452830188679}

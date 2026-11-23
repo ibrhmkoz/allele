@@ -118,7 +118,7 @@ func Sum(xs []int) int {
 				discount.go:8:9 AOR total += xs[i] → total *= xs[i]
 				discount.go:8:9 AOR total += xs[i] → total /= xs[i]
 				discount.go:8:9 AOR total += xs[i] → total %= xs[i]
-				discount.go:9:3 SDL fmt.Println(total) → (deleted)
+				discount.go:9:3 SDL fmt.Println(total) → _ = fmt.Println
 			`,
 		},
 		{
@@ -182,6 +182,61 @@ func last(xs []int) (n int) {
 `,
 			want: `
 				discount.go:5:3 SDL n = x → _ = x
+			`,
+		},
+		{
+			name: "a condition that holds the only use of an import keeps it used",
+			src: `package p
+
+import "strings"
+
+func trim(s string) string {
+	if strings.HasPrefix(s, " ") {
+		return s[1:]
+	}
+	return s
+}
+`,
+			want: `
+				discount.go:6:5 COR strings.HasPrefix(s, " ") → func() bool { _ = strings.HasPrefix; return true }()
+				discount.go:6:5 COR strings.HasPrefix(s, " ") → func() bool { _ = strings.HasPrefix; return false }()
+			`,
+		},
+		{
+			name: "returning nil instead of the only use of err or of an import keeps them used",
+			src: `package p
+
+import (
+	"fmt"
+	"strconv"
+)
+
+func parse(s string) (int, error) {
+	n, err := strconv.Atoi(s)
+	return n, err
+}
+
+func check(n int) error {
+	return fmt.Errorf("bad %d", n)
+}
+`,
+			want: `
+				discount.go:10:12 ERR return n, err → return n, func() error { _ = err; return nil }()
+				discount.go:14:9 ERR return fmt.Errorf("bad %d", n) → return func() error { _ = fmt.Errorf; return nil }()
+			`,
+		},
+		{
+			name: "names declared inside a deleted statement go with it",
+			src: `package p
+
+func setup() func() int {
+	var get func() int
+	get = func() int { n := 2; return n }
+	return get
+}
+`,
+			want: `
+				discount.go:5:2 SDL get = func() int { n := 2; return n } → (deleted)
 			`,
 		},
 		{

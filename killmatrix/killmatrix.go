@@ -358,9 +358,10 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 }
 
 // build compiles the test binary of the package in dir into bin, with the
-// files in overlay, if given, replacing the originals.
+// files in overlay, if given, replacing the originals. Vet is off: it
+// rejects mutants that compile, such as c != 'a' || c != 'b'.
 func build(ctx context.Context, dir, bin, overlay string) ([]byte, error) {
-	args := []string{"test", "-c", "-o", bin}
+	args := []string{"test", "-c", "-vet=off", "-o", bin}
 	if overlay != "" {
 		args = append(args, "-overlay", overlay)
 	}

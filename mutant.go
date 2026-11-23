@@ -48,7 +48,8 @@ type Mutant struct {
 	// matrix can check the rule: a killed one would prove it wrong.
 	Equivalent string
 	// Repaired is set when the change removes the only use of a local
-	// variable, which Go rejects, and the mutant uses it with _ = x.
+	// variable or an import, which Go rejects, and the mutant keeps it used
+	// with _ = x.
 	Repaired bool
 
 	start, end int
@@ -91,14 +92,24 @@ type finder struct {
 	src   []byte
 	info  *types.Info
 	found []Mutant
-	// uses holds where each local variable of the file is used, in the
-	// compiler's sense: x = v is not a use of x, x++ and x += v are.
-	uses map[*types.Var][]token.Pos
+	// uses holds where each local variable and each import of the file is
+	// used, in the compiler's sense: x = v is not a use of x, x++ and
+	// x += v are.
+	uses map[types.Object][]use
+}
+
+// use is one use of a local or an import. expr is an expression that
+// uses it the same way: the variable's name, or pkg.Name for an import
+// used for a value; "" for an import used only for a type.
+type use struct {
+	pos  token.Pos
+	expr string
 }
 
 func (f *finder) indexUses(file *ast.File) {
 	assigned := map[*ast.Ident]bool{}
 	params := map[*types.Var]bool{}
+	selected := map[*ast.Ident]string{} // package ident of pkg.Name → "pkg.Name" when Name is a value
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.AssignStmt:
@@ -125,53 +136,88 @@ func (f *finder) indexUses(file *ast.File) {
 					}
 				}
 			}
+		case *ast.SelectorExpr:
+			if x, ok := n.X.(*ast.Ident); ok {
+				switch f.info.Uses[n.Sel].(type) {
+				case *types.Func, *types.Var, *types.Const:
+					selected[x] = x.Name + "." + n.Sel.Name
+				}
+			}
 		}
 		return true
 	})
-	f.uses = map[*types.Var][]token.Pos{}
+	f.uses = map[types.Object][]use{}
 	for id, obj := range f.info.Uses {
-		v, ok := obj.(*types.Var)
-		if !ok || id.Pos() < file.Pos() || id.Pos() >= file.End() || assigned[id] || params[v] || v.IsField() || v.Pkg() == nil || v.Parent() == v.Pkg().Scope() {
+		if id.Pos() < file.Pos() || id.Pos() >= file.End() {
 			continue
 		}
-		f.uses[v] = append(f.uses[v], id.Pos())
+		switch o := obj.(type) {
+		case *types.PkgName:
+			f.uses[o] = append(f.uses[o], use{id.Pos(), selected[id]})
+		case *types.Var:
+			if assigned[id] || params[o] || o.IsField() || o.Pkg() == nil || o.Parent() == o.Pkg().Scope() {
+				continue
+			}
+			f.uses[o] = append(f.uses[o], use{id.Pos(), o.Name()})
+		}
 	}
 }
 
-// orphans returns, in order of first use, the locals whose every use lies
-// in n: removing n leaves them declared and not used.
-func (f *finder) orphans(n ast.Node) []string {
+// orphans returns expressions that keep used, in order of first use, the
+// locals and imports declared outside n whose every use lies in n:
+// removing n would leave them unused, which Go rejects. ok is false when
+// one is an import used in n only for a type, which no expression can use.
+func (f *finder) orphans(n ast.Node) (exprs []string, ok bool) {
 	type orphan struct {
-		name  string
+		expr  string
 		first token.Pos
 	}
 	var found []orphan
-	for v, uses := range f.uses {
-		first, inside := token.NoPos, true
-		for _, p := range uses {
-			if p < n.Pos() || p >= n.End() {
-				inside = false
+	for obj, uses := range f.uses {
+		if obj.Pos() >= n.Pos() && obj.Pos() < n.End() {
+			continue // declared in n, removed with it
+		}
+		first, expr := token.NoPos, ""
+		for _, u := range uses {
+			if u.pos < n.Pos() || u.pos >= n.End() {
+				first = token.NoPos
 				break
 			}
-			if first == token.NoPos || p < first {
-				first = p
+			if first == token.NoPos || u.pos < first {
+				first = u.pos
+			}
+			if expr == "" {
+				expr = u.expr
 			}
 		}
-		if inside && first != token.NoPos {
-			found = append(found, orphan{v.Name(), first})
+		if first == token.NoPos {
+			continue
 		}
+		if expr == "" {
+			return nil, false
+		}
+		found = append(found, orphan{expr, first})
 	}
 	slices.SortFunc(found, func(a, b orphan) int { return int(a.first - b.first) })
-	names := make([]string, len(found))
-	for i, o := range found {
-		names[i] = o.name
+	for _, o := range found {
+		exprs = append(exprs, o.expr)
 	}
-	return names
+	return exprs, true
 }
 
-// blank returns a statement that uses names: _ = a, or _, _ = a, b.
-func blank(names []string) string {
-	return strings.Repeat("_, ", len(names)-1) + "_ = " + strings.Join(names, ", ")
+// repair returns text, or when n holds the only use of something, a
+// function literal of type typ that keeps it used and then returns text.
+func (f *finder) repair(n ast.Node, typ, text string) (string, bool) {
+	exprs, ok := f.orphans(n)
+	if !ok || len(exprs) == 0 {
+		return text, false
+	}
+	return "func() " + typ + " { " + blank(exprs) + "; return " + text + " }()", true
+}
+
+// blank returns a statement that uses exprs: _ = a, or _, _ = a, b.
+func blank(exprs []string) string {
+	return strings.Repeat("_, ", len(exprs)-1) + "_ = " + strings.Join(exprs, ", ")
 }
 
 var (
@@ -183,14 +229,9 @@ var (
 func (f *finder) visit(n ast.Node) bool {
 	switch n := n.(type) {
 	case *ast.IfStmt:
-		orphans := f.orphans(n.Cond)
 		for _, lit := range []string{"true", "false"} {
-			if len(orphans) == 0 {
-				f.add(COR, n, n.Cond, n.Cond.Pos(), n.Cond.End(), lit)
-				continue
-			}
-			m := f.add(COR, n, n.Cond, n.Cond.Pos(), n.Cond.End(), "func() bool { "+blank(orphans)+"; return "+lit+" }()")
-			m.Repaired = true
+			text, repaired := f.repair(n.Cond, "bool", lit)
+			f.add(COR, n, n.Cond, n.Cond.Pos(), n.Cond.End(), text).Repaired = repaired
 		}
 	case *ast.BinaryExpr:
 		f.binary(n)
@@ -202,7 +243,8 @@ func (f *finder) visit(n ast.Node) bool {
 		}
 		last := n.Results[len(n.Results)-1]
 		if tv := f.info.Types[last]; !tv.IsNil() && implementsError(tv.Type) {
-			f.add(ERR, n, n, last.Pos(), last.End(), "nil")
+			text, repaired := f.repair(last, "error", "nil")
+			f.add(ERR, n, n, last.Pos(), last.End(), text).Repaired = repaired
 		}
 	// Statements are deleted only from statement lists: deleting a for
 	// loop's post statement or a select case's receive breaks the syntax.
@@ -364,8 +406,8 @@ func (f *finder) deleteEach(list []ast.Stmt) {
 }
 
 func (f *finder) delete(s ast.Stmt) {
-	if orphans := f.orphans(s); len(orphans) > 0 {
-		f.add(SDL, s, s, s.Pos(), s.End(), blank(orphans)).Repaired = true
+	if exprs, ok := f.orphans(s); ok && len(exprs) > 0 {
+		f.add(SDL, s, s, s.Pos(), s.End(), blank(exprs)).Repaired = true
 		return
 	}
 	f.add(SDL, s, s, s.Pos(), s.End(), "")

@@ -31,7 +31,7 @@ import (
 
 func main() {
 	out := flag.String("o", ".", "directory to write summary.ndjson and strategies.ndjson to")
-	seeds := flag.Int("seeds", 5, "independent simulations per strategy, seeded 1 to n, to show the simulation's own noise")
+	seeds := flag.Int("seeds", 30, "independent simulations per strategy, seeded 1 to n, to show the simulation's own noise")
 	flag.Parse()
 	if err := run(*out, *seeds, flag.Args()); err != nil {
 		fmt.Fprintln(os.Stderr, "simulate:", err)
@@ -40,13 +40,18 @@ func main() {
 }
 
 type summary struct {
-	Repo       string  `json:"repo"`
-	Mutants    int     `json:"mutants"`
-	Compiled   int     `json:"compiled"`
-	Killable   int     `json:"killable"`
-	Dominators int     `json:"dominators"`
-	Tests      int     `json:"tests"`
-	RawScore   float64 `json:"raw_score"`
+	Repo       string `json:"repo"`
+	Mutants    int    `json:"mutants"`
+	Compiled   int    `json:"compiled"`
+	Killable   int    `json:"killable"`
+	Dominators int    `json:"dominators"`
+	// DominatorsUnrepaired counts dominators when repaired mutants are
+	// dropped instead, as a tool that skips them would.
+	DominatorsUnrepaired int     `json:"dominators_unrepaired"`
+	Repaired             int     `json:"repaired"`
+	Equivalent           int     `json:"equivalent"`
+	Tests                int     `json:"tests"`
+	RawScore             float64 `json:"raw_score"`
 }
 
 type outcome struct {
@@ -89,6 +94,7 @@ type repo struct {
 	all      int
 	cost     []float64 // build plus test time of mutant i
 	killable int
+	kills    []adequacy.Set
 	matrix   *adequacy.Matrix
 }
 
@@ -144,19 +150,35 @@ func load(dir string) (*repo, error) {
 			rp.killable++
 		}
 	}
+	rp.kills = kills
 	rp.matrix = adequacy.New(len(testIndex), kills)
 	return rp, nil
 }
 
 func (rp *repo) summary() summary {
+	repaired, equivalent := 0, 0
+	var kept []adequacy.Set
+	for i, m := range rp.mutants {
+		if m.Equivalent != "" {
+			equivalent++
+		}
+		if m.Repaired {
+			repaired++
+			continue
+		}
+		kept = append(kept, rp.kills[i])
+	}
 	return summary{
-		Repo:       rp.name,
-		Mutants:    rp.all,
-		Compiled:   len(rp.mutants),
-		Killable:   rp.killable,
-		Dominators: len(rp.matrix.Dominators()),
-		Tests:      rp.matrix.Tests(),
-		RawScore:   float64(rp.killable) / float64(len(rp.mutants)),
+		DominatorsUnrepaired: len(adequacy.New(rp.matrix.Tests(), kept).Dominators()),
+		Repaired:             repaired,
+		Equivalent:           equivalent,
+		Repo:                 rp.name,
+		Mutants:              rp.all,
+		Compiled:             len(rp.mutants),
+		Killable:             rp.killable,
+		Dominators:           len(rp.matrix.Dominators()),
+		Tests:                rp.matrix.Tests(),
+		RawScore:             float64(rp.killable) / float64(len(rp.mutants)),
 	}
 }
 
@@ -188,6 +210,10 @@ func (rp *repo) strategies() []strategy {
 	for _, op := range ops {
 		ss = append(ss, strategy{name: "all but " + string(op), pick: where(func(m killmatrix.Mutant) bool { return m.Operator != op })})
 	}
+	ss = append(ss,
+		strategy{name: "all but repaired", pick: where(func(m killmatrix.Mutant) bool { return !m.Repaired })},
+		strategy{name: "all but equivalent", pick: where(func(m killmatrix.Mutant) bool { return m.Equivalent == "" })},
+	)
 	return append(ss, strategy{name: "one per line", pick: rp.onePerLine, random: true})
 }
 

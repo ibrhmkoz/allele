@@ -2,8 +2,9 @@
 # Computes the kill matrix of each corpus repository at a pinned commit and
 # writes it to mutant/docs/data/<name>/ as gzipped NDJSON.
 #
-#   mutant/docs/corpus.sh            all repositories
-#   mutant/docs/corpus.sh semver     one
+#   mutant/docs/corpus.sh                     all repositories
+#   mutant/docs/corpus.sh semver shlex        some
+#   JOBS=1 OUT=mutant/docs/data-j1 mutant/docs/corpus.sh go-version
 #
 # Picked for fast, hermetic tests (no network, database or Docker) and pure
 # logic: parsers, formatters, encoders. Each takes 1-5 minutes with -j 8.
@@ -21,13 +22,14 @@ shlex       https://github.com/google/shlex           e7afc7fbc51079733e9468cdfd
 root=$(cd "$(dirname "$0")/../.." && pwd)
 cache=${CORPUS_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/go-kit-mutant-corpus}
 jobs=${JOBS:-8}
+out_root=$(cd "$root" && mkdir -p "${OUT:-mutant/docs/data}" && cd "${OUT:-mutant/docs/data}" && pwd)
 mkdir -p "$cache"
 bin="$cache/killmatrix"
 (cd "$root" && go build -o "$bin" ./mutant/cmd/killmatrix)
 
 echo "$corpus" | while read -r name url commit; do
 	[ -n "$name" ] || continue
-	[ $# -eq 0 ] || [ "$1" = "$name" ] || continue
+	[ $# -eq 0 ] || echo " $* " | grep -q " $name " || continue
 	src="$cache/$name"
 	if [ ! -d "$src" ]; then
 		git init -q "$src"
@@ -36,7 +38,7 @@ echo "$corpus" | while read -r name url commit; do
 	git -C "$src" fetch -q --depth 1 origin "$commit"
 	git -C "$src" checkout -q --detach "$commit"
 
-	out="$root/mutant/docs/data/$name"
+	out="$out_root/$name"
 	rm -rf "$out"
 	echo "$name: computing kill matrix" >&2
 	(cd "$src" && "$bin" -j "$jobs" -o "$out" ./... > /dev/null)

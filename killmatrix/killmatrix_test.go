@@ -57,7 +57,7 @@ func TestRun(t *testing.T) {
 		  M19 K  .   loop.go:10:8 ROR i >= n → i != n
 		  M20 K  .   loop.go:13:3 SDL c++ → (deleted)
 		  M21 .  K   loop.go:20:3 SDL last = x → _ = x
-		  M22 B  B   loop.go:32:9 ERR return code(strconv.Itoa(n)) → return nil
+		  M22 B  B   loop.go:32:9 ERR return code(strconv.Itoa(n)) → return func() error { _ = strconv.Itoa; return nil }()
 
 		fixture/table
 		  T7 TestAbs/index
