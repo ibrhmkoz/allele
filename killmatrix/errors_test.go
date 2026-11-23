@@ -377,6 +377,43 @@ func BadErr(n int) code { return code(strconv.Itoa(n)) }
 		}
 	})
 
+	// Package-level var mutant under FailFast=false, Select=true: fn[id] must be -1
+	// (not missing -> 0, colliding with Unused) so TestA runs without Skipped=true (L734).
+	t.Run("package var not skipped with select and failfast=false", func(t *testing.T) {
+		t.Parallel()
+		dir := writeModule(t, map[string]string{
+			"go.mod": "module pkgvarnf\n\ngo 1.21\n",
+			"p.go": `package pkgvarnf
+func Unused(x int) bool { return x > 0 }
+var Closure = func(x int) bool { return x > 0 }
+`,
+			"p_test.go": `package pkgvarnf
+import "testing"
+func TestA(t *testing.T) {}
+`,
+		})
+		r := killmatrix.Runner{
+			Workers:      1,
+			BaselineRuns: 1,
+			TimeoutPad:   500 * time.Millisecond,
+			Schemata:     true,
+			Select:       true,
+			FailFast:     false,
+			Choose: func(_ string, ms []mutant.Mutant) []int {
+				for i, m := range ms {
+					if m.Pos.Line == 3 && m.Mutated == "x < 0" {
+						return []int{i}
+					}
+				}
+				return nil
+			},
+		}
+		m := run(t, r, dir, ".")
+		if len(m.Results) != 1 || m.Results[0].Skipped {
+			t.Fatalf("results = %+v, want 1 non-skipped result for package-var mutant", m.Results)
+		}
+	})
+
 	t.Run("Matrix.String with tests and zero mutants", func(t *testing.T) {
 		t.Parallel()
 		m := &killmatrix.Matrix{

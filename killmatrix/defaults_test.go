@@ -235,3 +235,47 @@ func TestRecheck3x(t *testing.T) {
 		t.Errorf("sawFloadFlaky=%v stopToRuns=%d", sawFloadFlaky, stopToRuns)
 	}
 }
+
+// TestBatchCrashAttribution checks that a goroutine crash in a multi-test batch
+// is attributed to the single started test without re-running it (report.go L53-55).
+func TestBatchCrashAttribution(t *testing.T) {
+	t.Parallel()
+	dir := writeModule(t, map[string]string{
+		"go.mod": "module crashattr\n\ngo 1.21\n",
+		"p.go":   "package crashattr\nfunc F(x int) bool { return x > 0 }\n",
+		"p_test.go": `package crashattr
+import ("os"; "testing")
+func TestA(t *testing.T) {
+	if id := os.Getenv("GOMUTANT"); id != "" && id != "0" {
+		if _, err := os.Stat("once"); err != nil {
+			_ = os.WriteFile("once", nil, 0o600)
+			go func() { panic("once") }()
+			select {}
+		}
+	}
+	if !F(2) { t.Fatal() }
+}
+func TestB(t *testing.T) { if !F(2) { t.Fatal() } }
+`,
+	})
+	r := killmatrix.Runner{
+		Workers:      2,
+		BaselineRuns: 3, // median keeps both tests <50ms so they run in one batch
+		TimeoutPad:   500 * time.Millisecond,
+		Schemata:     true,
+		FailFast:     true,
+		Confirm:      false,
+		Choose: func(_ string, ms []mutant.Mutant) []int {
+			for i, m := range ms {
+				if m.Mutated == "x >= 0" {
+					return []int{i}
+				}
+			}
+			return nil
+		},
+	}
+	m := run(t, r, dir, ".")
+	if got := m.Verdicts()[1]; got != killmatrix.VerdictKilled {
+		t.Fatalf("verdict=%s, want killed (batch crash should be attributed to started TestA without fallback rerun)", got)
+	}
+}
