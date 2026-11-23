@@ -1071,6 +1071,96 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
+def _(alt, db, mo, pd, title):
+    _dir = mo.notebook_dir() / "data-speed"
+    _t = db.sql(f"select * from read_json_auto('{_dir}/timings.ndjson')").df()
+    _agg = _t.groupby(["cmd", "repo", "mode"], as_index=False).agg(
+        med=("wall_s", "median"),
+        lo=("wall_s", "min"),
+        hi=("wall_s", "max"),
+    )
+    _all = _agg[_agg.cmd == "killmatrix_all"].copy()
+    _order = _all[_all.mode == "before"].sort_values("med", ascending=False).repo.tolist()
+    _bars = (
+        alt.Chart(_all)
+        .mark_bar()
+        .encode(
+            x=alt.X("med:Q", title="median wall seconds over 3 interleaved runs (-j 8)"),
+            y=alt.Y("repo:N", sort=_order, title=None),
+            yOffset=alt.YOffset("mode:N", sort=["before", "after"]),
+            color=alt.Color(
+                "mode:N",
+                scale=alt.Scale(domain=["before", "after"], range=["#bab0ac", "#4c78a8"]),
+                title=None,
+                legend=alt.Legend(orient="top"),
+            ),
+            tooltip=["repo", "mode", alt.Tooltip("med:Q", format=".2f"), alt.Tooltip("lo:Q", format=".2f"), alt.Tooltip("hi:Q", format=".2f")],
+        )
+    )
+    _err = (
+        alt.Chart(_all)
+        .mark_rule(color="black", strokeWidth=1.5)
+        .encode(
+            x="lo:Q",
+            x2="hi:Q",
+            y=alt.Y("repo:N", sort=_order),
+            yOffset=alt.YOffset("mode:N", sort=["before", "after"]),
+        )
+    )
+    _tot = _all.groupby("mode").med.sum()
+    _def = _agg[_agg.cmd == "mutant_default"].groupby("mode").med.sum()
+    _gv = _all[_all.repo == "go-version"].set_index("mode").med
+    _chart = (_bars + _err).properties(
+        width=540,
+        height=240,
+        title=title(
+            f"Parallel baseline + stopping FailFast on timeout cuts wall time {_tot['before']:.0f} → {_tot['after']:.0f} s ({_tot['before'] / _tot['after']:.2f}×); go-version {_gv['before']:.1f} → {_gv['after']:.1f} s ({_gv['before'] / _gv['after']:.0f}×)",
+            "All mutants (killmatrix -schemata -select -failfast -j 8), 3 interleaved rounds; whiskers show min–max. 18 of 4 889 mutants change killed→timeout; 0 false timeouts; 0 extra flaky baseline tests after solo recheck.",
+        ),
+    )
+    _v = db.sql(f"""
+        with sp as (
+            select split_part(parse_path(filename)[-2], '/', 1) repo, id, compiled
+            from read_json_auto('{_dir}/*/mutants.ndjson.gz', filename=true)
+        ),
+        sp_res as (
+            select split_part(parse_path(filename)[-2], '/', 1) repo, mutant_id id,
+                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce(skipped, false)) ran
+            from read_json_auto('{_dir}/*/results.ndjson.gz', filename=true) group by all
+        ),
+        ff_res as (
+            select split_part(parse_path(filename)[-2], '/', 1) repo, mutant_id id,
+                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce(skipped, false)) ran
+            from read_json_auto('{mo.notebook_dir()}/data-fast-failfast/*/results.ndjson.gz', filename=true) group by all
+        ),
+        both as (
+            select m.repo, m.id,
+                case when not m.compiled then 'build error' when s.k then 'killed' when s.tmo then 'timeout' when s.ran then 'survived' else 'not covered' end sp_v,
+                case when not m.compiled then 'build error' when f.k then 'killed' when f.tmo then 'timeout' when f.ran then 'survived' else 'not covered' end ff_v
+            from sp m left join sp_res s using (repo, id) left join ff_res f using (repo, id)
+        )
+        select count(*) total,
+            count(*) filter (where ff_v = 'killed' and sp_v = 'timeout') k2t,
+            count(*) filter (where ff_v = 'survived' and sp_v = 'timeout') false_tmo,
+            count(*) filter (where sp_v <> ff_v and not (ff_v = 'killed' and sp_v = 'timeout')) other
+        from both
+    """).fetchall()[0]
+    _non_ok = db.sql(f"select count(*) from read_json_auto('{_dir}/*/tests.ndjson.gz') where state <> 'ok'").fetchall()[0][0]
+    mo.vstack(
+        [
+            mo.md("## 16. Does parallel baseline and stopping FailFast on timeout close the gap?"),
+            _chart,
+            mo.md(rf"""
+            - **Changes:** (1) `baseline` runs top-level tests across `r.Workers` and rechecks any non-OK test alone so latency-sensitive tests (`glob`'s `TestPatternMatch/glob-01`) are not falsely marked flaky under load; (2) `FailFast` stops on the first `Timeout` (confirmed once individually when `Confirm` is set) since a timed-out mutant can never become `survived`; (3) non-schema mutants are dispatched first so individual builds overlap with fast schema runs.
+            - **Speed (3 interleaved rounds at `-j 8`):** all mutants `{_tot['before']:.1f} → {_tot['after']:.1f} s` (`{_tot['before'] / _tot['after']:.2f}×`; `2.5×` faster than before §15); default `mutant ./...` `{_def['before']:.1f} → {_def['after']:.1f} s` (`{_def['before'] / _def['after']:.2f}×`; `2.8×` faster than before §15). `go-version` drops `{_gv['before']:.1f} → {_gv['after']:.1f} s` (`{_gv['before'] / _gv['after']:.1f}×`).
+            - **Fidelity vs §15:** {_v[1]} of {_v[0]:,} mutants that previously timed out on an earlier test and were killed by a later one now stop at `timeout` (both pass `-strict`); **{_v[2]} false timeouts** (`survived → timeout`); {_v[3]} other diff (`uuid` clock/random); **{_non_ok} flaky/failing baseline tests** across all 6 repositories.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
