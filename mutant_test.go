@@ -810,3 +810,33 @@ func record(c Counter, n int) {
 		10 -
 	`)
 }
+
+// TestRepairPicksFirstUse: when a deleted statement holds several uses of
+// an import, the one that keeps it used is the first in the source, every
+// time: a mutant's text is part of its identity in caches and reports.
+func TestRepairPicksFirstUse(t *testing.T) {
+	src := `package p
+
+import "math"
+
+func f(x float64) {
+	consume(math.Abs(x), math.Floor(x), math.Ceil(x), math.Sqrt(x), math.Trunc(x))
+}
+
+func consume(...float64) {}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
+	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
+		t.Fatal(err)
+	}
+	for range 20 {
+		xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
+			p.go:6:2 SDL consume(math.Abs(x), math.Floor(x), math.Ceil(x), math.Sqrt(x), math.Trunc(x)) → _ = math.Abs
+		`)
+	}
+}

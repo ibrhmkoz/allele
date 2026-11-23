@@ -437,7 +437,9 @@ func (f *finder) orphans(n ast.Node) (exprs []string, ok bool) {
 		if obj.Pos() >= n.Pos() && obj.Pos() < n.End() {
 			continue // declared in n, removed with it
 		}
-		first, expr := token.NoPos, ""
+		// uses come in map order: take the first expression in the source,
+		// so that a mutant reads the same every run.
+		first, expr, exprAt := token.NoPos, "", token.NoPos
 		for _, u := range uses {
 			if u.pos < n.Pos() || u.pos >= n.End() {
 				first = token.NoPos
@@ -446,8 +448,8 @@ func (f *finder) orphans(n ast.Node) (exprs []string, ok bool) {
 			if first == token.NoPos || u.pos < first {
 				first = u.pos
 			}
-			if expr == "" {
-				expr = u.expr
+			if u.expr != "" && (exprAt == token.NoPos || u.pos < exprAt) {
+				expr, exprAt = u.expr, u.pos
 			}
 		}
 		if first == token.NoPos {
