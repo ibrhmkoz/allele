@@ -118,6 +118,7 @@ const fixtureMatrix = `
 // TestUnstableNames checks that a leaf whose name changes between runs is
 // flaky, gets no results, and that no parent test becomes a column.
 func TestUnstableNames(t *testing.T) {
+	t.Parallel()
 	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second}
 	m, err := r.Run(t.Context(), "testdata", "./unstable")
 	if err != nil {
@@ -150,6 +151,7 @@ func TestUnstableNames(t *testing.T) {
 // selection, failing fast, and one mutant per line. Each mutant kept must
 // get the verdict the full matrix gives it.
 func TestFailFast(t *testing.T) {
+	t.Parallel()
 	firstPerLine := func(_ string, ms []mutant.Mutant) []int {
 		var keep []int
 		for i, m := range ms {
