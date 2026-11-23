@@ -346,20 +346,54 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		reached = map[string]map[int]bool{}
 		reachedSite = map[string]map[int]bool{}
 	}
-	for i, top := range tops {
-		reach := ""
-		if reached != nil {
-			reach = filepath.Join(tmp, fmt.Sprintf("%s.reach%d", strings.ReplaceAll(pkg.PkgPath, "/", "_"), i))
+	baseTests := make([][]Test, len(tops))
+	baseIDs := make([]map[int]bool, len(tops))
+	baseJobs := make(chan int)
+	var baseWG sync.WaitGroup
+	for range min(r.Workers, max(len(tops), 1)) {
+		baseWG.Go(func() {
+			for i := range baseJobs {
+				reach := ""
+				if reached != nil {
+					reach = filepath.Join(tmp, fmt.Sprintf("%s.reach%d", strings.ReplaceAll(pkg.PkgPath, "/", "_"), i))
+				}
+				baseTests[i], baseIDs[i] = r.baseline(ctx, dir, bin, pkg.PkgPath, tops[i], reach)
+			}
+		})
+	}
+	for i := range tops {
+		baseJobs <- i
+	}
+	close(baseJobs)
+	baseWG.Wait()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	// A latency-sensitive test can fail under parallel baseline load and look
+	// flaky; recheck any non-OK top-level test alone before excluding it.
+	if r.Workers > 1 {
+		for i, top := range tops {
+			if slices.ContainsFunc(baseTests[i], func(t Test) bool { return t.State != OK }) {
+				reach := ""
+				if reached != nil {
+					reach = filepath.Join(tmp, fmt.Sprintf("%s.reach%d", strings.ReplaceAll(pkg.PkgPath, "/", "_"), i))
+				}
+				baseTests[i], baseIDs[i] = r.baseline(ctx, dir, bin, pkg.PkgPath, top, reach)
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+			}
 		}
-		tests, ids := r.baseline(ctx, dir, bin, pkg.PkgPath, top, reach)
+	}
+	for i, top := range tops {
 		if reached != nil {
 			reached[top] = map[int]bool{}
-			reachedSite[top] = ids
-			for id := range ids {
+			reachedSite[top] = baseIDs[i]
+			for id := range baseIDs[i] {
 				reached[top][fn[id]] = true
 			}
 		}
-		for _, t := range tests {
+		for _, t := range baseTests[i] {
 			t.ID = len(m.Tests) + 1
 			m.Tests = append(m.Tests, t)
 		}
@@ -386,8 +420,17 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 			}
 		})
 	}
+	// Dispatch non-schema mutants first so their individual builds overlap
+	// with fast schema runs instead of sitting at the tail.
 	for i := range mutants {
-		jobs <- i
+		if !mutants[i].Schema {
+			jobs <- i
+		}
+	}
+	for i := range mutants {
+		if mutants[i].Schema {
+			jobs <- i
+		}
 	}
 	close(jobs)
 	wg.Wait()
@@ -772,11 +815,11 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		}
 
 		if len(batch) == 1 {
-			killed, err := r.recordSingle(ctx, dir, bin, mu, batch[0], rep, fnID, stats, &results)
+			stop, err := r.recordSingle(ctx, dir, bin, mu, batch[0], rep, fnID, stats, &results)
 			if err != nil {
 				return nil, err
 			}
-			if killed {
+			if stop {
 				break
 			}
 			continue
@@ -842,20 +885,41 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		if len(startedUnfinished) == 1 {
 			g := startedUnfinished[0]
 			if rep.timedOut {
+				if r.Confirm {
+					// Under load a fast test can hit its deadline; recheck alone
+					// before letting an unconfirmed timeout stop FailFast.
+					limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+					again := run(ctx, dir, bin, g.name, limit, mu.ID, "")
+					if ctx.Err() != nil {
+						return nil, ctx.Err()
+					}
+					if !again.timedOut {
+						stop, err := r.recordSingle(ctx, dir, bin, mu, g, again, fnID, stats, &results)
+						if err != nil {
+							return nil, err
+						}
+						if stop {
+							break
+						}
+						if len(rest) > 0 {
+							queue = append([][]topGroup{rest}, queue...)
+						}
+						continue
+					}
+				}
 				for _, t := range g.leaves {
 					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Timeout, MS: ms(rep.elapsed)})
 				}
 				stats.record(fnID, g.name, false)
-				if len(rest) > 0 {
-					queue = append([][]topGroup{rest}, queue...)
-				}
-				continue
+				// A timed-out mutant cannot survive; stop FailFast rather
+				// than waiting out repeated timeouts on the same loop.
+				break
 			}
-			killed, err := r.recordSingle(ctx, dir, bin, mu, g, rep, fnID, stats, &results)
+			stop, err := r.recordSingle(ctx, dir, bin, mu, g, rep, fnID, stats, &results)
 			if err != nil {
 				return nil, err
 			}
-			if killed {
+			if stop {
 				break
 			}
 			if len(rest) > 0 {
@@ -913,9 +977,18 @@ func topFailed(g topGroup, rep report) bool {
 }
 
 func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g topGroup, rep report, fnID int, stats *killStats, results *[]Result) (bool, error) {
+	if rep.timedOut && r.Confirm {
+		limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+		again := run(ctx, dir, bin, g.name, limit, mu.ID, "")
+		if ctx.Err() != nil {
+			return false, ctx.Err()
+		}
+		rep = again
+	}
 	var again, original report
 	confirmed := false
 	killed := false
+	timedOut := false
 	for _, t := range g.leaves {
 		status := rep.status(t.Name)
 		if status == Killed && r.Confirm {
@@ -941,10 +1014,13 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 		if status == Killed {
 			killed = true
 		}
+		if status == Timeout {
+			timedOut = true
+		}
 		*results = append(*results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.elapsed)})
 	}
 	stats.record(fnID, g.name, killed)
-	return killed, nil
+	return killed || timedOut, nil
 }
 
 // baseline runs a top-level test BaselineRuns times on the unmutated
