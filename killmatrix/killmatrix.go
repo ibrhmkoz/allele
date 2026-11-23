@@ -189,7 +189,9 @@ type Runner struct {
 	Choose func(path string, ms []mutant.Mutant) []int
 	// FailFast stops running tests against a mutant once one kills it,
 	// trying the fastest top-level tests first. The matrix then holds only
-	// the runs made: enough for Verdict, not for adequacy.
+	// the runs made: enough for Verdict, not for adequacy. It also stops at
+	// a mutant's first timeout, so a mutant that one test kills and another
+	// hangs on may read as a timeout; neither is a gap.
 	FailFast bool
 	// Confirm runs a top-level test again when it fails against a mutant
 	// and, in a schema binary, once against the original code. A leaf

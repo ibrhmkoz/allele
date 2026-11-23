@@ -25,10 +25,7 @@ func TestRun(t *testing.T) {
 			// 500 ms pad is 100× the 5 ms fixture tests; BaselineRuns=1 skips
 			// redundant baseline repeats on these deterministic fixtures.
 			r := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: schemata, Select: mode.sel}
-			m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
-			if err != nil {
-				t.Fatal(err)
-			}
+			m := run(t, r, "testdata", "./discount", "./loop", "./table")
 			xtesting.Prints(t, m, fixtureMatrix)
 			if !schemata {
 				return
@@ -121,10 +118,7 @@ const fixtureMatrix = `
 func TestUnstableNames(t *testing.T) {
 	t.Parallel()
 	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second}
-	m, err := r.Run(t.Context(), "testdata", "./unstable")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := run(t, r, "testdata", "./unstable")
 	var got []string
 	ok := map[int]bool{}
 	for _, tt := range m.Tests {
@@ -163,10 +157,7 @@ func TestFailFast(t *testing.T) {
 		return keep
 	}
 	r := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: true, FailFast: true, Choose: firstPerLine}
-	m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := run(t, r, "testdata", "./discount", "./loop", "./table")
 	verdicts := m.Verdicts()
 	var b strings.Builder
 	for _, mu := range m.Mutants {
@@ -211,10 +202,7 @@ func TestChooseNone(t *testing.T) {
 		return []int{0}
 	}
 	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: true, Select: true, FailFast: true, Choose: onlyLoop}
-	m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := run(t, r, "testdata", "./discount", "./loop", "./table")
 	var b strings.Builder
 	for _, mu := range m.Mutants {
 		fmt.Fprintf(&b, "mutant %s:%d %s\n", mu.File, mu.Line, mu.Operator)
@@ -310,10 +298,7 @@ func TestConfirm(t *testing.T) {
 	for _, failFast := range []bool{false, true} {
 		t.Run(fmt.Sprintf("failfast=%v", failFast), func(t *testing.T) {
 			r := killmatrix.Runner{Workers: runtime.NumCPU(), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: failFast, FailFast: failFast, Confirm: true}
-			m, err := r.Run(t.Context(), "testdata", "./flaky")
-			if err != nil {
-				t.Fatal(err)
-			}
+			m := run(t, r, "testdata", "./flaky")
 			xtesting.Prints(t, m, `
 				fixture/flaky
 				  T1 TestPick
@@ -354,10 +339,7 @@ func TestConfirmUnderLoad(t *testing.T) {
 		t.Run(fmt.Sprintf("failfast=%v", failFast), func(t *testing.T) {
 			clean()
 			r := killmatrix.Runner{Workers: 1, BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: failFast, FailFast: failFast, Confirm: true}
-			m, err := r.Run(t.Context(), "testdata", "./load")
-			if err != nil {
-				t.Fatal(err)
-			}
+			m := run(t, r, "testdata", "./load")
 			xtesting.Prints(t, m, `
 				fixture/load
 				  T1 TestPick
@@ -374,3 +356,63 @@ func TestConfirmUnderLoad(t *testing.T) {
 		})
 	}
 }
+
+// TestFailFastBatches: fast tests run several to a process, and against
+// the batch fixture's mutants such a process panics, hangs or has two
+// parallel tests fail at once. Whatever the batch does, each mutant must
+// get the verdict the full matrix, a process per test, gives it, but for
+// one allowed difference: failing fast stops at a mutant's first timeout,
+// so a mutant one test kills and another hangs on may read as a timeout.
+// Both are no gap.
+func TestFailFastBatches(t *testing.T) {
+	t.Parallel()
+	full := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true}
+	ref := run(t, full, "testdata", "./batch")
+	xtesting.Prints(t, ref, batchMatrix)
+	want := ref.Verdicts()
+	for _, confirm := range []bool{false, true} {
+		fast := full
+		fast.Select, fast.FailFast, fast.Confirm = true, true, confirm
+		got := run(t, fast, "testdata", "./batch").Verdicts()
+		for id, v := range want {
+			if got[id] != v && (v != killmatrix.VerdictKilled || got[id] != killmatrix.VerdictTimeout) {
+				t.Errorf("confirm=%v: M%d is %s, the full matrix says %s", confirm, id, got[id], v)
+			}
+		}
+	}
+}
+
+// M15 is the timeout failing fast may report instead of TestStepsNone's
+// kill. M11 panics in TestAtEnd and in the parallel TestParallelEnd at
+// once. M3 and M12 are equivalent for these inputs, M16 for n >= 0.
+const batchMatrix = `
+		fixture/batch
+		  T1 TestAtInside
+		  T2 TestAtEnd
+		  T3 TestStepsNone
+		  T4 TestStepsZero
+		  T5 TestParallelEnd
+		  T6 TestParallelBelow
+
+		      T1 T2 T3 T4 T5 T6
+		  M1  K  .  .  .  .  .   batch.go:8:5 COR i < 0 || i >= len(xs) → true
+		  M2  .  K  .  .  K  K   batch.go:8:5 COR i < 0 || i >= len(xs) → false
+		  M3  .  .  .  .  .  .   batch.go:8:7 ROR i < 0 → i <= 0
+		  M4  K  .  .  .  .  K   batch.go:8:7 ROR i < 0 → i > 0
+		  M5  K  .  .  .  .  K   batch.go:8:7 ROR i < 0 → i >= 0
+		  M6  .  .  .  .  .  K   batch.go:8:7 ROR i < 0 → i == 0
+		  M7  K  .  .  .  .  .   batch.go:8:7 ROR i < 0 → i != 0
+		  M8  .  K  .  .  K  K   batch.go:8:11 COR i < 0 || i >= len(xs) → i < 0 && i >= len(xs)
+		  M9  K  K  .  .  K  .   batch.go:8:16 ROR i >= len(xs) → i < len(xs)
+		  M10 K  .  .  .  .  .   batch.go:8:16 ROR i >= len(xs) → i <= len(xs)
+		  M11 .  K  .  .  K  .   batch.go:8:16 ROR i >= len(xs) → i > len(xs)
+		  M12 .  .  .  .  .  .   batch.go:8:16 ROR i >= len(xs) → i == len(xs)
+		  M13 K  K  .  .  K  .   batch.go:8:16 ROR i >= len(xs) → i != len(xs)
+		  M14 .  .  K  .  .  .   batch.go:17:8 ROR n != 0 → n < 0
+		  M15 .  .  K  T  .  .   batch.go:17:8 ROR n != 0 → n <= 0
+		  M16 .  .  .  .  .  .   batch.go:17:8 ROR n != 0 → n > 0
+		  M17 .  .  K  K  .  .   batch.go:17:8 ROR n != 0 → n >= 0
+		  M18 .  .  K  K  .  .   batch.go:17:8 ROR n != 0 → n == 0
+		  M19 .  .  T  .  .  .   batch.go:18:3 SDL n-- → (deleted)
+		  M20 .  .  K  .  .  .   batch.go:19:3 SDL steps++ → (deleted)
+`

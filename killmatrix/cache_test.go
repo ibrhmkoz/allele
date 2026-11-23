@@ -86,10 +86,7 @@ func TestCacheReusesAndInvalidates(t *testing.T) {
 	}
 
 	// 1. Cold run: M5 (price > 100 → price >= 100) survives, all others killed.
-	m1, err := r.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m1 := run(t, r, dir, ".")
 	wantInitial := `
 		M1 killed
 		M2 killed
@@ -108,10 +105,7 @@ func TestCacheReusesAndInvalidates(t *testing.T) {
 
 	// 2. Exact hit: nothing changed, so every mutant reuses its cached verdict
 	// with zero build time.
-	m2, err := r.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m2 := run(t, r, dir, ".")
 	xtesting.EqualText(t, formatVerdicts(m2), wantInitial)
 	for _, mu := range m2.Mutants {
 		if mu.BuildMS != 0 {
@@ -136,10 +130,7 @@ func TestVIPAt100(t *testing.T) {
 	if err := os.WriteFile(testPath, []byte(added), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	m3, err := r.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m3 := run(t, r, dir, ".")
 	for _, mu := range m3.Mutants {
 		if !mu.Compiled {
 			t.Errorf("M%d: Compiled = false, want true", mu.ID)
@@ -161,10 +152,7 @@ func TestVIPAt100(t *testing.T) {
 	if err := os.WriteFile(testPath, []byte(withExtra), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	m3b, err := r.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m3b := run(t, r, dir, ".")
 	for _, mu := range m3b.Mutants {
 		if v := m3b.Verdicts()[mu.ID]; v != killmatrix.VerdictKilled {
 			t.Errorf("M%d: got %s on all-reused L2 hit, want killed", mu.ID, v)
@@ -192,10 +180,7 @@ func TestVIPAt100(t *testing.T) {
 	if err := os.WriteFile(testPath, []byte(weakened), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	m4, err := r.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m4 := run(t, r, dir, ".")
 	if v := m4.Verdicts()[9]; v != killmatrix.VerdictSurvived {
 		t.Fatalf("M9 (price - 20 → price + 20): got %s after weakening TestVIPOver100, want survived", v)
 	}
@@ -212,10 +197,7 @@ func TestVIPAt100(t *testing.T) {
 	if err := os.WriteFile(prodPath, []byte(strings.Replace(string(prod), "100", "200", 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	m5, err := r.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m5 := run(t, r, dir, ".")
 	for _, mu := range m5.Mutants {
 		if mu.BuildMS == 0 {
 			t.Fatalf("M%d: BuildMS = 0 after production edit, want > 0", mu.ID)
@@ -226,16 +208,11 @@ func TestVIPAt100(t *testing.T) {
 	full := r
 	full.FailFast = false
 	full.CacheDir = t.TempDir()
-	if _, err := full.Run(t.Context(), dir, "."); err != nil {
-		t.Fatal(err)
-	}
+	run(t, full, dir, ".")
 	if entries, _ := os.ReadDir(full.CacheDir); len(entries) != 0 {
 		t.Fatalf("FailFast=false wrote %d cache files, want 0", len(entries))
 	}
-	m6, err := full.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	m6 := run(t, full, dir, ".")
 	if len(m6.Tests) == 0 || m6.Mutants[0].BuildMS == 0 {
 		t.Fatalf("FailFast=false should bypass cache: tests=%d buildMS=%v", len(m6.Tests), m6.Mutants[0].BuildMS)
 	}
@@ -259,10 +236,7 @@ func TestCacheInvalidatesOnRunner(t *testing.T) {
 	}
 	mustMiss := func(label string, rr killmatrix.Runner) {
 		t.Helper()
-		m, err := rr.Run(t.Context(), dir, ".")
-		if err != nil {
-			t.Fatal(err)
-		}
+		m := run(t, rr, dir, ".")
 		if m.Mutants[0].BuildMS == 0 {
 			t.Fatalf("%s: cache hit", label)
 		}
@@ -296,19 +270,27 @@ func TestCacheChoosesMore(t *testing.T) {
 		Select:       true,
 		FailFast:     true,
 	}
-	fresh, err := r.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	fresh := run(t, r, dir, ".")
 	r.CacheDir = t.TempDir()
 	few := r
 	few.Choose = func(_ string, _ []mutant.Mutant) []int { return []int{0} }
-	if _, err := few.Run(t.Context(), dir, "."); err != nil {
-		t.Fatal(err)
-	}
-	all, err := r.Run(t.Context(), dir, ".")
-	if err != nil {
-		t.Fatal(err)
-	}
+	run(t, few, dir, ".")
+	all := run(t, r, dir, ".")
 	xtesting.EqualText(t, formatVerdicts(all), formatVerdicts(fresh))
+}
+
+// TestCacheKeepsVerdicts: an exact hit gives back every verdict the cold
+// run gave, timeouts and build errors as well as kills and survivors,
+// without building anything.
+func TestCacheKeepsVerdicts(t *testing.T) {
+	t.Parallel()
+	r := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: true, FailFast: true, CacheDir: t.TempDir()}
+	cold := run(t, r, "testdata", "./discount", "./loop", "./table")
+	warm := run(t, r, "testdata", "./discount", "./loop", "./table")
+	xtesting.EqualText(t, formatVerdicts(warm), formatVerdicts(cold))
+	for _, mu := range warm.Mutants {
+		if mu.BuildMS != 0 {
+			t.Errorf("M%d built on an exact hit", mu.ID)
+		}
+	}
 }
