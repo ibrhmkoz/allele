@@ -33,7 +33,7 @@ def _():
 def _(duckdb, mo):
     _dir = mo.notebook_dir()
     db = duckdb.connect()
-    for _name, _sub in [("", "data"), ("rerun_", "data-rerun"), ("j1_", "data-j1"), ("sch_", "data-schemata")]:
+    for _name, _sub in [("", "data"), ("rerun_", "data-rerun"), ("j1_", "data-j1"), ("sch_", "data-schemata"), ("sel_", "data-select")]:
         for _t in ["mutants", "tests", "results"]:
             _ = db.sql(
                 f"create view {_name}{_t} as select split_part(parse_path(filename)[-2], '/', 1) repo, * exclude (filename) "
@@ -55,7 +55,7 @@ def _(mo, totals):
     mo.md(rf"""
     # mutant measurements
 
-    - **Setup:** M1 Pro 16 GiB on AC power · Go 1.27.3 · `killmatrix -j 8`, so 8 mutants build and run at once; section 6 compares against `-j 1`. Measured on 2026-11-23: two full runs of the same code (`data/`, `data-rerun/`), one with schemata (`data-schemata/`, section 8) and one `-j 1` run of two repositories (`data-j1/`).
+    - **Setup:** M1 Pro 16 GiB on AC power · Go 1.27.3 · `killmatrix -j 8`, so 8 mutants build and run at once; section 6 compares against `-j 1`. Measured on 2026-11-23: two full runs of the same code (`data/`, `data-rerun/`), one with schemata (`data-schemata/`, section 8), one with schemata and test selection (`data-select/`, section 9) and one `-j 1` run of two repositories (`data-j1/`).
     - **Corpus:** six repositories at pinned commits (`corpus.sh`): glob, go-humanize, go-version, semver, shlex, uuid. {totals.mutants:,} mutants ({totals.compiled:,} compile, {totals.repaired} of them repaired), {totals.leaves} leaf tests ({totals.excluded} flaky or failing), {totals.results:,} results.
     - **Kill matrix:** every mutant built on its own with `go test -c -vet=off -overlay`, every top-level test run against it alone, a column per leaf subtest read from `-test.v=test2json`. A run times out after 3 × its baseline + 1 s; timeouts ({totals.timeouts:,} results) do not count as kills. Mutants that do not compile are left out of every score.
     - **Score:** the share of dominator mutants killed (Kurtz, Ammann et al., FSE 2016). Strategies are simulated on the matrix, never built: tests are added at random until every mutant the strategy kept is dead, and that test set is scored on all mutants. Each strategy is paired with a control that keeps as many mutants at random. 200 test sets per seed, 30 seeds.
@@ -555,6 +555,82 @@ def _(PHASE, alt, db, mo, pd, title):
 
 
 @app.cell
+def _(alt, db, mo, pd, title):
+    _ = db.sql("""
+        create or replace temp table sel as
+        select a.repo, a.mutant_id, a.test_id, a.status naive, s.status sel, coalesce(s.skipped, false) skipped, c.status rerun
+        from results a join sel_results s using (repo, mutant_id, test_id)
+        left join rerun_results c using (repo, mutant_id, test_id)
+    """)
+    _k = db.sql("""
+        select count(*), count(*) filter (where skipped),
+            count(*) filter (where skipped and naive <> sel),
+            count(*) filter (where skipped and naive <> sel and naive = rerun),
+            count(*) filter (where naive <> sel),
+            count(*) filter (where naive <> sel and 'timeout' not in (naive, sel) and naive = rerun)
+        from sel
+    """).fetchall()[0]
+    _runs = db.sql("""
+        with runs as (
+            select 'build per mutant' setup, r.repo, r.mutant_id, split_part(t.name, '/', 1) top, any_value(r.ms) ms, false sk
+            from results r join tests t on t.repo = r.repo and t.id = r.test_id group by all
+            union all
+            select 'schemata', r.repo, r.mutant_id, split_part(t.name, '/', 1), any_value(r.ms), false
+            from sch_results r join sch_tests t on t.repo = r.repo and t.id = r.test_id group by all
+            union all
+            select 'schemata + selection', r.repo, r.mutant_id, split_part(t.name, '/', 1), any_value(r.ms), bool_and(coalesce(r.skipped, false))
+            from sel_results r join sel_tests t on t.repo = r.repo and t.id = r.test_id group by all
+        ),
+        builds as (
+            select 'build per mutant' setup, sum(build_ms) b from mutants
+            union all select 'schemata', sum(build_ms) from sch_mutants
+            union all select 'schemata + selection', sum(build_ms) from sel_mutants
+        )
+        select setup, count(*) filter (where not sk) processes, sum(ms) filter (where not sk) / 60000 run_min, any_value(b) / 60000 build_min
+        from runs join builds using (setup) group by setup
+    """).df()
+    # Wall clock of one corpus.sh run at -j 8, from its time output.
+    _wall = {"build per mutant": 14.6, "schemata": 5.9, "schemata + selection": 2.9}
+    _runs["wall_min"] = _runs.setup.map(_wall)
+    _order = ["build per mutant", "schemata", "schemata + selection"]
+    _bars = (
+        alt.Chart(_runs)
+        .mark_bar(color="#4c78a8")
+        .encode(
+            x=alt.X("wall_min:Q", title="minutes for the whole corpus, -j 8"),
+            y=alt.Y("setup:N", sort=_order, title=None),
+            color=alt.condition("datum.setup == 'build per mutant'", alt.value("#9e9e9e"), alt.value("#4c78a8")),
+            tooltip=["setup", alt.Tooltip("wall_min:Q", format=".1f"), "processes", alt.Tooltip("run_min:Q", format=".0f", title="test-run minutes"), alt.Tooltip("build_min:Q", format=".1f", title="build minutes")],
+        )
+    )
+    _base = _wall["build per mutant"]
+    _runs["label"] = _runs.apply(lambda r: f"{r.wall_min:.1f} min" + ("" if r.setup == "build per mutant" else f" ({_base / r.wall_min:.1f}× faster)"), axis=1)
+    _text = alt.Chart(_runs).mark_text(align="left", dx=4, fontSize=11).encode(x="wall_min:Q", y=alt.Y("setup:N", sort=_order), text="label:N")
+    _proc = dict(zip(_runs.setup, _runs.processes))
+    _chart = (_bars + _text).properties(
+        width=520,
+        height=130,
+        title=title(
+            f"Schemata and test selection run the corpus {_base / _wall['schemata + selection']:.0f}× faster than a build per mutant",
+            f"Test processes: {_proc['build per mutant']:,} → {_proc['schemata + selection']:,}. Wall clock from corpus.sh's time; the matrix is the same (below).",
+        ),
+    )
+    mo.vstack(
+        [
+            mo.md("## 9. Does running only the tests that reach a mutant keep the matrix?"),
+            _chart,
+            mo.md(rf"""
+            - **Selection** skipped {_k[1]:,} of {_k[0]:,} cells ({_k[1] / _k[0]:.0%}): the top-level test never reached the function that holds the mutant in the baseline. {_k[2]} skipped cell differs from the build per mutant, and {_k[2] - _k[3]} of those also differ between its two runs.
+            - **By function, not by site:** selecting by site skipped 6 cells that every build per mutant killed. uuid's `getV7Time` bumps `lastV7time` only when two calls share a clock tick; that branch ran in no baseline run but did run against the mutants. A function reaches some site whenever it runs.
+            - **Overall** {_k[4]} cells differ from a build per mutant; {_k[5]} are neither on the timeout limit nor among cells its two runs disagree on, all on the nondeterministic lines of section 7 or a mutant built on its own.
+            - Mutants outside any function, and those not embedded, always run every test.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
@@ -566,12 +642,13 @@ def _(mo):
     OUT=mutant/docs/data mutant/docs/corpus.sh
     OUT=mutant/docs/data-rerun mutant/docs/corpus.sh
     SCHEMATA=1 OUT=mutant/docs/data-schemata mutant/docs/corpus.sh
+    SCHEMATA=1 SELECT=1 OUT=mutant/docs/data-select mutant/docs/corpus.sh
     JOBS=1 OUT=mutant/docs/data-j1 mutant/docs/corpus.sh go-version shlex
 
     # Sections 1-3: simulate the strategies, about 15 seconds
     go run ./mutant/cmd/simulate -o mutant/docs/data mutant/docs/data/*/
 
-    # Sections 4-8 query the matrices directly; view everything
+    # Sections 4-9 query the matrices directly; view everything
     make mutant-measurements
     ```
     """)
