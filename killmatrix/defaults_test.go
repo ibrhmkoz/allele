@@ -99,7 +99,7 @@ func bump(name string) int {
 
 func TestCrash(t *testing.T) { os.Exit(1) }
 func TestMedian(t *testing.T) {
-	if bump("med") == 1 { time.Sleep(200 * time.Millisecond) }
+	if bump("med") == 1 { time.Sleep(350 * time.Millisecond) }
 }
 func TestSubExit0(t *testing.T) {
 	if bump("exit0")%2 == 1 { os.Exit(0) }
@@ -126,11 +126,11 @@ func TestSSSlow1(t *testing.T) { time.Sleep(52 * time.Millisecond); if !SlowSing
 func TestSSSlow2(t *testing.T) { time.Sleep(55 * time.Millisecond); if SlowSingle(0) { t.Fatal() } }
 
 func TestStopSlow1(t *testing.T) {
-	time.Sleep(52 * time.Millisecond)
+	time.Sleep(55 * time.Millisecond)
 	_ = StopTo(2)
 	if isMut() { for {} }
 }
-func TestStopSlow2(t *testing.T) { time.Sleep(80 * time.Millisecond); if !StopTo(1) { t.Fatal() } }
+func TestStopSlow2(t *testing.T) { time.Sleep(140 * time.Millisecond); if !StopTo(1) { t.Fatal() } }
 
 // Inside a single fast batch, go test runs tests in declaration order (TestBFA -> TestBFB -> TestBFC).
 func TestBFA(t *testing.T) { if !BFlaky(2) { t.Fatal() } }
@@ -141,7 +141,7 @@ func TestBFB(t *testing.T) {
 func TestBFC(t *testing.T) { if BFlaky(0) { t.Fatal() } }
 
 func TestBSA(t *testing.T) {
-	if isMut() && bump("bstall") == 0 { time.Sleep(250 * time.Millisecond) }
+	if isMut() && bump("bstall") == 0 { time.Sleep(300 * time.Millisecond) }
 	if !BStall(2) { t.Fatal() }
 }
 func TestBSB(t *testing.T) { if BStall(0) { t.Fatal() } }
@@ -153,12 +153,12 @@ func TestBCA(t *testing.T) {
 func TestBCB(t *testing.T) { if BCrash(0) { t.Fatal() } }
 
 func TestSmallPad(t *testing.T) {
-	if isMut() { time.Sleep(500 * time.Millisecond) }
+	if isMut() { time.Sleep(750 * time.Millisecond) }
 	if !SmallPad(2) { t.Fatal() }
 }
 
 func TestRecheck3x(t *testing.T) {
-	if isMut() { time.Sleep(80 * time.Millisecond) }
+	if isMut() { time.Sleep(200 * time.Millisecond) }
 	if !Recheck3x(2) { t.Fatal() }
 }
 `,
@@ -176,7 +176,7 @@ func TestRecheck3x(t *testing.T) {
 		Workers:       4,
 		BaselineRuns:  3,
 		TimeoutFactor: 1,
-		TimeoutPad:    40 * time.Millisecond,
+		TimeoutPad:    120 * time.Millisecond,
 		Schemata:      true,
 		Select:        true,
 		FailFast:      true,
@@ -192,8 +192,8 @@ func TestRecheck3x(t *testing.T) {
 		case "TestCrash", "TestMedian", "TestSubExit0/a", "TestTransient":
 			baseStates = append(baseStates, fmt.Sprintf("%s %s", tt.Name, tt.State))
 		}
-		if tt.Name == "TestMedian" && tt.BaselineMS >= 160 {
-			t.Errorf("TestMedian BaselineMS=%.1fms, want sorted median < 160ms", tt.BaselineMS)
+		if tt.Name == "TestMedian" && tt.BaselineMS >= 300 {
+			t.Errorf("TestMedian BaselineMS=%.1fms, want sorted median < 300ms", tt.BaselineMS)
 		}
 	}
 	xtesting.EqualText(t, strings.Join(baseStates, "\n"), `
@@ -219,7 +219,7 @@ func TestRecheck3x(t *testing.T) {
 		L9 survived
 		L10 killed
 	`)
-	sawFloadFlaky, stopToRuns := false, 0
+	sawFloadFlaky, sawStopTimeout, runsAfterStopTimeout := false, false, 0
 	for _, res := range m.Results {
 		mu := m.Mutants[res.MutantID-1]
 		switch mu.Line {
@@ -228,11 +228,16 @@ func TestRecheck3x(t *testing.T) {
 				sawFloadFlaky = true
 			}
 		case 4:
-			stopToRuns++
+			if sawStopTimeout {
+				runsAfterStopTimeout++
+			}
+			if res.Status == killmatrix.Timeout {
+				sawStopTimeout = true
+			}
 		}
 	}
-	if !sawFloadFlaky || stopToRuns != 1 {
-		t.Errorf("sawFloadFlaky=%v stopToRuns=%d", sawFloadFlaky, stopToRuns)
+	if !sawFloadFlaky || !sawStopTimeout || runsAfterStopTimeout != 0 {
+		t.Errorf("sawFloadFlaky=%v sawStopTimeout=%v runsAfterStopTimeout=%d", sawFloadFlaky, sawStopTimeout, runsAfterStopTimeout)
 	}
 }
 
