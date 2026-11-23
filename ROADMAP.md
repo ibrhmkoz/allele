@@ -90,12 +90,6 @@ None of the three services uses metrics or tracing libraries, so those
 rules are untested by data; a service using Prometheus or OpenTelemetry
 would cover them.
 
-### Finish the service verdicts
-`SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=mutant/docs/data-verdicts
-mutant/docs/corpus.sh yamux` takes over an hour (each kill is confirmed
-twice, and the loaded ones rechecked alone). If `data-verdicts/yamux/` is
-missing, run it; §13's table gains a row, nothing else changes.
-
 ## Known limits
 
 - **Test granularity:** columns are leaf subtests. Table tests that loop
