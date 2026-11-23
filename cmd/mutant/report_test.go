@@ -15,12 +15,17 @@ func at(line int, mutated string, equivalent string) mutant.Mutant {
 	return mutant.Mutant{Pos: token.Position{Line: line}, Mutated: mutated, Equivalent: equivalent}
 }
 
+func arid(line int, mutated string) mutant.Mutant {
+	return mutant.Mutant{Pos: token.Position{Line: line}, Mutated: mutated, Arid: "logging"}
+}
+
 func TestChoose(t *testing.T) {
 	ms := []mutant.Mutant{
 		at(3, "a", ""), at(3, "b", ""), at(3, "c", ""),
 		at(4, "d", "smallest value compared"), at(4, "e", ""),
 		at(5, "f", "smallest value compared"),
 		at(9, "g", ""),
+		arid(10, "h"),
 	}
 	show := func(keep []int) string {
 		var s []string
@@ -32,6 +37,7 @@ func TestChoose(t *testing.T) {
 	// Equivalents never run. -all keeps the rest; by default one per line,
 	// picked by a hash of the file and line, so reruns pick the same.
 	xtesting.EqualText(t, show(choose(options{all: true}, "/src/p.go", ms)), "a b c e g")
+	xtesting.EqualText(t, show(choose(options{all: true, arid: true}, "/src/p.go", ms)), "a b c e g h")
 	one := show(choose(options{}, "/src/p.go", ms))
 	if len(strings.Fields(one)) != 3 || !strings.HasSuffix(one, "e g") || one != show(choose(options{}, "/src/p.go", ms)) {
 		t.Errorf("one per line picked %q", one)

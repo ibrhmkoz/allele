@@ -6,7 +6,9 @@
 //
 // It builds each package once with its mutants embedded (schemata), runs
 // only the tests that reach a mutant's function, and stops at a mutant's
-// first kill. Equivalent mutants it can recognize never run.
+// first kill. Equivalent mutants it can recognize never run, nor, without
+// -arid, mutants in code no one writes a test for: logging, metrics,
+// capacity hints, and lines marked //mut:ignore.
 package main
 
 import (
@@ -29,6 +31,7 @@ import (
 func main() {
 	var o options
 	flag.BoolVar(&o.all, "all", false, "run every mutant on a line, not one")
+	flag.BoolVar(&o.arid, "arid", false, "also run mutants in logging, metrics, capacity hints and lines marked mut:ignore")
 	base := flag.String("diff", "", "only mutate lines changed since this git revision, working tree included")
 	jobs := flag.Int("j", runtime.NumCPU(), "mutants to run at once")
 	strict := flag.Bool("strict", false, "exit 1 when a mutant survives or is not covered")

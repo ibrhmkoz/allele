@@ -20,13 +20,17 @@ import (
 type options struct {
 	// all runs every mutant on a line rather than one.
 	all bool
+	// arid runs mutants in code no one writes a test for: logging,
+	// metrics, capacity hints, lines marked mut:ignore.
+	arid bool
 	// diff, if set, maps absolute paths to the lines a diff touched; only
 	// mutants on those lines run.
 	diff map[string]map[int]bool
 }
 
 // choose returns, in order, the indices of the mutants of the file at path
-// to run. Equivalent mutants never run. Without o.all, one mutant per line
+// to run. Equivalent mutants never run, nor arid ones without o.arid.
+// Without o.all, one mutant per line
 // runs, picked by a hash of the file's name and the line so that reruns
 // pick the same: on the measured corpus that keeps 0.88 of the dominator
 // score at 36% of the cost, and beats as many random mutants.
@@ -41,7 +45,7 @@ func choose(o options, path string, ms []mutant.Mutant) []int {
 	byLine := map[int][]int{}
 	var keep []int
 	for i, m := range ms {
-		if m.Equivalent != "" || lines != nil && !lines[m.Pos.Line] {
+		if m.Equivalent != "" || m.Arid != "" && !o.arid || lines != nil && !lines[m.Pos.Line] {
 			continue
 		}
 		byLine[m.Pos.Line] = append(byLine[m.Pos.Line], i)
