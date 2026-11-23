@@ -28,3 +28,25 @@ func TestRunnerConfirmsKills(t *testing.T) {
 		}
 	}
 }
+
+func TestStrictOK(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		verdicts map[int]killmatrix.Verdict
+		want     bool
+	}{
+		{"empty", nil, true},
+		{"killed", map[int]killmatrix.Verdict{1: killmatrix.VerdictKilled}, true},
+		{"timeout", map[int]killmatrix.Verdict{1: killmatrix.VerdictTimeout}, true},
+		{"build error", map[int]killmatrix.Verdict{1: killmatrix.VerdictNoBuild}, true},
+		{"all passing verdicts", map[int]killmatrix.Verdict{1: killmatrix.VerdictKilled, 2: killmatrix.VerdictTimeout, 3: killmatrix.VerdictNoBuild}, true},
+		{"survived", map[int]killmatrix.Verdict{1: killmatrix.VerdictKilled, 2: killmatrix.VerdictSurvived}, false},
+		{"not covered", map[int]killmatrix.Verdict{1: killmatrix.VerdictKilled, 2: killmatrix.VerdictNotCovered}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := strictOK(tc.verdicts); got != tc.want {
+				t.Errorf("strictOK(%v) = %v, want %v", tc.verdicts, got, tc.want)
+			}
+		})
+	}
+}

@@ -48,6 +48,11 @@ func (c *cachedImporter) Import(path string) (*types.Package, error) {
 // find type-checks src as a file of its own package and returns its mutants.
 func find(t testing.TB, name, src string) []mutant.Mutant {
 	t.Helper()
+	return findInPkg(t, "p", name, src)
+}
+
+func findInPkg(t testing.TB, pkg, name, src string) []mutant.Mutant {
+	t.Helper()
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, parser.ParseComments)
 	if err != nil {
@@ -55,7 +60,7 @@ func find(t testing.TB, name, src string) []mutant.Mutant {
 	}
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
 	conf := types.Config{Importer: stdImporter}
-	if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
+	if _, err := conf.Check(pkg, fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
 	return mutant.Find(fset, f, []byte(src), info)
@@ -732,55 +737,54 @@ func f(n int, flag bool, l myLogger, sp Span, st streams) int {
 	return n
 }
 `
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Selections: map[*ast.SelectorExpr]*types.Selection{}}
-	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
-		t.Fatal(err)
-	}
+	var lines []int
 	byLine := map[int]string{}
-	for _, m := range mutant.Find(fset, f, []byte(src), info) {
+	for _, m := range find(t, "p.go", src) {
 		tag := cmp.Or(m.Arid, "-")
-		if prev, ok := byLine[m.Pos.Line]; ok && prev != tag {
+		if prev, ok := byLine[m.Pos.Line]; !ok {
+			lines = append(lines, m.Pos.Line)
+			byLine[m.Pos.Line] = tag
+		} else if prev != tag {
 			t.Errorf("line %d mixed arid tags: %q vs %q", m.Pos.Line, prev, tag)
 		}
-		byLine[m.Pos.Line] = tag
 	}
-	wantLines := []struct {
-		line int
-		want string
-	}{
-		{25, "mut:ignore"},           // line-above //mut:ignore
-		{27, "-"},                    // regular comment does not ignore
-		{28, "logging"},              // fmt.Fprintln(os.Stderr, ...)
-		{29, "logging"},              // fmt.Fprintln(os.Stdout, ...)
-		{30, "-"},                    // os.Stdin is not stdout/stderr
-		{31, "-"},                    // io.Discard is not os
-		{32, "-"},                    // struct field Stdout is not package os
-		{33, "-"},                    // call expr Stdout is not package os
-		{34, "-"},                    // log.Fatal stops program, not arid
-		{35, "-"},                    // non-log method on logger
-		{36, "tracing"},              // Span.SetAttributes
-		{37, "-"},                    // non-trace method on Span
-		{38, "capacity hint"},        // make(map, cap)
-		{39, "-"},                    // make(slice, len) is not capacity hint
-		{40, "-"},                    // make(chan, buf) is not capacity hint
-		{42, "-"},                    // empty if block is not arid
-		{44, "only arid statements"}, // if+else both arid
-		{49, "-"},                    // else branch poisons if
-		{54, "-"},                    // empty switch case is not arid
-		{59, "-"},                    // non-arid switch case poisons enclosing if
+	var b strings.Builder
+	for _, line := range lines {
+		fmt.Fprintf(&b, "%d %s\n", line, byLine[line])
 	}
-	for _, tc := range wantLines {
-		if got := byLine[tc.line]; got != tc.want {
-			t.Errorf("line %d arid = %q, want %q", tc.line, got, tc.want)
-		}
-	}
+	// Standalone //mut:ignore marks only the next line; os.Stdout/Stderr are
+	// logging while os.Stdin, io.Discard, and struct fields are not; a single
+	// non-arid statement in an else or switch case clears arid on the outer if.
+	xtesting.EqualText(t, b.String(), `
+		25 mut:ignore
+		27 -
+		28 logging
+		29 logging
+		30 -
+		31 -
+		32 -
+		33 -
+		34 -
+		35 -
+		36 tracing
+		37 -
+		38 capacity hint
+		39 -
+		40 -
+		41 -
+		42 -
+		44 only arid statements
+		45 logging
+		47 logging
+		49 -
+		50 logging
+		52 -
+		54 -
+		59 -
+		62 logging
+		64 -
+	`)
 
-	// Metrics package path matching.
 	metricSrc := `package metrics
 
 type Counter struct{}
@@ -793,20 +797,16 @@ func record(c Counter, n int) {
 	c.Other(n + 2)
 }
 `
-	mfset := token.NewFileSet()
-	mf, err := parser.ParseFile(mfset, "m.go", metricSrc, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
+	var mb strings.Builder
+	seen := map[int]bool{}
+	for _, m := range findInPkg(t, "example.com/metrics", "m.go", metricSrc) {
+		if !seen[m.Pos.Line] {
+			seen[m.Pos.Line] = true
+			fmt.Fprintf(&mb, "%d %s\n", m.Pos.Line, cmp.Or(m.Arid, "-"))
+		}
 	}
-	minfo := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Selections: map[*ast.SelectorExpr]*types.Selection{}}
-	if _, err := (&types.Config{Importer: stdImporter}).Check("example.com/metrics", mfset, []*ast.File{mf}, minfo); err != nil {
-		t.Fatal(err)
-	}
-	mByLine := map[int]string{}
-	for _, m := range mutant.Find(mfset, mf, []byte(metricSrc), minfo) {
-		mByLine[m.Pos.Line] = cmp.Or(m.Arid, "-")
-	}
-	if mByLine[9] != "metrics" || mByLine[10] != "-" {
-		t.Errorf("metrics lines: line 9 = %q (want metrics), line 10 = %q (want -)", mByLine[9], mByLine[10])
-	}
+	xtesting.EqualText(t, mb.String(), `
+		9 metrics
+		10 -
+	`)
 }

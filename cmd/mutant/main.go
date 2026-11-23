@@ -92,12 +92,17 @@ func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON 
 		fmt.Print(report(m, cwd, os.ReadFile))
 		fmt.Printf("in %s\n", time.Since(start).Round(100*time.Millisecond))
 	}
-	for _, v := range m.Verdicts() {
+	return strictOK(m.Verdicts()), nil
+}
+
+// strictOK reports whether -strict passes: no mutant survived or went uncovered.
+func strictOK(verdicts map[int]killmatrix.Verdict) bool {
+	for _, v := range verdicts {
 		if v == killmatrix.VerdictSurvived || v == killmatrix.VerdictNotCovered {
-			return false, nil
+			return false
 		}
 	}
-	return true, nil
+	return true
 }
 
 func runner(o options, jobs int, log io.Writer) killmatrix.Runner {

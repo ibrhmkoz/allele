@@ -76,6 +76,16 @@ func TestB(t *testing.T) {
 	}
 }
 
+func TestZ(t *testing.T) { _ = 1 }
+
+func ExampleX() { _ = 1 }
+
+func FuzzY(f *testing.F) { _ = 1 }
+
+type stub struct{}
+
+func (stub) TestM(t *testing.T) { _ = 1 }
+
 // Testify is not a test: a lowercase letter follows Test.
 func Testify(t *testing.T) {}
 `,
@@ -151,7 +161,7 @@ func changed(a, b fingerprint.Print) string {
 func TestLoad(t *testing.T) {
 	t.Parallel()
 	ref := load(t, nil)
-	xtesting.EqualText(t, strings.Join(slices.Sorted(maps.Keys(ref.Tests)), " "), "TestA TestB")
+	xtesting.EqualText(t, strings.Join(slices.Sorted(maps.Keys(ref.Tests)), " "), "ExampleX FuzzY TestA TestB TestZ")
 	for _, tc := range []struct {
 		name  string
 		files map[string]string
@@ -168,9 +178,14 @@ func TestLoad(t *testing.T) {
 		{"shared test helper", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "return string(b)", "return string(b) + \"\"", 1)}, "shared"},
 		{"TestMain, which wraps every test", map[string]string{"p/p_test.go": module["p/p_test.go"] + "\nfunc TestMain(m *testing.M) { os.Exit(m.Run()) }\n"}, "shared"},
 		{"helper named like a test", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "func Testify(t *testing.T) {}", "func Testify(t *testing.T) { t.Helper() }", 1)}, "shared"},
+		{"method named like a test", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "func (stub) TestM(t *testing.T) { _ = 1 }", "func (stub) TestM(t *testing.T) { _ = 2 }", 1)}, "shared"},
 		{"test package clause", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "package p\n", "package p_test\n", 1)}, "shared"},
 		{"renamed testdata file", map[string]string{"p/testdata/want.txt": "", "p/testdata/w.txt": "ok"}, "shared"},
 		{"one test", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "Msg(1)", "Msg(2)", 2)}, "TestB"},
+		{"test sorting after TestMain", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "func TestZ(t *testing.T) { _ = 1 }", "func TestZ(t *testing.T) { _ = 2 }", 1)}, "TestZ"},
+		{"example", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "func ExampleX() { _ = 1 }", "func ExampleX() { _ = 2 }", 1)}, "ExampleX"},
+		{"fuzz target", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "func FuzzY(f *testing.F) { _ = 1 }", "func FuzzY(f *testing.F) { _ = 2 }", 1)}, "FuzzY"},
+		{"reordered tests", map[string]string{"p/p_test.go": swapTests(module["p/p_test.go"])}, ""},
 		{"new test", map[string]string{"p/p_test.go": module["p/p_test.go"] + "\nfunc TestC(t *testing.T) {}\n"}, "TestC"},
 		{"removed test", map[string]string{"p/p_test.go": strings.Replace(module["p/p_test.go"], "func TestB(t *testing.T) {\n\tif Msg(1) != \"\" {\n\t\tt.Fatal(Msg(1))\n\t}\n}\n", "", 1)}, "TestB"},
 		{"unrelated package", map[string]string{"other/o.go": "package other\n\nfunc Three() int { return 4 }\n"}, ""},
@@ -213,4 +228,10 @@ func TestLoadErrors(t *testing.T) {
 	if _, err := fingerprint.Load(ctx, dir, "./..."); err == nil {
 		t.Error("no error for a cancelled context")
 	}
+}
+
+func swapTests(src string) string {
+	a := "func TestA(t *testing.T) {\n\tif !helper.Same(Msg(3), want(t)) {\n\t\tt.Fatal(Msg(3))\n\t}\n}\n"
+	b := "func TestB(t *testing.T) {\n\tif Msg(1) != \"\" {\n\t\tt.Fatal(Msg(1))\n\t}\n}\n"
+	return strings.Replace(src, a+"\n"+b, b+"\n"+a, 1)
 }
