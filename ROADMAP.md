@@ -69,8 +69,8 @@ would cover them.
   without `t.Run` (go-version: 33 top-level tests, 36 leaves) give coarse
   kill sets and few dominators, which makes their scores coarse (§1–2).
 - **Timing tests:** confirmed kills cost up to three extra runs per kill;
-  yamux's verdicts take over an hour at `-j 8`. A cheaper confirmation
-  (rerun only kills by tests seen flaky at least once) is untried.
+  yamux's verdicts take over an hour at `-j 8`, and a `killmatrix` diff of
+  25 killed mutants in `make ci` takes 24 s instead of 14.
 - **Schema runtime:** it imports `os` and `strconv`, so a package they depend
   on cannot embed mutants; they build one by one.
 - **Reproducibility:** two identical full runs differ on about 150 of
@@ -110,6 +110,10 @@ Kept so they are not retried without new evidence.
   mutant/mutant.go mutant/embed.go`). Worth retrying only with many more
   held-out faults, such as govalidator's 60 candidates, which were left
   unfinished.
+- **Confirming only tests seen flaky** (§17): trusting a test after N clean
+  confirmations in a row hides gaps long before it saves runs, since
+  flakiness follows the load, not the test. At N = 10 it still confirms 77%
+  of kills and calls 4 of 345 flaky-only mutants killed; at N = 5, 296.
 - **Single operators** (§2): ROR or AOR alone loses to as many random
   mutants; dropping any one operator is no better than dropping random
   ones. COR alone and one mutant per line beat random.

@@ -991,7 +991,7 @@ def _(alt, db, mo, pd, title):
         hi=("wall_s", "max"),
     )
     _all = _agg[_agg.cmd == "killmatrix_all"].copy()
-    _order = _all[_all.mode == "before"].sort_values("med", ascending=False).repo.tolist()
+    _order = _all[_all["mode"] == "before"].sort_values("med", ascending=False).repo.tolist()
     _bars = (
         alt.Chart(_all)
         .mark_bar()
@@ -1036,15 +1036,15 @@ def _(alt, db, mo, pd, title):
         ),
         ff_res as (
             select split_part(parse_path(filename)[-2], '/', 1) repo, mutant_id id,
-                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce(skipped, false)) ran
-            from read_json_auto('{_dir}/*/results.ndjson.gz', filename=true) group by all
+                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce((to_json(r)->>'skipped')::boolean, false)) ran
+            from read_json_auto('{_dir}/*/results.ndjson.gz', filename=true) r group by all
         ),
         sel_res as (
             select repo, mutant_id id,
                 bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce(skipped, false)) ran
             from sel_results group by all
         ),
-        both as (
+        paired as (
             select m.repo, m.id,
                 case when not m.compiled then 'build error' when f.k then 'killed' when f.tmo then 'timeout' when f.ran then 'survived' else 'not covered' end ff_v,
                 case when not m.compiled then 'build error' when s.k then 'killed' when s.tmo then 'timeout' when s.ran then 'survived' else 'not covered' end sel_v
@@ -1053,7 +1053,7 @@ def _(alt, db, mo, pd, title):
         select count(*) total,
             count(*) filter (where ff_v <> sel_v) differ,
             count(*) filter (where ff_v = 'timeout' and sel_v in ('killed', 'survived')) false_tmo
-        from both
+        from paired
     """).fetchall()[0]
     mo.vstack(
         [
@@ -1080,7 +1080,7 @@ def _(alt, db, mo, pd, title):
         hi=("wall_s", "max"),
     )
     _all = _agg[_agg.cmd == "killmatrix_all"].copy()
-    _order = _all[_all.mode == "before"].sort_values("med", ascending=False).repo.tolist()
+    _order = _all[_all["mode"] == "before"].sort_values("med", ascending=False).repo.tolist()
     _bars = (
         alt.Chart(_all)
         .mark_bar()
@@ -1125,15 +1125,15 @@ def _(alt, db, mo, pd, title):
         ),
         sp_res as (
             select split_part(parse_path(filename)[-2], '/', 1) repo, mutant_id id,
-                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce(skipped, false)) ran
-            from read_json_auto('{_dir}/*/results.ndjson.gz', filename=true) group by all
+                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce((to_json(r)->>'skipped')::boolean, false)) ran
+            from read_json_auto('{_dir}/*/results.ndjson.gz', filename=true) r group by all
         ),
         ff_res as (
             select split_part(parse_path(filename)[-2], '/', 1) repo, mutant_id id,
-                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce(skipped, false)) ran
-            from read_json_auto('{mo.notebook_dir()}/data-fast-failfast/*/results.ndjson.gz', filename=true) group by all
+                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce((to_json(r)->>'skipped')::boolean, false)) ran
+            from read_json_auto('{mo.notebook_dir()}/data-fast-failfast/*/results.ndjson.gz', filename=true) r group by all
         ),
-        both as (
+        paired as (
             select m.repo, m.id,
                 case when not m.compiled then 'build error' when s.k then 'killed' when s.tmo then 'timeout' when s.ran then 'survived' else 'not covered' end sp_v,
                 case when not m.compiled then 'build error' when f.k then 'killed' when f.tmo then 'timeout' when f.ran then 'survived' else 'not covered' end ff_v
@@ -1143,7 +1143,7 @@ def _(alt, db, mo, pd, title):
             count(*) filter (where ff_v = 'killed' and sp_v = 'timeout') k2t,
             count(*) filter (where ff_v = 'survived' and sp_v = 'timeout') false_tmo,
             count(*) filter (where sp_v <> ff_v and not (ff_v = 'killed' and sp_v = 'timeout')) other
-        from both
+        from paired
     """).fetchall()[0]
     _non_ok = db.sql(f"select count(*) from read_json_auto('{_dir}/*/tests.ndjson.gz') where state <> 'ok'").fetchall()[0][0]
     mo.vstack(
@@ -1154,6 +1154,80 @@ def _(alt, db, mo, pd, title):
             - **Changes:** (1) `baseline` runs top-level tests across `r.Workers` and rechecks any non-OK test alone so latency-sensitive tests (`glob`'s `TestPatternMatch/glob-01`) are not falsely marked flaky under load; (2) `FailFast` stops on the first `Timeout` (confirmed once individually when `Confirm` is set) since a timed-out mutant can never become `survived`; (3) non-schema mutants are dispatched first so individual builds overlap with fast schema runs.
             - **Speed (3 interleaved rounds at `-j 8`):** all mutants `{_tot['before']:.1f} → {_tot['after']:.1f} s` (`{_tot['before'] / _tot['after']:.2f}×`; `2.5×` faster than before §15); default `mutant ./...` `{_def['before']:.1f} → {_def['after']:.1f} s` (`{_def['before'] / _def['after']:.2f}×`; `2.8×` faster than before §15). `go-version` drops `{_gv['before']:.1f} → {_gv['after']:.1f} s` (`{_gv['before'] / _gv['after']:.1f}×`).
             - **Fidelity vs §15:** {_v[1]} of {_v[0]:,} mutants that previously timed out on an earlier test and were killed by a later one now stop at `timeout` (both pass `-strict`); **{_v[2]} false timeouts** (`survived → timeout`); {_v[3]} other diff (`uuid` clock/random); **{_non_ok} flaky/failing baseline tests** across all 6 repositories.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(alt, db, mo, pd, title):
+    _docs = mo.notebook_dir()
+    # One event per (top-level test, mutant) that failed against the mutant:
+    # killed if the failure was confirmed, flaky if Confirm threw it out.
+    # Mutant ids stand in for run order, which -j 8 only roughly follows.
+    _sim = db.sql(f"""
+        with r as (
+            select split_part(filename, '/', -2) repo, * from read_json_auto('{_docs}/data-verdicts/*/results.ndjson.gz', filename=true)
+            where status in ('killed', 'flaky')
+        ), t as (
+            select split_part(filename, '/', -2) repo, id, split_part(name, '/', 1) top from read_json_auto('{_docs}/data-verdicts/*/tests.ndjson.gz', filename=true)
+        ), e as (
+            select r.repo, t.top, r.mutant_id, if(bool_or(status = 'flaky'), 'flaky', 'killed') status
+            from r join t on r.repo = t.repo and r.test_id = t.id group by all
+        ), s as (
+            select *, row_number() over w i, sum((status = 'flaky')::int) over w grp
+            from e window w as (partition by repo, top order by mutant_id)
+        ), s2 as (
+            select *, row_number() over (partition by repo, top, grp order by i) - (grp > 0 and status = 'flaky')::int streak from s
+        ), only_flaky as (
+            select repo, mutant_id from e group by all having not bool_or(status = 'killed')
+        ), n(n) as (values (1), (2), (3), (5), (10), (20)),
+        tp as (select n, repo, top, min(i) filter (where status = 'killed' and streak >= n) trust from s2, n group by all),
+        x as (select n, s2.*, trust is not null and i > trust trusted from s2 join tp using (repo, top))
+        select n, count(*) filter (where not trusted) / count(*) confirmed,
+            count(distinct (repo, mutant_id)) filter (where trusted and status = 'flaky' and (repo, mutant_id) in (select (repo, mutant_id) from only_flaky)) wrong,
+            (select count(*) from only_flaky) flaky_mutants
+        from x group by n order by n
+    """).df()
+    _long = pd.concat(
+        [
+            _sim.assign(what="kills still confirmed (cost)", share=_sim.confirmed),
+            _sim.assign(what="flaky-only mutants called killed (gaps hidden)", share=_sim.wrong / _sim.flaky_mutants),
+        ]
+    )
+    _chart = (
+        alt.Chart(_long)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("n:O", title="trust a test after this many clean confirmations in a row", axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("share:Q", title=None, axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+            color=alt.Color(
+                "what:N",
+                title=None,
+                legend=alt.Legend(orient="top", labelLimit=400),
+                scale=alt.Scale(domain=["kills still confirmed (cost)", "flaky-only mutants called killed (gaps hidden)"], range=["#4c78a8", "#e45756"]),
+            ),
+            tooltip=["n", "what", alt.Tooltip("share:Q", format=".1%")],
+        )
+        .properties(
+            width=520,
+            height=220,
+            title=title(
+                "Trusting a test after clean confirmations hides gaps long before it saves runs",
+                "Simulated on the three services' confirmed verdicts (§13); mutant ids stand in for run order.",
+            ),
+        )
+    )
+    _10 = _sim.set_index("n").loc[10]
+    mo.vstack(
+        [
+            mo.md("## 17. Can confirmation skip tests that have confirmed cleanly before?"),
+            _chart,
+            mo.md(rf"""
+            - **Idea:** confirming a kill costs two more runs (the mutant again, then the original). Stop confirming a top-level test once it has confirmed N kills in a row, and confirm only tests seen flaky.
+            - **Result:** flakiness belongs to the load, not to the test. yamux's timing tests confirm dozens of kills cleanly, then invent kills when the machine gets busy. Hiding at most a handful of gaps takes N = 10, which still confirms {_10.confirmed:.0%} of kills and turns {int(_10.wrong)} of {int(_10.flaky_mutants)} flaky-only mutants into kills.
+            - **Decision:** dropped; every kill is confirmed (`cmd/mutant` sets `Confirm`).
             """),
         ]
     )
@@ -1199,7 +1273,8 @@ def _(mo):
     # over the corpus (data-faults-wild/) and over held-out repositories
     # (data-faults-heldout/)
 
-    # Sections 4-14 query the data directly; view everything
+    # Section 17 simulates on data-verdicts/; sections 4-17 query the data
+    # directly; view everything
     make mutant-measurements
     ```
     """)
