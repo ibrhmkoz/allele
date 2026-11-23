@@ -466,6 +466,7 @@ func TestRepairTypeOnlyImport(t *testing.T) {
 import (
 	"bytes"
 	"fmt"
+	"slices"
 )
 
 func render(n int) string {
@@ -473,6 +474,8 @@ func render(n int) string {
 	fmt.Fprintf(&buf, "%d", n)
 	return buf.String()
 }
+
+func has(xs []int, x int) bool { return slices.Contains(xs, x) }
 `
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
@@ -484,8 +487,11 @@ func render(n int) string {
 		t.Fatal(err)
 	}
 	// bytes is used only for a type: a nil pointer to it keeps it used.
+	// slices.Contains is generic: no expression names it without type
+	// arguments, so an import used only for it is not repaired.
 	xtesting.EqualText(t, listing(mutant.Extreme(fset, f, []byte(src), info)), `
-		p.go:8:27 EXT { … → { _, _ = (*bytes.Buffer)(nil), fmt.Fprintf; return *new(string) }
+		p.go:9:27 EXT { … → { _, _ = (*bytes.Buffer)(nil), fmt.Fprintf; return *new(string) }
+		p.go:15:32 EXT { return slices.Contains(xs, x) } → { return *new(bool) }
 	`)
 }
 
