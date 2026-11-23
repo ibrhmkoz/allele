@@ -96,3 +96,21 @@ diff --git a/gone.go b/gone.go
 	got := parseDiff(out, "/src")
 	xtesting.EqualText(t, fmt.Sprint(got), "map[/src/p/version.go:map[4:true 9:true 10:true]]")
 }
+
+func TestReportJSON(t *testing.T) {
+	m := &killmatrix.Matrix{
+		Mutants: []killmatrix.Mutant{
+			{ID: 1, Path: "/src/p/version.go", Line: 4, Col: 12, Operator: mutant.ROR, Original: "len(v) > 128", Mutated: "len(v) >= 128", Compiled: true},
+			{ID: 2, Path: "/src/p/version.go", Line: 4, Col: 12, Operator: mutant.ROR, Original: "len(v) > 128", Mutated: "len(v) < 128", Compiled: true},
+		},
+		Results: []killmatrix.Result{
+			{MutantID: 1, TestID: 1, Status: killmatrix.Survived},
+			{MutantID: 2, TestID: 1, Status: killmatrix.Killed},
+		},
+	}
+	// One line per mutant, killed ones too, for tools to filter.
+	xtesting.EqualText(t, reportJSON(m, "/src"), `
+		{"file":"p/version.go","line":4,"col":12,"operator":"ROR","original":"len(v) > 128","mutated":"len(v) >= 128","verdict":"survived"}
+		{"file":"p/version.go","line":4,"col":12,"operator":"ROR","original":"len(v) > 128","mutated":"len(v) < 128","verdict":"killed"}
+	`)
+}

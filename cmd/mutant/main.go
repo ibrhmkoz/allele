@@ -3,6 +3,7 @@
 //
 //	mutant ./...               every package, one mutant per line
 //	mutant -diff main ./...    only lines changed since main
+//	mutant -json ./...         one JSON object per mutant, for tools
 //
 // It builds each package once with its mutants embedded (schemata), runs
 // only the tests that reach a mutant's function, and stops at a mutant's
@@ -36,6 +37,7 @@ func main() {
 	jobs := flag.Int("j", runtime.NumCPU(), "mutants to run at once")
 	strict := flag.Bool("strict", false, "exit 1 when a mutant survives or is not covered")
 	verbose := flag.Bool("v", false, "log progress to stderr")
+	asJSON := flag.Bool("json", false, "print one JSON object per mutant, every verdict included, instead of the report")
 	flag.Parse()
 	patterns := flag.Args()
 	if len(patterns) == 0 {
@@ -43,7 +45,7 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	ok, err := run(ctx, o, *base, *jobs, *verbose, patterns)
+	ok, err := run(ctx, o, *base, *jobs, *verbose, *asJSON, patterns)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "mutant:", err)
 		os.Exit(2)
@@ -54,7 +56,7 @@ func main() {
 }
 
 // run reports and returns whether every mutant run was killed or timed out.
-func run(ctx context.Context, o options, base string, jobs int, verbose bool, patterns []string) (bool, error) {
+func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON bool, patterns []string) (bool, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return false, err
@@ -88,8 +90,12 @@ func run(ctx context.Context, o options, base string, jobs int, verbose bool, pa
 	if err != nil {
 		return false, err
 	}
-	fmt.Print(report(m, cwd, os.ReadFile))
-	fmt.Printf("in %s\n", time.Since(start).Round(100*time.Millisecond))
+	if asJSON {
+		fmt.Print(reportJSON(m, cwd))
+	} else {
+		fmt.Print(report(m, cwd, os.ReadFile))
+		fmt.Printf("in %s\n", time.Since(start).Round(100*time.Millisecond))
+	}
 	for _, v := range m.Verdicts() {
 		if v == killmatrix.VerdictSurvived || v == killmatrix.VerdictNotCovered {
 			return false, nil

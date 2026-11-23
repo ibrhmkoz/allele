@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"path/filepath"
@@ -147,6 +148,34 @@ func report(m *killmatrix.Matrix, root string, read func(path string) ([]byte, e
 	fmt.Fprintf(&b, "%d mutants: %d killed, %d survived, %d not covered, %d timed out, %d did not build\n",
 		len(m.Mutants), count[killmatrix.VerdictKilled], count[killmatrix.VerdictSurvived], count[killmatrix.VerdictNotCovered],
 		count[killmatrix.VerdictTimeout], count[killmatrix.VerdictNoBuild])
+	return b.String()
+}
+
+// jsonMutant is one line of -json output.
+type jsonMutant struct {
+	File     string             `json:"file"`
+	Line     int                `json:"line"`
+	Col      int                `json:"col"`
+	Operator mutant.Operator    `json:"operator"`
+	Original string             `json:"original"`
+	Mutated  string             `json:"mutated"`
+	Verdict  killmatrix.Verdict `json:"verdict"`
+}
+
+// reportJSON writes one JSON object per mutant, every verdict included, for
+// tools to filter. Paths are relative to root.
+func reportJSON(m *killmatrix.Matrix, root string) string {
+	verdicts := m.Verdicts()
+	var b strings.Builder
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false) // keep < and > readable in operators
+	for _, mu := range m.Mutants {
+		rel, err := filepath.Rel(root, mu.Path)
+		if err != nil {
+			rel = mu.Path
+		}
+		_ = enc.Encode(jsonMutant{rel, mu.Line, mu.Col, mu.Operator, mu.Original, mu.Mutated, verdicts[mu.ID]}) // a Builder never fails to write
+	}
 	return b.String()
 }
 
