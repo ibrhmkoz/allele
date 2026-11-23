@@ -751,7 +751,7 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 // files in overlay, if given, replacing the originals. Vet is off: it
 // rejects mutants that compile, such as c != 'a' || c != 'b'.
 func build(ctx context.Context, dir, bin, overlay string) ([]byte, error) {
-	args := []string{"test", "-c", "-vet=off", "-o", bin}
+	args := []string{"test", "-c", "-vet=off", "-ldflags=-s -w", "-o", bin}
 	if overlay != "" {
 		args = append(args, "-overlay", overlay)
 	}
