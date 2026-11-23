@@ -201,6 +201,36 @@ func TestFailFast(t *testing.T) {
 // TestFailFastVerdicts checks that FailFast (with schemata and selection)
 // reproduces every verdict of fixtureMatrix across all 29 fixture mutants:
 // kills, survivors, timeouts, panicking subtests, and build errors.
+// TestChooseNone: a package none of whose mutants is chosen is neither built
+// nor run, so that mutant -diff costs nothing in packages the diff misses.
+func TestChooseNone(t *testing.T) {
+	t.Parallel()
+	onlyLoop := func(file string, _ []mutant.Mutant) []int {
+		if filepath.Base(file) != "loop.go" {
+			return nil
+		}
+		return []int{0}
+	}
+	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: true, Select: true, FailFast: true, Choose: onlyLoop}
+	m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	for _, mu := range m.Mutants {
+		fmt.Fprintf(&b, "mutant %s:%d %s\n", mu.File, mu.Line, mu.Operator)
+	}
+	for _, tt := range m.Tests {
+		fmt.Fprintf(&b, "test %s %s\n", filepath.Base(tt.Pkg), tt.Name)
+	}
+	xtesting.EqualText(t, b.String(), `
+		mutant loop.go:10 COR
+		test loop TestCount
+		test loop TestLast
+		test loop TestBroken
+	`)
+}
+
 func TestFailFastVerdicts(t *testing.T) {
 	t.Parallel()
 	fast, err := (killmatrix.Runner{

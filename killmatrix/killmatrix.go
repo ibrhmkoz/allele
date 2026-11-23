@@ -316,6 +316,11 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		sources = append(sources, s)
 	}
 	mutants := m.Mutants[firstMutant:]
+	if len(mutants) == 0 {
+		// Without mutants its tests could kill nothing; skipping the build and
+		// baseline is what makes mutant -diff cheap in packages it misses.
+		return nil
+	}
 	fn := functions(pkg.Fset, sources, mutants)
 
 	bin := filepath.Join(tmp, strings.ReplaceAll(pkg.PkgPath, "/", "_")+".test")
