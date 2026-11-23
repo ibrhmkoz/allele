@@ -76,8 +76,12 @@ would cover them.
 - **Reproducibility:** two identical full runs differ on about 150 of
   608 000 cells, from timeouts and mutants that make code nondeterministic
   (§7). Any differential test against a stored matrix has to allow for it.
-- **ci budget:** `make ci` takes 8–9 s uncached, close to the 10 s budget;
-  most of it is `killmatrix`'s fixture runs.
+- **ci budget:** `make ci` runs `mutant -strict -diff main` on the lines
+  changed since `main`: 0.3–0.6 s when no package has a mutant, about 4 s
+  for a whole `xtesting`, but 14–15 s for even one mutant in `killmatrix`
+  or `mutant`, whose tests build and run fixtures. With lint and tests that
+  puts ci at up to ~23 s; the 10 s budget was relaxed for this on
+  2026-11-23, to be won back by making those packages' tests cheaper.
 - **Corpus clones** live outside the repository (`CORPUS_CACHE`); rerun
   `docs/corpus.sh` to get them back, and `git fetch --unshallow` before
   `cmd/faults`, which needs history.
