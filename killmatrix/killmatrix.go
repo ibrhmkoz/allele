@@ -193,6 +193,12 @@ type Runner struct {
 	// a mutant's first timeout, so a mutant that one test kills and another
 	// hangs on may read as a timeout; neither is a gap.
 	FailFast bool
+	// Infect, with Select and FailFast, does not run a test against a
+	// mutant whose site the test ran in the baseline without the mutant's
+	// value ever differing from the original's there: a test the mutant
+	// never infects cannot kill it (weak mutation, Howden 1982). The test
+	// counts as run and survived. A wrong skip can only miss a kill.
+	Infect bool
 	// Confirm runs a top-level test again when it fails against a mutant
 	// and, in a schema binary, once against the original code. A leaf
 	// counts as killed only if it fails against the mutant both times and
@@ -514,7 +520,9 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 			reached[top] = map[int]bool{}
 			reachedSite[top] = baseIDs[i]
 			for id := range baseIDs[i] {
-				reached[top][fn[id]] = true
+				if id > 0 { // -id marks an infection
+					reached[top][fn[id]] = true
+				}
 			}
 		}
 		for _, t := range baseTests[i] {
@@ -898,12 +906,19 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 	}
 	byTop := map[string]int{}
 	var groups []topGroup
+	var uninfected []Result
 	for _, t := range tests {
 		if t.State != OK {
 			continue
 		}
 		top := topOf(t.Name)
 		if reached != nil && fnID >= 0 && !reached[top][fnID] {
+			continue
+		}
+		// A test that ran the mutant's site and never saw its value differ
+		// cannot kill it: it survives without running.
+		if r.Infect && reachedSite != nil && reachedSite[top][mu.ID] && !reachedSite[top][-mu.ID] {
+			uninfected = append(uninfected, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived})
 			continue
 		}
 		idx, ok := byTop[top]
@@ -930,7 +945,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 	})
 
 	queue := makeBatches(groups)
-	var results []Result
+	results := uninfected
 	for len(queue) > 0 {
 		batch := queue[0]
 		queue = queue[1:]

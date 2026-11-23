@@ -455,3 +455,38 @@ func TestConfirmStall(t *testing.T) {
 		M4 killed
 	`)
 }
+
+// TestInfect: skipping the tests that ran a mutant's site in the baseline
+// but never computed a different value there changes no verdict on the
+// fixtures, and runs fewer tests. price > 100 → price >= 100 meets no
+// price of 100, so it survives without a single run.
+func TestInfect(t *testing.T) {
+	t.Parallel()
+	base := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: true, FailFast: true}
+	infect := base
+	infect.Infect = true
+	patterns := []string{"./discount", "./loop", "./table", "./batch"}
+	want := run(t, base, "testdata", patterns...)
+	got := run(t, infect, "testdata", patterns...)
+	xtesting.EqualText(t, formatVerdicts(got), formatVerdicts(want))
+	ran := func(m *killmatrix.Matrix, id int) (n int) {
+		for _, res := range m.Results {
+			if (id == 0 || res.MutantID == id) && res.MS > 0 {
+				n++
+			}
+		}
+		return n
+	}
+	if ran(got, 0) >= ran(want, 0) {
+		t.Errorf("%d runs with Infect, %d without", ran(got, 0), ran(want, 0))
+	}
+	boundary := 0
+	for _, mu := range got.Mutants {
+		if mu.Mutated == "price >= 100" {
+			boundary = mu.ID
+		}
+	}
+	if n := ran(got, boundary); boundary == 0 || n != 0 || got.Verdicts()[boundary] != killmatrix.VerdictSurvived {
+		t.Errorf("price >= 100 (M%d): %d runs, %s; want none, survived", boundary, n, got.Verdicts()[boundary])
+	}
+}

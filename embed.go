@@ -17,6 +17,8 @@ const EnvVar = "GOMUTANT"
 // ReachEnvVar names the environment variable that, set to a file, makes a
 // program built from Embed append to it the id of every mutant whose site
 // runs, one per line: a test that never reaches a mutant cannot kill it.
+// It appends minus the id of every mutant that would have changed a value
+// there, too: one that never does cannot change what the test sees.
 const ReachEnvVar = "GOMUTANT_REACH"
 
 // Embed returns file's source with its mutants built in, each switched on
@@ -181,7 +183,7 @@ func (e *embedder) wrap(sp span, g []*site) string {
 		case site.op == SDL:
 			s = fmt.Sprintf("if !_mutOn(%d) { %s }", site.alts[0].id, s)
 		case isNode[*ast.IfStmt](site.node):
-			s = fmt.Sprintf("_mutCond(func() bool { return %s }, %d, %d)", s, site.id("true"), site.id("false"))
+			s = fmt.Sprintf("_mutCond(func() bool { return %s }, %d, %d, %v)", s, site.id("true"), site.id("false"), e.pure(site.node.(*ast.IfStmt).Cond))
 		case isNode[*ast.ReturnStmt](site.node):
 			s = fmt.Sprintf("_mutErr(%s, %d)", s, site.alts[0].id)
 		}
@@ -194,13 +196,42 @@ var (
 	arithmeticNames = []string{"_mutADD", "_mutSUB", "_mutMUL", "_mutQUO", "_mutREM"}
 )
 
+// pure reports whether evaluating x can do nothing but compute a value or
+// panic: it calls no function but len and cap and receives from no
+// channel. Skipping a pure expression that did not panic changes nothing
+// but its value, so a mutant that skips it infects only by that value.
+func (e *embedder) pure(x ast.Expr) bool {
+	pure := true
+	ast.Inspect(x, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.CallExpr:
+			if tv, ok := e.info.Types[n.Fun]; ok && tv.IsType() {
+				break // a conversion
+			}
+			id, _ := ast.Unparen(n.Fun).(*ast.Ident)
+			if b, ok := e.info.Uses[id].(*types.Builtin); ok && (b.Name() == "len" || b.Name() == "cap") {
+				break
+			}
+			pure = false
+		case *ast.UnaryExpr:
+			if n.Op == token.ARROW {
+				pure = false
+			}
+		case *ast.FuncLit:
+			return false // defined, not called
+		}
+		return pure
+	})
+	return pure
+}
+
 func (e *embedder) binary(n *ast.BinaryExpr, s *site) string {
 	x, y := e.text(e.spanOf(n.X)), e.text(e.spanOf(n.Y))
 	switch {
 	case n.Op == token.LAND:
-		return fmt.Sprintf("_mutAnd(%s, func() bool { return %s }, %d)", x, y, s.id("||"))
+		return fmt.Sprintf("_mutAnd(%s, func() bool { return %s }, %d, %v)", x, y, s.id("||"), e.pure(n.Y))
 	case n.Op == token.LOR:
-		return fmt.Sprintf("_mutOr(%s, func() bool { return %s }, %d)", x, y, s.id("&&"))
+		return fmt.Sprintf("_mutOr(%s, func() bool { return %s }, %d, %v)", x, y, s.id("&&"), e.pure(n.Y))
 	case slices.Contains(relational, n.Op) && !e.ordered(n.X) && !e.ordered(n.Y):
 		// Values without an order only swap == and !=, and maps, slices
 		// and funcs are not comparable: negate the comparison as written.
@@ -461,6 +492,35 @@ func _mutMark(id int) {
 	}
 }
 
+// _mutInfect records that mutant id would have changed a value here: a
+// test that reaches a mutant's site and never infects it cannot kill it.
+func _mutInfect(id int) {
+	if _mutReach == nil || id == 0 {
+		return
+	}
+	if _, seen := _mutSeen.LoadOrStore(-id, true); !seen {
+		_, _ = _mutReach.Write(strconv.AppendInt(nil, int64(-id), 10))
+		_, _ = _mutReach.Write([]byte("\n"))
+	}
+}
+
+// _mutInfected reports whether mutant id is already known to infect, so
+// that hot loops stop comparing once every mutant of a site has.
+func _mutInfected(id int) bool {
+	_, ok := _mutSeen.Load(-id)
+	return ok
+}
+
+// _mutInfectAll marks every mutant of a site whose change cannot be told
+// apart without running it.
+func _mutInfectAll(ids []int) {
+	if _mutReach != nil {
+		for _, id := range ids {
+			_mutInfect(id)
+		}
+	}
+}
+
 func _mutMarkAll(ids []int) {
 	if _mutReach != nil {
 		for _, id := range ids {
@@ -471,15 +531,17 @@ func _mutMarkAll(ids []int) {
 
 func _mutIs(id int) bool { return id != 0 && _mutActive == id }
 
-// _mutOn guards a deletable statement.
+// _mutOn guards a deletable statement: deleting one that runs infects.
 func _mutOn(id int) bool {
 	_mutMark(id)
+	_mutInfect(id)
 	return _mutIs(id)
 }
 
 // _mutAt returns the active mutant for an op-assignment's switch.
 func _mutAt(ids ...int) int {
 	_mutMarkAll(ids)
+	_mutInfectAll(ids)
 	return _mutActive
 }
 
@@ -498,7 +560,19 @@ func _mutPick(op int, ids []int) int {
 
 func _mutOrd[T cmp.Ordered](x, y T, op int, ids [6]int) bool {
 	_mutMarkAll(ids[:])
-	switch _mutPick(op, ids[:]) {
+	if _mutReach != nil {
+		want := _mutOrdOp(x, y, op)
+		for alt, id := range ids {
+			if id != 0 && !_mutInfected(id) && _mutOrdOp(x, y, alt) != want {
+				_mutInfect(id)
+			}
+		}
+	}
+	return _mutOrdOp(x, y, _mutPick(op, ids[:]))
+}
+
+func _mutOrdOp[T cmp.Ordered](x, y T, op int) bool {
+	switch op {
 	case _mutLSS:
 		return x < y
 	case _mutLEQ:
@@ -514,7 +588,7 @@ func _mutOrd[T cmp.Ordered](x, y T, op int, ids [6]int) bool {
 }
 
 func _mutNot(b bool, id int) bool {
-	if _mutOn(id) {
+	if _mutOn(id) { // !b always differs: reaching infects
 		return !b
 	}
 	return b
@@ -530,7 +604,26 @@ type _mutFloat interface {
 
 func _mutArith[T _mutInteger](x, y T, op int, ids [5]int) T {
 	_mutMarkAll(ids[:])
-	switch _mutPick(op, ids[:]) {
+	if _mutReach != nil {
+		// Dividing by zero panics: when one side would and the other would
+		// not, that is an infection, found without dividing.
+		divides := func(op int) bool { return op == _mutQUO || op == _mutREM }
+		if y == 0 && divides(op) {
+			_mutInfectAll(ids[:])
+		} else {
+			want := _mutArithOp(x, y, op)
+			for alt, id := range ids {
+				if id != 0 && !_mutInfected(id) && (y == 0 && divides(alt) || _mutArithOp(x, y, alt) != want) {
+					_mutInfect(id)
+				}
+			}
+		}
+	}
+	return _mutArithOp(x, y, _mutPick(op, ids[:]))
+}
+
+func _mutArithOp[T _mutInteger](x, y T, op int) T {
+	switch op {
 	case _mutADD:
 		return x + y
 	case _mutSUB:
@@ -545,7 +638,24 @@ func _mutArith[T _mutInteger](x, y T, op int, ids [5]int) T {
 
 func _mutArithF[T _mutFloat](x, y T, op int, ids [5]int) T {
 	_mutMarkAll(ids[:])
-	switch _mutPick(op, ids[:]) {
+	if _mutReach != nil {
+		want := _mutArithFOp(x, y, op)
+		for alt, id := range ids {
+			// NaN differs from itself, so a NaN result counts as infected;
+			// 1/v tells -0 from +0, which == does not.
+			if id == 0 || _mutInfected(id) {
+				continue
+			}
+			if got := _mutArithFOp(x, y, alt); got != want || 1/got != 1/want {
+				_mutInfect(id)
+			}
+		}
+	}
+	return _mutArithFOp(x, y, _mutPick(op, ids[:]))
+}
+
+func _mutArithFOp[T _mutFloat](x, y T, op int) T {
+	switch op {
 	case _mutADD:
 		return x + y
 	case _mutSUB:
@@ -556,21 +666,46 @@ func _mutArithF[T _mutFloat](x, y T, op int, ids [5]int) T {
 	return x / y
 }
 
-func _mutAnd(x bool, y func() bool, id int) bool {
-	if _mutOn(id) {
+// _mutAnd is x && y(), or x || y() for mutant id. With x false the
+// mutant would call y, which the original does not: counted as infected
+// rather than called. With x true the mutant skips y: infected unless y is
+// pure and true.
+func _mutAnd(x bool, y func() bool, id int, pure bool) bool {
+	_mutMark(id)
+	if _mutIs(id) {
 		return x || y()
 	}
-	return x && y()
+	if !x {
+		_mutInfect(id)
+		return false
+	}
+	v := y()
+	if !v || !pure {
+		_mutInfect(id)
+	}
+	return v
 }
 
-func _mutOr(x bool, y func() bool, id int) bool {
-	if _mutOn(id) {
+// _mutOr is _mutAnd's mirror: x || y(), or x && y() for mutant id.
+func _mutOr(x bool, y func() bool, id int, pure bool) bool {
+	_mutMark(id)
+	if _mutIs(id) {
 		return x && y()
 	}
-	return x || y()
+	if x {
+		_mutInfect(id)
+		return true
+	}
+	v := y()
+	if v || !pure {
+		_mutInfect(id)
+	}
+	return v
 }
 
-func _mutCond(c func() bool, t, f int) bool {
+// _mutCond is the condition c, or true for mutant t and false for f: both
+// skip c, so they infect unless c is pure and has their value.
+func _mutCond(c func() bool, t, f int, pure bool) bool {
 	_mutMark(t)
 	_mutMark(f)
 	switch {
@@ -579,12 +714,23 @@ func _mutCond(c func() bool, t, f int) bool {
 	case _mutIs(f):
 		return false
 	}
-	return c()
+	v := c()
+	if v || !pure {
+		_mutInfect(f)
+	}
+	if !v || !pure {
+		_mutInfect(t)
+	}
+	return v
 }
 
 func _mutErr(err error, id int) error {
-	if _mutOn(id) {
+	_mutMark(id)
+	if _mutIs(id) {
 		return nil
+	}
+	if err != nil {
+		_mutInfect(id)
 	}
 	return err
 }

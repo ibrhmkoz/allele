@@ -1286,6 +1286,48 @@ def _(alt, db, mo, title):
 
 
 @app.cell
+def _(alt, db, mo, title):
+    _docs = mo.notebook_dir()
+    _r = db.sql(f"""
+        select bin, repo, median(wall_s) t from read_json_auto('{_docs}/data-bench/infect.ndjson', union_by_name=true)
+        where wall_s is not null group by all
+    """).df()
+    _m = db.sql(f"select bin, m, t, f from read_json_auto('{_docs}/data-bench/infect.ndjson', union_by_name=true) where m is not null").df().set_index("bin")
+    _chart = (
+        alt.Chart(_r)
+        .mark_bar()
+        .encode(
+            x=alt.X("t:Q", title="median wall time over 5 reps (s)"),
+            y=alt.Y("repo:N", title=None),
+            yOffset=alt.YOffset("bin:N"),
+            color=alt.Color("bin:N", title=None, legend=alt.Legend(orient="top")),
+            tooltip=["bin", "repo", alt.Tooltip("t:Q", format=".2f")],
+        )
+        .properties(
+            width=520,
+            height=220,
+            title=title(
+                f"Skipping tests that never infect a mutant: M {_m.loc['main'].m:.3f} → {_m.loc['infect'].m:.3f}",
+                "Six corpus libraries, -j 8, 5 interleaved reps; the time goes down in uuid, whose survivors meet a 1 s test.",
+            ),
+        )
+    )
+    mo.vstack(
+        [
+            mo.md("## 19. Do tests that never infect a mutant need to run against it?"),
+            _chart,
+            mo.md(rf"""
+            - **Mechanism:** a mutant changes what a test sees only if, at its site, the mutated expression computes a different value (weak mutation: Howden 1982; Just et al., ISSTA 2014). In the baseline the schema helpers already hold both operands, so they record which mutants would have differed; a test that ran a site and never infected its mutant is not run against it and counts as survived. Statements, op-assignments, a division by zero on either side, and the side of && or || the original never evaluates count as infected; so does a mutant that skips an expression with a call or a receive in it (`if s.Scan()` → `if true`), since skipping it changes more than a value (Gemini's review).
+            - **Result:** T {_m.loc['main'].t:.1f} s → {_m.loc['infect'].t:.1f} s, F unchanged at {_m.loc['infect'].f:.4f}. Four runs agreed (+1.1% to +1.5% in M), the last after the review made the filter sound; the gain is small because most survivors here are infected and fail to propagate, as uuid's state changes the slow test never checks.
+            - **Risk:** a skip is wrong only if a test infects a mutant in its run but not in the baseline, as clock values can; that misses a kill (a false gap), never hides one.
+            - **Decision:** `cmd/mutant` sets `Infect`.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {

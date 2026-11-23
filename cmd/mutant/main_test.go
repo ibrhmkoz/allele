@@ -54,10 +54,10 @@ func TestStrictOK(t *testing.T) {
 }
 
 // TestRunnerSettings: what the command runs mutants with. The timeout pad
-// is measured in §18: 100 ms halves the corpus' time and hides no gap.
+// is measured in §18, Infect in §19.
 func TestRunnerSettings(t *testing.T) {
 	r := runner(options{noCache: true}, 8, io.Discard)
-	xtesting.EqualText(t, fmt.Sprintf("workers %d, baseline runs %d, timeout 3× baseline + %v, schemata %v, select %v, fail fast %v, confirm %v",
-		r.Workers, r.BaselineRuns, r.TimeoutPad, r.Schemata, r.Select, r.FailFast, r.Confirm),
-		"workers 8, baseline runs 1, timeout 3× baseline + 100ms, schemata true, select true, fail fast true, confirm true")
+	xtesting.EqualText(t, fmt.Sprintf("workers %d, baseline runs %d, timeout 3× baseline + %v, schemata %v, select %v, infect %v, fail fast %v, confirm %v",
+		r.Workers, r.BaselineRuns, r.TimeoutPad, r.Schemata, r.Select, r.Infect, r.FailFast, r.Confirm),
+		"workers 8, baseline runs 1, timeout 3× baseline + 100ms, schemata true, select true, infect true, fail fast true, confirm true")
 }

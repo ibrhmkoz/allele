@@ -124,6 +124,7 @@ func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
 		Schemata:   true,
 		Select:     true,
 		FailFast:   true,
+		Infect:     true, // §19
 		Confirm:    true,
 		CacheDir:   cacheDir,
 		Choose:     func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },

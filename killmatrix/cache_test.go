@@ -246,6 +246,9 @@ func TestCacheInvalidatesOnRunner(t *testing.T) {
 	confirm := r
 	confirm.Confirm = true
 	mustMiss("runner option change", confirm)
+	infect := confirm
+	infect.Infect = true
+	mustMiss("infection filter", infect)
 
 	entries, err := os.ReadDir(r.CacheDir)
 	if err != nil || len(entries) != 1 {
@@ -254,7 +257,7 @@ func TestCacheInvalidatesOnRunner(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(r.CacheDir, entries[0].Name()), []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustMiss("corrupt cache", confirm)
+	mustMiss("corrupt cache", infect)
 }
 
 // TestCacheChoosesMore: mutants chosen after the cache was filled run;
