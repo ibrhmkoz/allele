@@ -77,11 +77,10 @@ would cover them.
   608 000 cells, from timeouts and mutants that make code nondeterministic
   (§7). Any differential test against a stored matrix has to allow for it.
 - **ci budget:** `make ci` runs `mutant -strict -diff main` on the lines
-  changed since `main`: 0.3–0.6 s when no package has a mutant, about 4 s
-  for a whole `xtesting`, but 14–15 s for even one mutant in `killmatrix`
-  or `mutant`, whose tests build and run fixtures. With lint and tests that
-  puts ci at up to ~23 s; the 10 s budget was relaxed for this on
-  2026-11-23, to be won back by making those packages' tests cheaper.
+  changed since `main`: 7.0–7.9 s uncached when no package has a mutant,
+  and 11.9–13.1 s for a 1-mutant edit in `killmatrix` (down from 23.7–25.1 s
+  after parallelizing packages in `Runner.Run`, `BaselineRuns: 1` in
+  `cmd/mutant`, and speeding up `mutant`/`killmatrix` tests).
 - **Corpus clones** live outside the repository (`CORPUS_CACHE`); rerun
   `docs/corpus.sh` to get them back, and `git fetch --unshallow` before
   `cmd/faults`, which needs history.
