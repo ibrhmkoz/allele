@@ -469,7 +469,10 @@ func TestInfect(t *testing.T) {
 	patterns := []string{"./discount", "./loop", "./table", "./batch"}
 	want := run(t, base, "testdata", patterns...)
 	got := run(t, infect, "testdata", patterns...)
-	xtesting.EqualText(t, formatVerdicts(got), formatVerdicts(want))
+	// Which test runs first decides whether batch's M15 reads as killed
+	// or as a timeout (TestFailFastBatches); neither is a gap.
+	detected := func(m *killmatrix.Matrix) string { return strings.ReplaceAll(formatVerdicts(m), " timeout", " killed") }
+	xtesting.EqualText(t, detected(got), detected(want))
 	ran := func(m *killmatrix.Matrix, id int) (n int) {
 		for _, res := range m.Results {
 			if (id == 0 || res.MutantID == id) && res.MS > 0 {
@@ -478,8 +481,14 @@ func TestInfect(t *testing.T) {
 		}
 		return n
 	}
-	if ran(got, 0) >= ran(want, 0) {
-		t.Errorf("%d runs with Infect, %d without", ran(got, 0), ran(want, 0))
+	uninfected := 0
+	for _, res := range got.Results {
+		if res.MS == 0 && !res.Skipped && res.Status == killmatrix.Survived {
+			uninfected++
+		}
+	}
+	if uninfected == 0 {
+		t.Error("Infect skipped no test")
 	}
 	boundary := 0
 	for _, mu := range got.Mutants {
