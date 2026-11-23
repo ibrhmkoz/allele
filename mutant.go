@@ -88,7 +88,7 @@ func Find(fset *token.FileSet, file *ast.File, src []byte, info *types.Info) []M
 	f := finder{fset: fset, src: src, info: info}
 	f.indexUses(file)
 	ast.Inspect(file, f.visit)
-	slices.SortStableFunc(f.found, func(a, b Mutant) int { return a.start - b.start })
+	slices.SortStableFunc(f.found, func(a, b Mutant) int { return a.Pos.Offset - b.Pos.Offset })
 	return f.found
 }
 
@@ -101,6 +101,9 @@ type finder struct {
 	// used, in the compiler's sense: x = v is not a use of x, x++ and
 	// x += v are.
 	uses map[types.Object][]use
+	// parents maps an operand that is itself a binary expression to the
+	// expression it is an operand of.
+	parents map[ast.Expr]*ast.BinaryExpr
 }
 
 // use is one use of a local or an import. expr is an expression that
@@ -115,8 +118,11 @@ func (f *finder) indexUses(file *ast.File) {
 	assigned := map[*ast.Ident]bool{}
 	params := map[*types.Var]bool{}
 	selected := map[*ast.Ident]string{} // package ident of pkg.Name → "pkg.Name" when Name is a value
+	f.parents = map[ast.Expr]*ast.BinaryExpr{}
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
+		case *ast.BinaryExpr:
+			f.parents[n.X], f.parents[n.Y] = n, n
 		case *ast.AssignStmt:
 			// x = v and x := v do not use x; x += v and x++ do.
 			if n.Tok != token.ASSIGN && n.Tok != token.DEFINE {
@@ -266,28 +272,58 @@ func (f *finder) visit(n ast.Node) bool {
 }
 
 func (f *finder) binary(n *ast.BinaryExpr) {
-	op, end := n.OpPos, n.OpPos+token.Pos(len(n.Op.String()))
 	switch {
 	case n.Op == token.LAND:
-		f.add(COR, n, n, op, end, token.LOR.String())
+		f.swap(COR, n, token.LOR)
 	case n.Op == token.LOR:
-		f.add(COR, n, n, op, end, token.LAND.String())
+		f.swap(COR, n, token.LAND)
 	case (n.Op == token.EQL || n.Op == token.NEQ) && (f.isErr(n.X) && f.isNil(n.Y) || f.isNil(n.X) && f.isErr(n.Y)):
-		f.add(ERR, n, n, op, end, negate(n.Op).String())
+		f.swap(ERR, n, negate(n.Op))
 	case n.Op == token.EQL || n.Op == token.NEQ:
 		if !f.ordered(n.X) {
-			f.add(ROR, n, n, op, end, negate(n.Op).String())
+			f.swap(ROR, n, negate(n.Op))
 			break
 		}
-		f.replaceOp(ROR, n, op, n.Op, relational)
+		f.replaceOp(ROR, n, relational)
 	case slices.Contains(relational, n.Op):
-		f.replaceOp(ROR, n, op, n.Op, relational)
+		f.replaceOp(ROR, n, relational)
 	case slices.Contains(arithmetic, n.Op):
 		if ops := f.arithmeticFor(n); ops != nil {
-			f.replaceOp(AOR, n, op, n.Op, ops)
+			f.replaceOp(AOR, n, ops)
 		}
 	}
 }
+
+// swap records the mutant that puts alt in place of n's operator. An
+// operator of the same precedence replaces the token alone. Another
+// precedence would regroup the tree written as text: in a && b && c,
+// which is (a && b) && c, swapping the first && gives a || b && c, read
+// as a || (b && c). So the node is rewritten whole, with parentheses where
+// the new operator needs them, and the text between the operands kept so
+// no line moves.
+func (f *finder) swap(o Operator, n *ast.BinaryExpr, alt token.Token) *Mutant {
+	if alt.Precedence() == n.Op.Precedence() {
+		return f.add(o, n, n, n.OpPos, n.OpPos+token.Pos(len(n.Op.String())), alt.String())
+	}
+	x, y := f.source(n.X), f.source(n.Y)
+	if b, ok := n.X.(*ast.BinaryExpr); ok && b.Op.Precedence() < alt.Precedence() {
+		x = "(" + x + ")"
+	}
+	if b, ok := n.Y.(*ast.BinaryExpr); ok && b.Op.Precedence() <= alt.Precedence() {
+		y = "(" + y + ")"
+	}
+	before := string(f.src[f.offset(n.X.End()):f.offset(n.OpPos)])
+	after := string(f.src[f.offset(n.OpPos)+len(n.Op.String()) : f.offset(n.Y.Pos())])
+	text := x + before + alt.String() + after + y
+	if p, ok := f.parents[n]; ok && (p.X == n && alt.Precedence() < p.Op.Precedence() || p.Y == n && alt.Precedence() <= p.Op.Precedence()) {
+		text = "(" + text + ")"
+	}
+	m := f.add(o, n, n, n.Pos(), n.End(), text)
+	m.Pos, m.alt = f.fset.Position(n.OpPos), alt.String()
+	return m
+}
+
+func (f *finder) source(n ast.Node) string { return string(f.src[f.offset(n.Pos()):f.offset(n.End())]) }
 
 // assign mutates op-assignments such as += the way binary mutates +.
 func (f *finder) assign(n *ast.AssignStmt) {
@@ -325,12 +361,12 @@ func (f *finder) arithmeticFor(e ast.Expr) []token.Token {
 	}
 }
 
-func (f *finder) replaceOp(o Operator, n *ast.BinaryExpr, pos token.Pos, op token.Token, alts []token.Token) {
+func (f *finder) replaceOp(o Operator, n *ast.BinaryExpr, alts []token.Token) {
 	for _, alt := range alts {
-		if alt != op {
-			m := f.add(o, n, n, pos, pos+token.Pos(len(op.String())), alt.String())
+		if alt != n.Op {
+			m := f.swap(o, n, alt)
 			if o == ROR {
-				m.Equivalent = f.equivalent(n, op, alt)
+				m.Equivalent = f.equivalent(n, n.Op, alt)
 			}
 		}
 	}

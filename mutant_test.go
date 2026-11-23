@@ -240,6 +240,27 @@ func setup() func() int {
 			`,
 		},
 		{
+			name: "an operator of another precedence keeps the tree: a && b && c is (a && b) && c",
+			src: `package p
+
+func f(a, b, c bool) bool { return a && b && c }
+
+func g(x, y, z int) int { return x - y * z }
+`,
+			want: `
+				discount.go:3:38 COR a && b → (a || b)
+				discount.go:3:43 COR a && b && c → a && b || c
+				discount.go:5:36 AOR x - y * z → x + y * z
+				discount.go:5:36 AOR x - y * z → x * (y * z)
+				discount.go:5:36 AOR x - y * z → x / (y * z)
+				discount.go:5:36 AOR x - y * z → x % (y * z)
+				discount.go:5:40 AOR y * z → (y + z)
+				discount.go:5:40 AOR y * z → (y - z)
+				discount.go:5:40 AOR y * z → y / z
+				discount.go:5:40 AOR y * z → y % z
+			`,
+		},
+		{
 			name: "x++ uses x, so a condition need not keep it used",
 			src: `package p
 
