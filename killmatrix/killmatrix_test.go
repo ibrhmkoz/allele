@@ -363,56 +363,65 @@ func TestConfirmUnderLoad(t *testing.T) {
 // get the verdict the full matrix, a process per test, gives it, but for
 // one allowed difference: failing fast stops at a mutant's first timeout,
 // so a mutant one test kills and another hangs on may read as a timeout.
-// Both are no gap.
+// Both are no gap, and only a mutant some test hangs on may drift.
 func TestFailFastBatches(t *testing.T) {
 	t.Parallel()
 	full := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true}
 	ref := run(t, full, "testdata", "./batch")
 	xtesting.Prints(t, ref, batchMatrix)
 	want := ref.Verdicts()
+	hangs := map[int]bool{}
+	for _, res := range ref.Results {
+		if res.Status == killmatrix.Timeout {
+			hangs[res.MutantID] = true
+		}
+	}
 	for _, confirm := range []bool{false, true} {
 		fast := full
 		fast.Select, fast.FailFast, fast.Confirm = true, true, confirm
 		got := run(t, fast, "testdata", "./batch").Verdicts()
 		for id, v := range want {
-			if got[id] != v && (v != killmatrix.VerdictKilled || got[id] != killmatrix.VerdictTimeout) {
+			drift := v == killmatrix.VerdictKilled && got[id] == killmatrix.VerdictTimeout && hangs[id]
+			if got[id] != v && !drift {
 				t.Errorf("confirm=%v: M%d is %s, the full matrix says %s", confirm, id, got[id], v)
 			}
 		}
 	}
 }
 
-// M15 is the timeout failing fast may report instead of TestStepsNone's
-// kill. M11 panics in TestAtEnd and in the parallel TestParallelEnd at
-// once. M3 and M12 are equivalent for these inputs, M16 for n >= 0.
+// M15 hangs TestStepsZero, which runs before TestStepsThree kills it. M11
+// crashes the process from Async's goroutine in TestAsyncEnd, alone; M6
+// does in TestParallelBelow while TestParallelEnd runs. M3, M12 and M16
+// are equivalent for these inputs.
 const batchMatrix = `
 		fixture/batch
 		  T1 TestAtInside
-		  T2 TestAtEnd
-		  T3 TestStepsNone
-		  T4 TestStepsZero
-		  T5 TestParallelEnd
-		  T6 TestParallelBelow
+		  T2 TestAsyncEnd
+		  T3 TestAtEnd
+		  T4 TestParallelEnd
+		  T5 TestParallelBelow
+		  T6 TestStepsZero
+		  T7 TestStepsThree
 
-		      T1 T2 T3 T4 T5 T6
-		  M1  K  .  .  .  .  .   batch.go:8:5 COR i < 0 || i >= len(xs) → true
-		  M2  .  K  .  .  K  K   batch.go:8:5 COR i < 0 || i >= len(xs) → false
-		  M3  .  .  .  .  .  .   batch.go:8:7 ROR i < 0 → i <= 0
-		  M4  K  .  .  .  .  K   batch.go:8:7 ROR i < 0 → i > 0
-		  M5  K  .  .  .  .  K   batch.go:8:7 ROR i < 0 → i >= 0
-		  M6  .  .  .  .  .  K   batch.go:8:7 ROR i < 0 → i == 0
-		  M7  K  .  .  .  .  .   batch.go:8:7 ROR i < 0 → i != 0
-		  M8  .  K  .  .  K  K   batch.go:8:11 COR i < 0 || i >= len(xs) → i < 0 && i >= len(xs)
-		  M9  K  K  .  .  K  .   batch.go:8:16 ROR i >= len(xs) → i < len(xs)
-		  M10 K  .  .  .  .  .   batch.go:8:16 ROR i >= len(xs) → i <= len(xs)
-		  M11 .  K  .  .  K  .   batch.go:8:16 ROR i >= len(xs) → i > len(xs)
-		  M12 .  .  .  .  .  .   batch.go:8:16 ROR i >= len(xs) → i == len(xs)
-		  M13 K  K  .  .  K  .   batch.go:8:16 ROR i >= len(xs) → i != len(xs)
-		  M14 .  .  K  .  .  .   batch.go:17:8 ROR n != 0 → n < 0
-		  M15 .  .  K  T  .  .   batch.go:17:8 ROR n != 0 → n <= 0
-		  M16 .  .  .  .  .  .   batch.go:17:8 ROR n != 0 → n > 0
-		  M17 .  .  K  K  .  .   batch.go:17:8 ROR n != 0 → n >= 0
-		  M18 .  .  K  K  .  .   batch.go:17:8 ROR n != 0 → n == 0
-		  M19 .  .  T  .  .  .   batch.go:18:3 SDL n-- → (deleted)
-		  M20 .  .  K  .  .  .   batch.go:19:3 SDL steps++ → (deleted)
+		      T1 T2 T3 T4 T5 T6 T7
+		  M1  K  .  .  .  .  .  .   batch.go:9:5 COR i < 0 || i >= len(xs) → true
+		  M2  .  K  K  K  K  .  .   batch.go:9:5 COR i < 0 || i >= len(xs) → false
+		  M3  .  .  .  .  .  .  .   batch.go:9:7 ROR i < 0 → i <= 0
+		  M4  K  .  .  .  K  .  .   batch.go:9:7 ROR i < 0 → i > 0
+		  M5  K  .  .  .  K  .  .   batch.go:9:7 ROR i < 0 → i >= 0
+		  M6  .  .  .  .  K  .  .   batch.go:9:7 ROR i < 0 → i == 0
+		  M7  K  .  .  .  .  .  .   batch.go:9:7 ROR i < 0 → i != 0
+		  M8  .  K  K  K  K  .  .   batch.go:9:11 COR i < 0 || i >= len(xs) → i < 0 && i >= len(xs)
+		  M9  K  K  K  K  .  .  .   batch.go:9:16 ROR i >= len(xs) → i < len(xs)
+		  M10 K  .  .  .  .  .  .   batch.go:9:16 ROR i >= len(xs) → i <= len(xs)
+		  M11 .  K  K  K  .  .  .   batch.go:9:16 ROR i >= len(xs) → i > len(xs)
+		  M12 .  .  .  .  .  .  .   batch.go:9:16 ROR i >= len(xs) → i == len(xs)
+		  M13 K  K  K  K  .  .  .   batch.go:9:16 ROR i >= len(xs) → i != len(xs)
+		  M14 .  .  .  .  .  .  K   batch.go:26:8 ROR n != 0 → n < 0
+		  M15 .  .  .  .  .  T  K   batch.go:26:8 ROR n != 0 → n <= 0
+		  M16 .  .  .  .  .  .  .   batch.go:26:8 ROR n != 0 → n > 0
+		  M17 .  .  .  .  .  K  K   batch.go:26:8 ROR n != 0 → n >= 0
+		  M18 .  .  .  .  .  K  K   batch.go:26:8 ROR n != 0 → n == 0
+		  M19 .  .  .  .  .  .  T   batch.go:27:3 SDL n-- → (deleted)
+		  M20 .  .  .  .  .  .  K   batch.go:28:3 SDL steps++ → (deleted)
 `

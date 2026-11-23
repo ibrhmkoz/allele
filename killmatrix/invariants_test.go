@@ -48,6 +48,7 @@ func matrixErrors(m *killmatrix.Matrix) []error {
 	}
 	type pair struct{ mutant, test int }
 	seen := map[pair]bool{}
+	cached, ran := map[int]bool{}, map[int]bool{}
 	want := map[int]killmatrix.Verdict{}
 	for _, mu := range m.Mutants {
 		want[mu.ID] = killmatrix.VerdictNotCovered
@@ -67,13 +68,17 @@ func matrixErrors(m *killmatrix.Matrix) []error {
 		// A verdict reused from the cache comes back as one result with no
 		// test: the run that found it is not in this matrix.
 		if okM && res.TestID == 0 {
-			if res.Skipped || seen[pair{mu.ID, 0}] {
-				fail("M%d: cached result skipped or repeated", mu.ID)
+			if res.Skipped || cached[mu.ID] || ran[mu.ID] || !mu.Compiled || verdictOf(res.Status) == "" {
+				fail("M%d: cached result %+v: skipped, repeated, beside runs, of no build or of unknown status", mu.ID, res)
 			}
-			seen[pair{mu.ID, 0}] = true
+			cached[mu.ID] = true
 			raise(mu.ID, verdictOf(res.Status))
 			continue
 		}
+		if okM && cached[mu.ID] {
+			fail("M%d: runs beside a cached result", mu.ID)
+		}
+		ran[mu.ID] = true
 		if !okM || !okT {
 			fail("result for M%d T%d, which do not exist", res.MutantID, res.TestID)
 			continue
