@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -31,6 +32,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"golang.org/x/mod/modfile"
 
 	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
 )
@@ -59,6 +62,10 @@ func cli(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	out := fs.String("o", "", "if set, a file to append one JSON row per run and per build to")
 	only := fs.String("repos", strings.Join(repos, ","), "repositories to run")
 	if fs.Parse(args) != nil {
+		return 2
+	}
+	if *reps < 1 || *seeds < 1 {
+		_, _ = fmt.Fprintln(stderr, "bench: -reps and -seeds must be at least 1")
 		return 2
 	}
 	bins, err := parseBins(fs.Args())
@@ -118,25 +125,36 @@ type timing struct {
 
 func (b bench) run(ctx context.Context, bins []bin) error {
 	refs := map[string]*reference{}
-	modules := map[string]string{}
 	for _, repo := range b.repos {
 		m, err := killmatrix.Read(filepath.Join(b.ref, repo))
 		if err != nil {
 			return err
 		}
 		// Without a rerun every mutant counts as stable.
-		again, _ := killmatrix.Read(filepath.Join(b.rerun, repo))
-		refs[repo] = newReference(m, again)
-		if modules[repo], err = moduleDir(filepath.Join(b.corpus, repo)); err != nil {
+		var again *killmatrix.Matrix
+		if _, err := os.Stat(filepath.Join(b.rerun, repo)); !errors.Is(err, fs.ErrNotExist) {
+			if again, err = killmatrix.Read(filepath.Join(b.rerun, repo)); err != nil {
+				return err
+			}
+		}
+		module, err := modulePath(filepath.Join(b.corpus, repo))
+		if err != nil {
 			return err
 		}
+		refs[repo] = newReference(module, m, again)
 	}
 	walls := map[[2]string][]float64{}
-	last := map[[2]string][]verdict{}
-	// Rep 0 warms the build cache and is not timed.
+	worst := map[[2]string]score{}
+	// Rep 0 warms the build cache and is not timed. Builds take turns, in
+	// reverse order every other rep, so none always runs on the caches the
+	// one before it warmed.
 	for rep := range b.reps + 1 {
 		for _, repo := range b.repos {
-			for _, bn := range bins {
+			order := slices.Clone(bins)
+			if rep%2 == 1 {
+				slices.Reverse(order)
+			}
+			for _, bn := range order {
 				start := time.Now()
 				vs, err := b.mutant(ctx, bn, filepath.Join(b.corpus, repo))
 				if err != nil {
@@ -148,7 +166,10 @@ func (b bench) run(ctx context.Context, bins []bin) error {
 				}
 				k := [2]string{bn.name, repo}
 				walls[k] = append(walls[k], wall)
-				last[k] = vs
+				// A rep's verdicts can differ under load; the worst rep counts.
+				if s := refs[repo].grade(repo, vs, b.seeds); rep == 1 || s.worse(worst[k]) {
+					worst[k] = s
+				}
 				b.emit(timing{bn.name, repo, rep, wall})
 				_, _ = fmt.Fprintf(b.stderr, "rep %d %-12s %-6s %6.2fs\n", rep, repo, bn.name, wall)
 			}
@@ -160,7 +181,7 @@ func (b bench) run(ctx context.Context, bins []bin) error {
 		total := 0.0
 		for _, repo := range b.repos {
 			k := [2]string{bn.name, repo}
-			s := refs[repo].grade(repo, modules[repo], last[k], b.seeds)
+			s := worst[k]
 			med := median(walls[k])
 			total += med
 			scores = append(scores, s)
@@ -203,17 +224,16 @@ func (b bench) mutant(ctx context.Context, bn bin, dir string) ([]verdict, error
 	return vs, s.Err()
 }
 
-// moduleDir is the last element of the module path in dir's go.mod: the
-// directory name the reference's import paths give the module's root.
-func moduleDir(dir string) (string, error) {
+// modulePath is the module path in dir's go.mod.
+func modulePath(dir string) (string, error) {
 	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
-	for line := range strings.Lines(string(data)) {
-		if path, ok := strings.CutPrefix(strings.TrimSpace(line), "module "); ok {
-			path = strings.Trim(strings.TrimSpace(path), `"`)
-			return path[strings.LastIndex(path, "/")+1:], nil
-		}
+	if err != nil {
+		return "", err
 	}
-	return "", cmp.Or(err, fmt.Errorf("%s: no module line", dir))
+	if path := modfile.ModulePath(data); path != "" {
+		return path, nil
+	}
+	return "", fmt.Errorf("%s: no module line", dir)
 }
 
 func median(xs []float64) float64 {

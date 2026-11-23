@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
-	"path/filepath"
+	"path"
 	"slices"
 	"strings"
 
@@ -31,6 +31,9 @@ const (
 	wFalse   = 2
 	wTimeout = 0.5
 	wBuild   = 2
+	// maxHidden is the share of stable mutants a build may call killed
+	// though no test kills them before M is 0: no speed buys back gaps.
+	maxHidden = 0.01
 )
 
 // verdict is a mutant's verdict as the tool reports it, with the mutant.
@@ -44,10 +47,10 @@ type verdict struct {
 	Verdict  string `json:"verdict"`
 }
 
-// key names a mutant across runs: its position and change. Packages are
-// told apart by the file's directory, which ends the import path.
-func key(file string, line, col int, op, original, mutated string) string {
-	return fmt.Sprintf("%s:%d:%d %s %q→%q", file, line, col, op, original, mutated)
+// key names a mutant across runs: its package's directory in the module,
+// "/" at the root, its file, position and change.
+func key(dir, file string, line, col int, op, original, mutated string) string {
+	return fmt.Sprintf("%s %s:%d:%d %s %q→%q", path.Join("/", dir), file, line, col, op, original, mutated)
 }
 
 // reference is one repository's exhaustive kill matrix, read as the ground
@@ -59,8 +62,13 @@ type reference struct {
 	matrix  *adequacy.Matrix
 }
 
-func newReference(m, rerun *killmatrix.Matrix) *reference {
+// newReference reads m, the matrix of the module at path, and its rerun,
+// if any.
+func newReference(module string, m, rerun *killmatrix.Matrix) *reference {
 	ref := &reference{keys: map[string]int{}, stable: map[int]bool{}}
+	refKey := func(mu killmatrix.Mutant) string {
+		return key(strings.TrimPrefix(mu.Pkg, module), mu.File, mu.Line, mu.Col, string(mu.Operator), mu.Original, mu.Mutated)
+	}
 	vs := m.Verdicts()
 	again := map[string]killmatrix.Verdict{}
 	if rerun != nil {
@@ -69,11 +77,10 @@ func newReference(m, rerun *killmatrix.Matrix) *reference {
 			again[refKey(mu)] = rv[mu.ID]
 		}
 	}
+	// Tests out of the matrix have no results, so their columns stay empty.
 	testIndex := map[int]int{}
-	for _, t := range m.Tests {
-		if t.State == killmatrix.OK {
-			testIndex[t.ID] = len(testIndex)
-		}
+	for i, t := range m.Tests {
+		testIndex[t.ID] = i
 	}
 	index := map[int]int{}
 	for _, mu := range m.Mutants {
@@ -103,19 +110,10 @@ func newReference(m, rerun *killmatrix.Matrix) *reference {
 	return ref
 }
 
-func refKey(mu killmatrix.Mutant) string {
-	dir := mu.Pkg[strings.LastIndex(mu.Pkg, "/")+1:]
-	return key(dir+"/"+mu.File, mu.Line, mu.Col, string(mu.Operator), mu.Original, mu.Mutated)
-}
-
-// toolKey is refKey for a reported mutant: the import path's last element
-// is the file's directory, or the module's for a file at its root.
-func toolKey(v verdict, module string) string {
-	dir := filepath.Base(filepath.Dir(filepath.FromSlash(v.File)))
-	if dir == "." {
-		dir = module
-	}
-	return key(dir+"/"+filepath.Base(v.File), v.Line, v.Col, v.Operator, v.Original, v.Mutated)
+// toolKey is a reported mutant's key; mutant -json gives files relative
+// to the module root.
+func toolKey(v verdict) string {
+	return key(path.Dir(v.File), path.Base(v.File), v.Line, v.Col, v.Operator, v.Original, v.Mutated)
 }
 
 // kind sorts verdicts by what they tell a developer.
@@ -123,10 +121,10 @@ type kind int
 
 const (
 	unknown kind = iota
-	gap          // survived or not covered: write a test
 	noBuild
 	dead // killed
 	hung // timed out: no gap, but no kill either
+	gap  // survived or not covered: write a test
 )
 
 func class(v killmatrix.Verdict) kind {
@@ -152,6 +150,23 @@ type score struct {
 	Build    int     `json:"build"`
 }
 
+// counter is the error count a verdict of got adds to, where the
+// reference says want, or nil if got is right. The reference holds built
+// mutants only. A verdict the tool does not define hides a gap.
+func (s *score) counter(want, got kind) *int {
+	return map[[2]kind]*int{
+		{gap, unknown}: &s.Hidden, {gap, noBuild}: &s.Build, {gap, dead}: &s.Hidden, {gap, hung}: &s.Hidden,
+		{dead, unknown}: &s.Hidden, {dead, noBuild}: &s.Build, {dead, hung}: &s.Timeout, {dead, gap}: &s.False,
+		{hung, unknown}: &s.Hidden, {hung, noBuild}: &s.Build, {hung, gap}: &s.False,
+	}[[2]kind{want, got}]
+}
+
+// worse reports whether s did worse than t: more weighted errors, or as
+// many and a lower D.
+func (s score) worse(t score) bool {
+	return s.errors() > t.errors() || s.errors() == t.errors() && s.D < t.D
+}
+
 // errors is the weighted count of verdict errors.
 func (s score) errors() float64 {
 	return wHidden*float64(s.Hidden) + wFalse*float64(s.False) + wTimeout*float64(s.Timeout) + wBuild*float64(s.Build)
@@ -160,32 +175,26 @@ func (s score) errors() float64 {
 // grade scores a run's verdicts against ref. D is the dominator score of
 // tests written until every reported mutant is dead, averaged over seeds
 // (Kurtz, Ammann et al., FSE 2016); the error counts compare verdicts
-// where two exhaustive runs agreed.
-func (ref *reference) grade(repo, module string, vs []verdict, seeds int) score {
+// where two exhaustive runs agreed. A mutant reported twice counts once,
+// and a verdict the tool does not define counts as a hidden gap.
+func (ref *reference) grade(repo string, vs []verdict, seeds int) score {
 	s := score{Repo: repo, Reported: len(vs)}
 	var picks []int
+	seen := map[int]bool{}
 	for _, v := range vs {
-		i, ok := ref.keys[toolKey(v, module)]
-		if !ok || i < 0 {
+		i, ok := ref.keys[toolKey(v)]
+		if !ok || i < 0 || seen[i] {
 			s.Unknown++
 			continue
 		}
+		seen[i] = true
 		picks = append(picks, i)
 		if !ref.stable[i] {
 			continue
 		}
 		s.Stable++
-		want, got := class(ref.verdict[i]), class(killmatrix.Verdict(v.Verdict))
-		switch {
-		case want == got:
-		case got == noBuild:
-			s.Build++
-		case want == gap:
-			s.Hidden++
-		case got == gap:
-			s.False++
-		case want == dead && got == hung:
-			s.Timeout++
+		if c := s.counter(class(ref.verdict[i]), class(killmatrix.Verdict(v.Verdict))); c != nil {
+			*c++
 		}
 	}
 	slices.Sort(picks)
@@ -207,19 +216,21 @@ type metric struct {
 
 // combine is M = D·F·S(T): D the geometric mean of the repositories' D, so
 // that giving up on one repository gives up everything; F one minus the
-// weighted verdict errors per stable mutant; T the summed seconds.
+// weighted verdict errors per stable mutant; T the summed seconds. A build
+// that hides more than 1% of the gaps scores 0, however fast it is.
 func combine(bin string, scores []score, seconds float64) metric {
-	logD, errs, stable := 0.0, 0.0, 0
+	logD, errs, stable, hidden := 0.0, 0.0, 0, 0
 	for _, s := range scores {
 		logD += math.Log(s.D)
 		errs += s.errors()
 		stable += s.Stable
+		hidden += s.Hidden
 	}
 	m := metric{Bin: bin, T: seconds}
 	if len(scores) > 0 {
 		m.D = math.Exp(logD / float64(len(scores)))
 	}
-	if stable > 0 {
+	if stable > 0 && float64(hidden) <= maxHidden*float64(stable) {
 		m.F = max(0, 1-errs/float64(stable))
 	}
 	m.M = m.D * m.F * math.Pow((T0+Floor)/(seconds+Floor), Gamma)

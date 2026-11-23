@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,11 +14,12 @@ import (
 )
 
 // fakeMutant writes a script that prints, as mutant -json would, the file
-// of its name in the directory it runs in, or fails with a message.
+// of its name in the directory it runs in, or fails with a message. It
+// appends its arguments to name.args beside itself.
 func fakeMutant(t *testing.T, name string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
-	script := "#!/bin/sh\ncat " + name + ".json\n"
+	script := "#!/bin/sh\necho \"$*\" >> " + path + ".args\ncat " + name + ".json\n"
 	if name == "bad" {
 		script = "#!/bin/sh\necho oops >&2\nexit 2\n"
 	}
@@ -64,7 +67,8 @@ func TestCLI(t *testing.T) {
 		code := cli(t.Context(), append([]string{"-corpus", corpus, "-ref", ref, "-rerun", rerun, "-repos", "m", "-reps", "2", "-j", "1", "-seeds", "2"}, args...), &stdout, &stderr)
 		return code, stdout.String() + stderr.String()
 	}
-	if code, out := cli("-o", rows, "good="+fakeMutant(t, "good"), "hiding="+fakeMutant(t, "hiding")); code != 0 {
+	goodBin := fakeMutant(t, "good")
+	if code, out := cli("-o", rows, "good="+goodBin, "hiding="+fakeMutant(t, "hiding")); code != 0 {
 		t.Fatalf("exit %d: %s", code, out)
 	}
 	data, err := os.ReadFile(rows)
@@ -91,8 +95,8 @@ func TestCLI(t *testing.T) {
 		}
 	}
 	xtesting.EqualText(t, strings.Join(summary, "\n"), `
-		timing good rep 1
 		timing hiding rep 1
+		timing good rep 1
 		timing good rep 2
 		timing hiding rep 2
 		score m reported 4 unknown 1 stable 2 hidden 0
@@ -100,6 +104,12 @@ func TestCLI(t *testing.T) {
 		score m reported 2 unknown 0 stable 2 hidden 1
 		metric hiding
 	`)
+	// One untimed warm-up rep and two timed ones, each with these flags.
+	args, err := os.ReadFile(goodBin + ".args")
+	if err != nil {
+		t.Fatal(err)
+	}
+	xtesting.EqualText(t, string(args), strings.Repeat("-no-cache -json -j 1 ./...\n", 3))
 	good, hiding := ms["good"], ms["hiding"]
 	if !(hiding.M < good.M && good.M > 0 && good.T > 0 && hiding.T > 0) {
 		t.Errorf("good %+v, hiding a gap %+v", good, hiding)
@@ -112,6 +122,8 @@ func TestCLI(t *testing.T) {
 			t.Errorf("exit %d, no %q: %s", code, says, out)
 		}
 	}
+	brokenRerun := t.TempDir()
+	writeFile(t, filepath.Join(brokenRerun, "m", "mutants.ndjson"), "{")
 	for name, c := range map[string]struct {
 		args []string
 		code int
@@ -123,6 +135,9 @@ func TestCLI(t *testing.T) {
 		"output not JSON":      {[]string{"notjson=" + fakeMutant(t, "notjson")}, 1, "invalid character"},
 		"no reference":         {[]string{"-ref", t.TempDir(), "good=" + fakeMutant(t, "good")}, 1, "no such file"},
 		"no go.mod":            {[]string{"-corpus", t.TempDir(), "good=" + fakeMutant(t, "good")}, 1, "go.mod"},
+		"no reps":              {[]string{"-reps", "0", "good=" + fakeMutant(t, "good")}, 2, "at least 1"},
+		"no seeds":             {[]string{"-seeds", "0", "good=" + fakeMutant(t, "good")}, 2, "at least 1"},
+		"broken rerun":         {[]string{"-rerun", brokenRerun, "good=" + fakeMutant(t, "good")}, 1, "unexpected EOF"},
 		"line too long":        {[]string{"huge=" + fakeMutant(t, "huge")}, 1, "token too long"},
 		"rows cannot be saved": {[]string{"-o", t.TempDir(), "good=" + fakeMutant(t, "good")}, 1, "is a directory"},
 	} {
@@ -146,28 +161,24 @@ func TestParseBins(t *testing.T) {
 	}
 }
 
-func TestModuleDir(t *testing.T) {
+func TestModulePath(t *testing.T) {
 	dir := t.TempDir()
 	for gomod, want := range map[string]string{
-		"module example.com/m\n":             "m",
-		"// c\nmodule \"github.com/a/v3\"\n": "v3",
-		"module shlex\n":                     "shlex",
+		"module example.com/m\n":                  "example.com/m",
+		"// c\nmodule \"github.com/a/v3\" // x\n": "github.com/a/v3",
+		"module\tshlex\n":                         "shlex",
 	} {
-		if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if got, err := moduleDir(dir); err != nil || got != want {
+		writeFile(t, filepath.Join(dir, "go.mod"), gomod)
+		if got, err := modulePath(dir); err != nil || got != want {
 			t.Errorf("%q: %q, %v; want %q", gomod, got, err, want)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("go 1.21\n"), 0o600); err != nil {
-		t.Fatal(err)
+	writeFile(t, filepath.Join(dir, "go.mod"), "go 1.21\n")
+	if _, err := modulePath(dir); err == nil || !strings.Contains(err.Error(), "no module line") {
+		t.Errorf("without a module line: %v", err)
 	}
-	if _, err := moduleDir(dir); err == nil {
-		t.Error("no error without a module line")
-	}
-	if _, err := moduleDir(t.TempDir()); err == nil {
-		t.Error("no error without go.mod")
+	if _, err := modulePath(t.TempDir()); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("without go.mod: %v", err)
 	}
 }
 
