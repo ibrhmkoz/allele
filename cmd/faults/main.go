@@ -72,6 +72,9 @@ type fault struct {
 	OnFix        int            `json:"on_fix"`
 	CoupledOnFix int            `json:"coupled_on_fix"`
 	Operators    map[string]int `json:"coupled_operators"`
+	// OnFixOperators counts, by operator, the coupled mutants on the
+	// fix's lines: which operators stand for the fault where it was.
+	OnFixOperators map[string]int `json:"coupled_on_fix_operators"`
 	// Chance and ChanceOnFix control for the size of the revealing test
 	// set: the share of 200 random sets of as many other tests that would
 	// make the fault look coupled. -1 when too few other tests exist.
@@ -257,13 +260,14 @@ func measure(ctx context.Context, repo, tree, parent, commit, dir string, change
 		}
 	}
 	f.Chance, f.ChanceOnFix = chance(matrix, revealed, index, func(i int) bool { return onFix[compiled[i].File][compiled[i].Line] })
-	f.Operators = map[string]int{}
+	f.Operators, f.OnFixOperators = map[string]int{}, map[string]int{}
 	for _, i := range matrix.Coupled(revealed) {
 		mu := compiled[i]
 		f.Coupled++
 		f.Operators[string(mu.Operator)]++
 		if onFix[mu.File][mu.Line] {
 			f.CoupledOnFix++
+			f.OnFixOperators[string(mu.Operator)]++
 		}
 	}
 	return "ok", nil
