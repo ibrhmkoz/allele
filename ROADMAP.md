@@ -118,6 +118,16 @@ would cover them.
 
 Kept so they are not retried without new evidence.
 
+- **Ordering FailFast's tests by online kill rates, and tests that reach
+  the mutant's site first** (§15): by `cmd/bench`, with the 100 ms pad and
+  batches in place, switching either off moved M by -0.45% and -0.33%,
+  inside the noise (`data-bench/ablate.ndjson`; batching off: -1.3%, so it
+  stays). Tests now run fastest first. Restore from the commit before the
+  one that removed `killStats`.
+- **Selecting tests by the site, not the function, with the 100 ms pad**:
+  +0.7% in M, inside the noise; uuid's slow test reaches the sites of the
+  survivors it costs. Not merged.
+
 - **Extreme mutation as a prefilter** (§12): a quarter of the mutants in
   pseudo-tested functions are killed by some test; skipping them hides
   kills to save 3% of mutants. Its code (`mutant.Extreme`, `killmatrix

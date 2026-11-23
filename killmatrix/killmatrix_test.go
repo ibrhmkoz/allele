@@ -182,8 +182,9 @@ func TestFailFast(t *testing.T) {
 		}
 	}
 	// The full matrix runs 7 mutants × their package's tests: 3+3+2+2+2+0+4.
-	// Failing fast stops each at its first kill.
-	if ran >= 16 {
+	// Failing fast stops each at its first kill: 10 runs, one more if two
+	// discount tests of equal baseline swap places.
+	if ran > 11 {
 		t.Errorf("%d runs recorded; failing fast should stop at the first kill", ran)
 	}
 }
