@@ -233,5 +233,8 @@ func TestLoadErrors(t *testing.T) {
 func swapTests(src string) string {
 	a := "func TestA(t *testing.T) {\n\tif !helper.Same(Msg(3), want(t)) {\n\t\tt.Fatal(Msg(3))\n\t}\n}\n"
 	b := "func TestB(t *testing.T) {\n\tif Msg(1) != \"\" {\n\t\tt.Fatal(Msg(1))\n\t}\n}\n"
+	if !strings.Contains(src, a+"\n"+b) {
+		panic("fixture no longer has TestA then TestB")
+	}
 	return strings.Replace(src, a+"\n"+b, b+"\n"+a, 1)
 }
