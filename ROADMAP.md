@@ -30,6 +30,34 @@ tuned on: `data-faults-heldout/` (checked when operators or filters
 change) and `data-verdicts/` (flaky services: dropping Confirm would look
 free on the six libraries).
 
+## Where M stands
+
+M went from 1.567 to 1.733 on 2026-11-23 (timeout pad §18, weak mutation
+§19, online ordering dropped). The last ideas each measure at or under 2%,
+so the cheap levers are spent. What is left, by measured upper bound:
+
+- **Skip Confirm where no test can be timing-dependent** (+2.2% at most,
+  `data-bench/confirm-pure.ndjson`): packages whose code, tests and
+  non-standard dependencies import none of time, net, context, math/rand,
+  crypto/rand, os/exec and start no goroutine. Confirm off everywhere
+  saves 32% of T but hides 3 gaps in uuid (`confirm-off.ndjson`), so it
+  must stay where timing can matter. Risk: map-order flakes.
+- **A deadline per test inside a batch** (+0.9% at most,
+  `batch-limit.ndjson`): batches are limited by the sum of their tests'
+  baselines, so a hang is found late; reading test2json as it streams
+  could apply each test's own limit. A hanging mutant is the tail of
+  its package.
+- **Not worth it:** a fork server. After its first run, a test binary
+  starts in under 10 ms; the first run of each new binary costs 0.1-0.3 s
+  on macOS (code-signature check), once per package, paid in parallel.
+- **Survivors** take three quarters of mutant run time: declaring one
+  means running every selected test. What remains is the tests' own time
+  (uuid: one 1 s test reaches 72 survivors).
+- **Detection (D)** is at its plateau for one mutant per line: no per-line
+  choice beats a hash held out by repository (§2; learned kind order 0.877
+  vs 0.897), and more mutants per line cost more than they find under the
+  metric's price of time. New operators need many more held-out faults.
+
 ## Open
 
 ### Compare with other Go tools
