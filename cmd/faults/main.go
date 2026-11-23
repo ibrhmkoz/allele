@@ -18,6 +18,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -71,6 +72,11 @@ type fault struct {
 	OnFix        int            `json:"on_fix"`
 	CoupledOnFix int            `json:"coupled_on_fix"`
 	Operators    map[string]int `json:"coupled_operators"`
+	// Chance and ChanceOnFix control for the size of the revealing test
+	// set: the share of 200 random sets of as many other tests that would
+	// make the fault look coupled. -1 when too few other tests exist.
+	Chance      float64 `json:"chance"`
+	ChanceOnFix float64 `json:"chance_on_fix"`
 }
 
 var fixMessage = `(^|[^a-z])(fix|fixes|fixed|bug|bugs)([^a-z]|$)`
@@ -250,6 +256,7 @@ func measure(ctx context.Context, repo, tree, parent, commit, dir string, change
 			f.OnFix++
 		}
 	}
+	f.Chance, f.ChanceOnFix = chance(matrix, revealed, index, func(i int) bool { return onFix[compiled[i].File][compiled[i].Line] })
 	f.Operators = map[string]int{}
 	for _, i := range matrix.Coupled(revealed) {
 		mu := compiled[i]
@@ -260,6 +267,40 @@ func measure(ctx context.Context, repo, tree, parent, commit, dir string, change
 		}
 	}
 	return "ok", nil
+}
+
+// chance draws 200 sets of tests, as many as revealed, from the tests not
+// in it, and returns the share that would leave some mutant coupled, and
+// some mutant on the fix's lines coupled.
+func chance(m *adequacy.Matrix, revealed adequacy.Set, index map[int]int, onFix func(int) bool) (share, shareOnFix float64) {
+	var pool []int
+	for _, i := range index {
+		if !revealed.Intersects(adequacy.NewSet(i)) {
+			pool = append(pool, i)
+		}
+	}
+	slices.Sort(pool)
+	n := revealed.Len()
+	if len(pool) < n {
+		return -1, -1
+	}
+	r := rand.New(rand.NewPCG(1, uint64(len(pool))))
+	const draws = 200
+	hits, hitsOnFix := 0, 0
+	for range draws {
+		var set adequacy.Set
+		for _, j := range r.Perm(len(pool))[:n] {
+			set = set.With(pool[j])
+		}
+		coupled := m.Coupled(set)
+		if len(coupled) > 0 {
+			hits++
+		}
+		if slices.ContainsFunc(coupled, onFix) {
+			hitsOnFix++
+		}
+	}
+	return float64(hits) / draws, float64(hitsOnFix) / draws
 }
 
 // buggyOverlay writes an overlay that puts the package's changed code
