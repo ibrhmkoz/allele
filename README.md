@@ -111,6 +111,6 @@ on six libraries and three services at pinned commits.
   and transitive non-stdlib dependencies (including test-only
   dependencies). It does not track environment variables, external services
   (such as a database), or files read outside the package's `testdata/`;
-  pass `-no-cache` when those matter (as `make ci` does).
+  pass `-no-cache` when those matter (e.g. `MUTANT_FLAGS=-no-cache make ci`).
 
 [ROADMAP.md](ROADMAP.md) lists what is still open.
