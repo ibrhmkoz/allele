@@ -61,6 +61,9 @@ type Mutant struct {
 	// schema build.
 	Schema  bool    `json:"schema"`
 	BuildMS float64 `json:"build_ms"`
+	// Path is the file's absolute path; it stays out of the tables, which
+	// are meant to be shared.
+	Path string `json:"-"`
 
 	m mutant.Mutant
 }
@@ -101,6 +104,41 @@ const (
 	Timeout Status = "timeout"
 )
 
+// Verdict sums up how the tests did against one mutant.
+type Verdict string
+
+const (
+	VerdictKilled     Verdict = "killed"
+	VerdictSurvived   Verdict = "survived"
+	VerdictTimeout    Verdict = "timeout"
+	VerdictNotCovered Verdict = "not covered"
+	VerdictNoBuild    Verdict = "build error"
+)
+
+// Verdicts returns each mutant's verdict, by id: killed if a test killed
+// it, else timeout if a run timed out, else survived, or not covered when
+// no test reached it in the baseline (every run skipped).
+func (m *Matrix) Verdicts() map[int]Verdict {
+	v := map[int]Verdict{}
+	for _, mu := range m.Mutants {
+		v[mu.ID] = VerdictNotCovered
+		if !mu.Compiled {
+			v[mu.ID] = VerdictNoBuild
+		}
+	}
+	for _, r := range m.Results {
+		switch {
+		case r.Status == Killed:
+			v[r.MutantID] = VerdictKilled
+		case r.Status == Timeout && v[r.MutantID] != VerdictKilled:
+			v[r.MutantID] = VerdictTimeout
+		case !r.Skipped && v[r.MutantID] == VerdictNotCovered:
+			v[r.MutantID] = VerdictSurvived
+		}
+	}
+	return v
+}
+
 // Result is how one leaf test did against one mutant. MS is the time of
 // the process that ran its top-level test, shared by its sibling leaves.
 type Result struct {
@@ -137,6 +175,13 @@ type Runner struct {
 	// not in the next, and the function around it reaches some site
 	// every time it runs.
 	Select bool
+	// Choose, if set, picks by index which of a file's mutants to run;
+	// path is the file's absolute path. The rest are left out entirely.
+	Choose func(path string, ms []mutant.Mutant) []int
+	// FailFast stops running tests against a mutant once one kills it,
+	// trying the fastest top-level tests first. The matrix then holds only
+	// the runs made: enough for Verdict, not for adequacy.
+	FailFast bool
 }
 
 // Run computes the kill matrix of the packages that patterns match in dir.
@@ -196,6 +241,7 @@ type source struct {
 	src     []byte
 	file    *ast.File
 	mutants []int // indices into the package's mutants
+	find    []int // for each of Find's mutants, its index among them, -1 if not chosen
 }
 
 func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package, tmp string) error {
@@ -216,9 +262,27 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 			return err
 		}
 		s := source{name: name, src: src, file: f}
-		for _, mu := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
+		found := mutant.Find(pkg.Fset, f, src, pkg.TypesInfo)
+		s.find = make([]int, len(found))
+		chosen := make([]bool, len(found))
+		if r.Choose == nil {
+			for i := range chosen {
+				chosen[i] = true
+			}
+		} else {
+			for _, i := range r.Choose(name, found) {
+				chosen[i] = true
+			}
+		}
+		for i, mu := range found {
+			s.find[i] = -1
+			if !chosen[i] {
+				continue
+			}
+			s.find[i] = len(m.Mutants) - firstMutant
 			s.mutants = append(s.mutants, len(m.Mutants)-firstMutant)
 			m.Mutants = append(m.Mutants, Mutant{
+				Path:       name,
 				ID:         len(m.Mutants) + 1,
 				Pkg:        pkg.PkgPath,
 				File:       filepath.Base(name),
@@ -330,17 +394,19 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 	for attempt := 1; ; attempt++ {
 		replace := map[string]string{}
 		for _, s := range sources {
-			ids := make([]int, len(s.mutants))
-			for j, k := range s.mutants {
-				if !dropped[k] {
+			ids := make([]int, len(s.find))
+			for j, k := range s.find {
+				if k >= 0 && !dropped[k] {
 					ids[j] = mutants[k].ID
 				}
 			}
 			out, in := mutant.Embed(pkg.Fset, s.file, s.src, pkg.TypesInfo, ids)
 			changed := false
-			for j, k := range s.mutants {
-				mutants[k].Schema = in[j]
-				changed = changed || in[j]
+			for j, k := range s.find {
+				if k >= 0 {
+					mutants[k].Schema = in[j]
+					changed = changed || in[j]
+				}
 			}
 			if !changed {
 				continue
@@ -458,25 +524,39 @@ func compileErrors(out []byte) []position {
 // baseline does not run; its leaves survive, since code that never runs
 // cannot fail them.
 func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests []Test, reached map[string]map[int]bool, fn map[int]int) ([]Result, error) {
+	if r.FailFast {
+		// Leaves of one top-level test share its baseline time, so a
+		// stable sort keeps them together.
+		tests = slices.Clone(tests)
+		slices.SortStableFunc(tests, func(a, b Test) int { return cmp.Compare(a.BaselineMS, b.BaselineMS) })
+	}
 	var results []Result
 	var rep report
 	ran := "" // the top-level test rep is from
+	killed := false
 	for _, t := range tests {
 		if t.State != OK {
 			continue
 		}
 		if reached != nil && fn[mu.ID] >= 0 && !reached[topOf(t.Name)][fn[mu.ID]] {
-			results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
+			if !r.FailFast {
+				results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
+			}
 			continue
 		}
 		if top := topOf(t.Name); top != ran {
+			if killed {
+				break
+			}
 			limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
 			rep, ran = run(ctx, dir, bin, top, limit, mu.ID, ""), top
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
 		}
-		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: rep.status(t.Name), MS: ms(rep.elapsed)})
+		status := rep.status(t.Name)
+		killed = killed || r.FailFast && status == Killed
+		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.elapsed)})
 	}
 	r.logf("M%d done\n", mu.ID)
 	return results, nil

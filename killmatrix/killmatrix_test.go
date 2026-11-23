@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ibrhmkoz/go-kit/mutant"
 	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
 	"github.com/ibrhmkoz/go-kit/xtesting"
 )
@@ -142,5 +143,53 @@ func TestUnstableNames(t *testing.T) {
 		if !ok[res.TestID] {
 			t.Errorf("result for flaky test T%d", res.TestID)
 		}
+	}
+}
+
+// TestFailFast runs the fixture the way a developer would: schemata, test
+// selection, failing fast, and one mutant per line. Each mutant kept must
+// get the verdict the full matrix gives it.
+func TestFailFast(t *testing.T) {
+	firstPerLine := func(_ string, ms []mutant.Mutant) []int {
+		var keep []int
+		for i, m := range ms {
+			if i == 0 || m.Pos.Line != ms[i-1].Pos.Line {
+				keep = append(keep, i)
+			}
+		}
+		return keep
+	}
+	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: true, Select: true, FailFast: true, Choose: firstPerLine}
+	m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
+	if err != nil {
+		t.Fatal(err)
+	}
+	verdicts := m.Verdicts()
+	var b strings.Builder
+	for _, mu := range m.Mutants {
+		fmt.Fprintf(&b, "%s:%d %s %s → %s: %s\n", mu.File, mu.Line, mu.Operator, mu.Original, mu.Mutated, verdicts[mu.ID])
+	}
+	// One mutant per line: the if condition's true, the first COR on each
+	// line, the first statement deleted. Verdicts match fixtureMatrix's
+	// M1, M9, M13, M20, M21, M22 and M23.
+	xtesting.EqualText(t, b.String(), `
+		discount.go:5 COR price > 100 && vip → true: killed
+		discount.go:6 AOR price - 20 → price + 20: killed
+		loop.go:10 COR i >= n → true: killed
+		loop.go:13 SDL c++ → : killed
+		loop.go:20 SDL last = x → _ = x: killed
+		loop.go:32 ERR return code(strconv.Itoa(n)) → return func() error { _ = strconv.Itoa; return nil }(): build error
+		table.go:6 COR x < 0 → true: killed
+	`)
+	ran := 0
+	for _, res := range m.Results {
+		if !res.Skipped {
+			ran++
+		}
+	}
+	// The full matrix runs 7 mutants × their package's tests: 3+3+2+2+2+0+4.
+	// Failing fast stops each at its first kill.
+	if ran >= 16 {
+		t.Errorf("%d runs recorded; failing fast should stop at the first kill", ran)
 	}
 }
