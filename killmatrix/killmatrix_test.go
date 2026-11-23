@@ -2,6 +2,8 @@ package killmatrix_test
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -267,11 +269,18 @@ func TestConfirm(t *testing.T) {
 	}
 }
 
-// TestConfirmUnderLoad runs a test that, after a mutant breaks it, fails
-// against that mutant again and then against the original code too: the
-// failure belongs to the machine, not the mutant, so it is no kill.
+// TestConfirmUnderLoad runs a test that, once a mutant breaks it, also
+// fails against the original code until the original runs: a loaded
+// machine. Confirm cannot tell, so it checks those kills again at the
+// end, alone, and finds them real.
 func TestConfirmUnderLoad(t *testing.T) {
 	t.Parallel()
+	t.Cleanup(func() {
+		markers, _ := filepath.Glob(filepath.Join(os.TempDir(), fmt.Sprintf("killmatrix-load-%d*", os.Getpid())))
+		for _, m := range markers {
+			_ = os.Remove(m)
+		}
+	})
 	r := killmatrix.Runner{Workers: 1, TimeoutPad: time.Second, Schemata: true, Confirm: true}
 	m, err := r.Run(t.Context(), "testdata", "./load")
 	if err != nil {
@@ -283,11 +292,11 @@ func TestConfirmUnderLoad(t *testing.T) {
 
 		     T1
 		  M1 .   load.go:8:5 COR n > 0 → true
-		  M2 F   load.go:8:5 COR n > 0 → false
-		  M3 F   load.go:8:7 ROR n > 0 → n < 0
-		  M4 F   load.go:8:7 ROR n > 0 → n <= 0
+		  M2 K   load.go:8:5 COR n > 0 → false
+		  M3 K   load.go:8:7 ROR n > 0 → n < 0
+		  M4 K   load.go:8:7 ROR n > 0 → n <= 0
 		  M5 .   load.go:8:7 ROR n > 0 → n >= 0
-		  M6 F   load.go:8:7 ROR n > 0 → n == 0
+		  M6 K   load.go:8:7 ROR n > 0 → n == 0
 		  M7 .   load.go:8:7 ROR n > 0 → n != 0
 	`)
 }

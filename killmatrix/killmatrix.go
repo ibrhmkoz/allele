@@ -104,9 +104,12 @@ const (
 	// still be equivalent.
 	Timeout Status = "timeout"
 	// FlakyKill, with Confirm, is a test that failed against the mutant
-	// but passed when run against it again, or failed against the
-	// original code too. It is not a kill.
+	// but passed when run against it again, or passed against it, or
+	// failed against the original code, once run alone. It is not a kill.
 	FlakyKill Status = "flaky"
+	// recheck marks a kill that Confirm could not tell from load, until
+	// the runner checks it alone.
+	recheck Status = "recheck"
 )
 
 // Verdict sums up how the tests did against one mutant.
@@ -392,8 +395,48 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
+	if err := r.recheck(ctx, dir, schema, tests, results, mutants); err != nil {
+		return err
+	}
 	for _, rs := range results {
 		m.Results = append(m.Results, rs...)
+	}
+	return nil
+}
+
+// recheck settles, one at a time with nothing else running, the kills
+// Confirm left open: the original runs first and must pass, then the
+// mutant must fail. Both run once per top-level test.
+func (r Runner) recheck(ctx context.Context, dir, bin string, tests []Test, results [][]Result, mutants []Mutant) error {
+	byID := map[int]Test{}
+	for _, t := range tests {
+		byID[t.ID] = t
+	}
+	for i := range results {
+		type pair struct{ original, mutant report }
+		ran := map[string]pair{}
+		for j := range results[i] {
+			res := &results[i][j]
+			if res.Status != recheck {
+				continue
+			}
+			t := byID[res.TestID]
+			top := topOf(t.Name)
+			p, ok := ran[top]
+			if !ok {
+				limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+				p.original = run(ctx, dir, bin, top, limit, 0, "")
+				p.mutant = run(ctx, dir, bin, top, limit, mutants[i].ID, "")
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				ran[top] = p
+			}
+			res.Status = FlakyKill
+			if p.original.status(t.Name) == Survived && p.mutant.status(t.Name) == Killed {
+				res.Status = Killed
+			}
+		}
 	}
 	return nil
 }
@@ -587,8 +630,13 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 					return nil, ctx.Err()
 				}
 			}
-			if again.status(t.Name) != Killed || original.status(t.Name) != Survived {
+			switch {
+			case again.status(t.Name) != Killed:
 				status = FlakyKill
+			case original.status(t.Name) != Survived:
+				// The original fails too: the machine may be too loaded
+				// to tell. Decided after every mutant has run, alone.
+				status = recheck
 			}
 		}
 		killed = killed || r.FailFast && status == Killed
