@@ -659,3 +659,154 @@ func work(l Logger, w io.Writer, n int, debug bool) []int {
 		22 AOR ×4: mut:ignore
 	`)
 }
+
+// TestAridRules checks line-above mut:ignore, os.Stdout/Stderr detection,
+// arid poisoning on if/else and switch branches, and metrics/tracing/map rules.
+func TestAridRules(t *testing.T) {
+	src := `package p
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"os"
+)
+
+type myLogger struct{}
+
+func (myLogger) Other(int) {}
+
+type Span struct{}
+
+func (Span) SetAttributes(int) {}
+func (Span) Other(int)         {}
+
+type streams struct{ Stdout io.Writer }
+
+func getStreams() streams { return streams{} }
+
+func f(n int, flag bool, l myLogger, sp Span, st streams) int {
+	//mut:ignore
+	n += 1
+	// regular comment
+	n += 2
+	fmt.Fprintln(os.Stderr, n+1)
+	fmt.Fprintln(os.Stdout, n+2)
+	fmt.Fprintln(os.Stdin, n+3)
+	fmt.Fprintln(io.Discard, n+4)
+	fmt.Fprintln(st.Stdout, n+5)
+	fmt.Fprintln(getStreams().Stdout, n+6)
+	log.Fatal(n + 7)
+	l.Other(n + 8)
+	sp.SetAttributes(n + 9)
+	sp.Other(n + 10)
+	m1 := make(map[int]int, n+11)
+	s1 := make([]int, n+12)
+	c1 := make(chan int, n+13)
+	_, _, _ = m1, s1, c1
+	if flag {
+	}
+	if flag {
+		log.Println(n + 14)
+	} else {
+		log.Println(n + 15)
+	}
+	if flag {
+		log.Println(n + 16)
+	} else {
+		n += 17
+	}
+	if flag {
+		switch n {
+		case 1:
+		}
+	}
+	if flag {
+		switch n {
+		case 1:
+			log.Println(n + 18)
+		case 2:
+			n += 19
+		}
+	}
+	return n
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Selections: map[*ast.SelectorExpr]*types.Selection{}}
+	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
+		t.Fatal(err)
+	}
+	byLine := map[int]string{}
+	for _, m := range mutant.Find(fset, f, []byte(src), info) {
+		tag := cmp.Or(m.Arid, "-")
+		if prev, ok := byLine[m.Pos.Line]; ok && prev != tag {
+			t.Errorf("line %d mixed arid tags: %q vs %q", m.Pos.Line, prev, tag)
+		}
+		byLine[m.Pos.Line] = tag
+	}
+	wantLines := []struct {
+		line int
+		want string
+	}{
+		{25, "mut:ignore"},           // line-above //mut:ignore
+		{27, "-"},                    // regular comment does not ignore
+		{28, "logging"},              // fmt.Fprintln(os.Stderr, ...)
+		{29, "logging"},              // fmt.Fprintln(os.Stdout, ...)
+		{30, "-"},                    // os.Stdin is not stdout/stderr
+		{31, "-"},                    // io.Discard is not os
+		{32, "-"},                    // struct field Stdout is not package os
+		{33, "-"},                    // call expr Stdout is not package os
+		{34, "-"},                    // log.Fatal stops program, not arid
+		{35, "-"},                    // non-log method on logger
+		{36, "tracing"},              // Span.SetAttributes
+		{37, "-"},                    // non-trace method on Span
+		{38, "capacity hint"},        // make(map, cap)
+		{39, "-"},                    // make(slice, len) is not capacity hint
+		{40, "-"},                    // make(chan, buf) is not capacity hint
+		{42, "-"},                    // empty if block is not arid
+		{44, "only arid statements"}, // if+else both arid
+		{49, "-"},                    // else branch poisons if
+		{54, "-"},                    // empty switch case is not arid
+		{59, "-"},                    // non-arid switch case poisons enclosing if
+	}
+	for _, tc := range wantLines {
+		if got := byLine[tc.line]; got != tc.want {
+			t.Errorf("line %d arid = %q, want %q", tc.line, got, tc.want)
+		}
+	}
+
+	// Metrics package path matching.
+	metricSrc := `package metrics
+
+type Counter struct{}
+
+func (Counter) Inc(int)   {}
+func (Counter) Other(int) {}
+
+func record(c Counter, n int) {
+	c.Inc(n + 1)
+	c.Other(n + 2)
+}
+`
+	mfset := token.NewFileSet()
+	mf, err := parser.ParseFile(mfset, "m.go", metricSrc, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	minfo := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Selections: map[*ast.SelectorExpr]*types.Selection{}}
+	if _, err := (&types.Config{Importer: stdImporter}).Check("example.com/metrics", mfset, []*ast.File{mf}, minfo); err != nil {
+		t.Fatal(err)
+	}
+	mByLine := map[int]string{}
+	for _, m := range mutant.Find(mfset, mf, []byte(metricSrc), minfo) {
+		mByLine[m.Pos.Line] = cmp.Or(m.Arid, "-")
+	}
+	if mByLine[9] != "metrics" || mByLine[10] != "-" {
+		t.Errorf("metrics lines: line 9 = %q (want metrics), line 10 = %q (want -)", mByLine[9], mByLine[10])
+	}
+}

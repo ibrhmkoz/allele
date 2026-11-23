@@ -235,3 +235,25 @@ func TestCoupledProperties(t *testing.T) {
 		}
 	}
 }
+
+// TestAdequateShuffleAndBounds checks that Adequate shuffles mutant order
+// rather than visiting in index order, and that Set handles sparse high bit
+// indices without indexing past shorter word slices.
+func TestAdequateShuffleAndBounds(t *testing.T) {
+	// M0 is killed only by {0} and M1 by {0, 1}. Visiting M0 first always picks
+	// {0}; shuffling visits M1 first half the time and sometimes picks {0, 1}.
+	m := adequacy.New(2, []adequacy.Set{adequacy.NewSet(0), adequacy.NewSet(0, 1)})
+	r := rand.New(rand.NewPCG(1, 2))
+	seen := map[string]bool{}
+	for range 30 {
+		seen[m.Adequate([]int{0, 1}, r).String()] = true
+	}
+	if !seen["{0}"] || !seen["{0 1}"] {
+		t.Fatalf("Adequate produced %v, want both {0} and {0 1}", seen)
+	}
+
+	s64, s128 := adequacy.NewSet(64), adequacy.NewSet(128)
+	if s64.Len() != 1 || s128.Len() != 1 || s128.SubsetOf(adequacy.NewSet()) || !adequacy.NewSet().SubsetOf(s128) {
+		t.Fatalf("sparse sets failed: s64=%v s128=%v", s64, s128)
+	}
+}

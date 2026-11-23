@@ -1,6 +1,7 @@
 package fingerprint_test
 
 import (
+	"context"
 	"maps"
 	"os"
 	"path/filepath"
@@ -206,5 +207,10 @@ func TestLoadErrors(t *testing.T) {
 	write(t, dir, map[string]string{"go.mod": module["go.mod"], "p/p.go": "package p\n", "p/p_test.go": "package p\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) { a + }\n"})
 	if _, err := fingerprint.Load(t.Context(), dir, "./..."); err == nil {
 		t.Error("no error for a test file that does not parse")
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := fingerprint.Load(ctx, dir, "./..."); err == nil {
+		t.Error("no error for a cancelled context")
 	}
 }
