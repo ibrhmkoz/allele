@@ -375,30 +375,49 @@ func (f *finder) replaceOp(o Operator, n *ast.BinaryExpr, alts []token.Token) {
 // equivalent returns the rule by which replacing op with alt in n cannot
 // change the result, or "".
 func (f *finder) equivalent(n *ast.BinaryExpr, op, alt token.Token) string {
-	var x ast.Expr
+	var x, min ast.Expr
 	switch {
-	case f.isZero(n.Y):
-		x = n.X
-	case f.isZero(n.X):
-		x, op, alt = n.Y, mirror(op), mirror(alt)
+	case f.isSmallest(n.Y):
+		x, min = n.X, n.Y
+	case f.isSmallest(n.X):
+		x, min, op, alt = n.Y, n.X, mirror(op), mirror(alt)
 	default:
 		return ""
 	}
-	if !f.nonnegative(x) {
+	if !f.atLeast(x, min) {
 		return ""
 	}
-	// x >= 0 always, so x != 0 is x > 0 and x == 0 is x <= 0.
+	// x >= min always, so x != min is x > min and x == min is x <= min.
 	switch [2]token.Token{op, alt} {
 	case [2]token.Token{token.NEQ, token.GTR}, [2]token.Token{token.GTR, token.NEQ},
 		[2]token.Token{token.EQL, token.LEQ}, [2]token.Token{token.LEQ, token.EQL}:
-		return "nonnegative vs 0"
+		return "smallest value compared"
 	}
 	return ""
 }
 
-func (f *finder) isZero(e ast.Expr) bool {
+// isSmallest reports whether e is a constant 0 or "".
+func (f *finder) isSmallest(e ast.Expr) bool {
 	v := f.info.Types[e].Value
-	return v != nil && (v.Kind() == constant.Int || v.Kind() == constant.Float) && constant.Sign(v) == 0
+	switch {
+	case v == nil:
+		return false
+	case v.Kind() == constant.String:
+		return constant.StringVal(v) == ""
+	case v.Kind() == constant.Int || v.Kind() == constant.Float:
+		return constant.Sign(v) == 0
+	}
+	return false
+}
+
+// atLeast reports whether x can never be below min, a constant 0 or "":
+// every string is >= "", and unsigned values, len and cap are >= 0.
+func (f *finder) atLeast(x, min ast.Expr) bool {
+	if f.info.Types[min].Value.Kind() == constant.String {
+		b, ok := f.basic(x)
+		return ok && b.Info()&types.IsString != 0
+	}
+	return f.nonnegative(x)
 }
 
 // nonnegative reports whether e is unsigned or a call to len or cap.
@@ -449,6 +468,10 @@ func (f *finder) deleteEach(list []ast.Stmt) {
 }
 
 func (f *finder) delete(s ast.Stmt) {
+	if f.blankAndSafe(s) {
+		f.add(SDL, s, s, s.Pos(), s.End(), "").Equivalent = "blank assignment that cannot panic"
+		return
+	}
 	if exprs, ok := f.orphans(s); ok && len(exprs) > 0 {
 		m := f.add(SDL, s, s, s.Pos(), s.End(), blank(exprs))
 		m.Repaired, m.alt = true, ""
@@ -478,6 +501,42 @@ func (f *finder) add(o Operator, node ast.Node, ctx ast.Node, from, to token.Pos
 		alt:      text,
 	})
 	return &f.found[len(f.found)-1]
+}
+
+// blankAndSafe reports whether s assigns only to _ from expressions that
+// neither call nor can panic: names, literals, and arrays indexed by a
+// constant, whose bound the compiler checks. Deleting it changes nothing.
+func (f *finder) blankAndSafe(s ast.Stmt) bool {
+	a, ok := s.(*ast.AssignStmt)
+	if !ok || a.Tok != token.ASSIGN {
+		return false
+	}
+	for _, l := range a.Lhs {
+		if id, ok := l.(*ast.Ident); !ok || id.Name != "_" {
+			return false
+		}
+	}
+	for _, r := range a.Rhs {
+		if !f.safe(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func (f *finder) safe(e ast.Expr) bool {
+	switch e := ast.Unparen(e).(type) {
+	case *ast.Ident, *ast.BasicLit:
+		return true
+	case *ast.IndexExpr:
+		t := f.info.TypeOf(e.X)
+		if t == nil {
+			return false
+		}
+		_, array := t.Underlying().(*types.Array)
+		return array && f.info.Types[e.Index].Value != nil && f.safe(e.X)
+	}
+	return false
 }
 
 func (f *finder) offset(p token.Pos) int { return f.fset.Position(p).Offset }

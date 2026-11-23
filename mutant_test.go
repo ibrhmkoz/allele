@@ -290,16 +290,45 @@ func empty(s []int, u uint) bool { return len(s) == 0 || u != 0 }
 `,
 			want: `
 				discount.go:3:50 ROR len(s) == 0 → len(s) < 0
-				discount.go:3:50 ROR len(s) == 0 → len(s) <= 0 [equivalent: nonnegative vs 0]
+				discount.go:3:50 ROR len(s) == 0 → len(s) <= 0 [equivalent: smallest value compared]
 				discount.go:3:50 ROR len(s) == 0 → len(s) > 0
 				discount.go:3:50 ROR len(s) == 0 → len(s) >= 0
 				discount.go:3:50 ROR len(s) == 0 → len(s) != 0
 				discount.go:3:55 COR len(s) == 0 || u != 0 → len(s) == 0 && u != 0
 				discount.go:3:60 ROR u != 0 → u < 0
 				discount.go:3:60 ROR u != 0 → u <= 0
-				discount.go:3:60 ROR u != 0 → u > 0 [equivalent: nonnegative vs 0]
+				discount.go:3:60 ROR u != 0 → u > 0 [equivalent: smallest value compared]
 				discount.go:3:60 ROR u != 0 → u >= 0
 				discount.go:3:60 ROR u != 0 → u == 0
+			`,
+		},
+		{
+			name: "every string is >= \"\", so != \"\" is > \"\" and == \"\" is <= \"\"",
+			src: `package p
+
+func set(s string) bool { return s != "" }
+`,
+			want: `
+				discount.go:3:36 ROR s != "" → s < ""
+				discount.go:3:36 ROR s != "" → s <= ""
+				discount.go:3:36 ROR s != "" → s > "" [equivalent: smallest value compared]
+				discount.go:3:36 ROR s != "" → s >= ""
+				discount.go:3:36 ROR s != "" → s == ""
+			`,
+		},
+		{
+			name: "deleting _ = a[k] on an array with a constant index changes nothing: the compiler checks the bound",
+			src: `package p
+
+func last(a [16]byte, s []byte) byte {
+	_ = a[15]
+	_ = s[15]
+	return a[15]
+}
+`,
+			want: `
+				discount.go:4:2 SDL _ = a[15] → (deleted) [equivalent: blank assignment that cannot panic]
+				discount.go:5:2 SDL _ = s[15] → (deleted)
 			`,
 		},
 		{
@@ -313,7 +342,7 @@ func any(n uint) bool { return 0 < n }
 				discount.go:3:34 ROR 0 < n → 0 > n
 				discount.go:3:34 ROR 0 < n → 0 >= n
 				discount.go:3:34 ROR 0 < n → 0 == n
-				discount.go:3:34 ROR 0 < n → 0 != n [equivalent: nonnegative vs 0]
+				discount.go:3:34 ROR 0 < n → 0 != n [equivalent: smallest value compared]
 			`,
 		},
 		{
