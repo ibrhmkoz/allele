@@ -158,8 +158,8 @@ type finder struct {
 }
 
 // use is one use of a local or an import. expr is an expression that
-// uses it the same way: the variable's name, or pkg.Name for an import
-// used for a value; "" for an import used only for a type.
+// uses it the same way: the variable's name, pkg.Name for an import used
+// for a value, (*pkg.T)(nil) for one used for a type; "" for a generic type.
 type use struct {
 	pos  token.Pos
 	expr string
@@ -210,9 +210,15 @@ func (f *finder) indexUses(file *ast.File) {
 			}
 		case *ast.SelectorExpr:
 			if x, ok := n.X.(*ast.Ident); ok {
-				switch f.info.Uses[n.Sel].(type) {
+				switch obj := f.info.Uses[n.Sel].(type) {
 				case *types.Func, *types.Var, *types.Const:
 					selected[x] = x.Name + "." + n.Sel.Name
+				case *types.TypeName:
+					// A type is used through a nil pointer to it; a generic
+					// type would need its type arguments, so it is left out.
+					if named, ok := obj.Type().(*types.Named); !ok || named.TypeParams().Len() == 0 {
+						selected[x] = "(*" + x.Name + "." + n.Sel.Name + ")(nil)"
+					}
 				}
 			}
 		}
@@ -238,7 +244,8 @@ func (f *finder) indexUses(file *ast.File) {
 // orphans returns expressions that keep used, in order of first use, the
 // locals and imports declared outside n whose every use lies in n:
 // removing n would leave them unused, which Go rejects. ok is false when
-// one is an import used in n only for a type, which no expression can use.
+// one is an import used in n only for a generic type, which no simple
+// expression can use.
 func (f *finder) orphans(n ast.Node) (exprs []string, ok bool) {
 	type orphan struct {
 		expr  string

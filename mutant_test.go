@@ -460,6 +460,35 @@ func Max(a, b int) int {
 	// 7 mutants
 }
 
+func TestRepairTypeOnlyImport(t *testing.T) {
+	src := `package p
+
+import (
+	"bytes"
+	"fmt"
+)
+
+func render(n int) string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%d", n)
+	return buf.String()
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
+	if _, err := (&types.Config{Importer: importer.Default()}).Check("p", fset, []*ast.File{f}, info); err != nil {
+		t.Fatal(err)
+	}
+	// bytes is used only for a type: a nil pointer to it keeps it used.
+	xtesting.EqualText(t, listing(mutant.Extreme(fset, f, []byte(src), info)), `
+		p.go:8:27 EXT { … → { _, _ = (*bytes.Buffer)(nil), fmt.Fprintf; return *new(string) }
+	`)
+}
+
 func TestExtreme(t *testing.T) {
 	src := `package p
 
