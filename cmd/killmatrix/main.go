@@ -27,7 +27,6 @@ func main() {
 	flag.BoolVar(&r.Schemata, "schemata", false, "build each package once with its mutants embedded, switched on per run")
 	flag.BoolVar(&r.Confirm, "confirm", false, "run a failing test again and count a kill only if it fails twice")
 	flag.BoolVar(&r.FailFast, "failfast", false, "stop a mutant's tests at its first kill: verdicts, not the full matrix")
-	flag.BoolVar(&r.Extreme, "extreme", false, "one mutant per function, its body replaced by zero values, instead of the usual operators")
 	flag.BoolVar(&r.Select, "select", false, "with -schemata, run a test against a mutant only if the test reached it in the baseline")
 	flag.Parse()
 	r.Log = os.Stderr

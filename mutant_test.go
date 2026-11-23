@@ -416,7 +416,7 @@ func TestApplyOnStdlib(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, m := range append(mutant.Find(pkg.Fset, f, src, pkg.TypesInfo), mutant.Extreme(pkg.Fset, f, src, pkg.TypesInfo)...) {
+				for _, m := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
 					total.Add(1)
 					got := m.Apply(src)
 					if len(got)-len(src) != len(m.Mutated)-len(m.Original) {
@@ -466,17 +466,18 @@ func TestRepairTypeOnlyImport(t *testing.T) {
 
 import (
 	"bytes"
-	"fmt"
 	"slices"
 )
 
-func render(n int) string {
-	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%d", n)
-	return buf.String()
-}
+func consume(any) {}
 
-func has(xs []int, x int) bool { return slices.Contains(xs, x) }
+func check(xs []int, n int) bool {
+	consume(new(bytes.Buffer))
+	if slices.Contains(xs, n) {
+		return true
+	}
+	return false
+}
 `
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
@@ -490,50 +491,10 @@ func has(xs []int, x int) bool { return slices.Contains(xs, x) }
 	// bytes is used only for a type: a nil pointer to it keeps it used.
 	// slices.Contains is generic: no expression names it without type
 	// arguments, so an import used only for it is not repaired.
-	xtesting.EqualText(t, listing(mutant.Extreme(fset, f, []byte(src), info)), `
-		p.go:9:27 EXT { … → { _, _ = (*bytes.Buffer)(nil), fmt.Fprintf; return *new(string) }
-		p.go:15:32 EXT { return slices.Contains(xs, x) } → { return *new(bool) }
-	`)
-}
-
-func TestExtreme(t *testing.T) {
-	src := `package p
-
-import "strings"
-
-type Counter struct{ n int }
-
-var ready bool
-
-func Name(s string) string { return strings.ToUpper(s) }
-
-func Pair(n int) (int, error) { if n < 0 { return 0, nil }; return n * 2, nil }
-
-func (c *Counter) Inc() { c.n++ }
-
-func named(x int) (y int) { y = x + 1; return }
-
-func empty() {}
-
-func init() { ready = true }
-`
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
-	conf := types.Config{Importer: importer.Default()}
-	if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
-		t.Fatal(err)
-	}
-	// One mutant per function with a body: an empty body has nothing to
-	// remove, and init runs before any test can see it go.
-	xtesting.EqualText(t, listing(mutant.Extreme(fset, f, []byte(src), info)), `
-		p.go:9:28 EXT { return strings.ToUpper(s) } → { _ = strings.ToUpper; return *new(string) }
-		p.go:11:31 EXT { if n < 0 { return 0, nil }; return n * 2, nil } → { return *new(int), *new(error) }
-		p.go:13:25 EXT { c.n++ } → {}
-		p.go:15:27 EXT { y = x + 1; return } → { return }
+	xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
+		p.go:11:2 SDL consume(new(bytes.Buffer)) → _ = (*bytes.Buffer)(nil)
+		p.go:12:5 COR slices.Contains(xs, n) → true
+		p.go:12:5 COR slices.Contains(xs, n) → false
 	`)
 }
 

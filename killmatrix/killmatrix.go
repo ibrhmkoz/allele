@@ -197,10 +197,6 @@ type Runner struct {
 	// several times in a row, and a kill they invent hides a mutant no
 	// test catches.
 	Confirm bool
-	// Extreme takes the mutants from mutant.Extreme, one per function,
-	// instead of mutant.Find. Embed takes only Find's, so each builds on
-	// its own and Schemata and Select do nothing.
-	Extreme bool
 }
 
 // Run computes the kill matrix of the packages that patterns match in dir.
@@ -282,9 +278,6 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		}
 		s := source{name: name, src: src, file: f}
 		found := mutant.Find(pkg.Fset, f, src, pkg.TypesInfo)
-		if r.Extreme {
-			found = mutant.Extreme(pkg.Fset, f, src, pkg.TypesInfo)
-		}
 		s.find = make([]int, len(found))
 		chosen := make([]bool, len(found))
 		if r.Choose == nil {
@@ -327,7 +320,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 
 	bin := filepath.Join(tmp, strings.ReplaceAll(pkg.PkgPath, "/", "_")+".test")
 	schema := ""
-	if r.Schemata && !r.Extreme && len(mutants) > 0 {
+	if r.Schemata && len(mutants) > 0 {
 		var err error
 		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants); err != nil {
 			return err

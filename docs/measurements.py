@@ -941,7 +941,8 @@ def _(mo):
     # Section 11: sample to label, then label (Gemini: agy -p "$(cat mutant/docs/labels/prompt.md)" --model gemini-4-neon-high)
     uv run python mutant/docs/labels/sample.py "$CORPUS_CACHE" > mutant/docs/labels/sample.ndjson
 
-    # Section 12: extreme mutation, about 90 seconds
+    # Section 12: extreme mutation, about 90 seconds, with the code as of
+    # commit ff8bb8e (removed since; see ROADMAP.md)
     EXTREME=1 OUT=mutant/docs/data-extreme mutant/docs/corpus.sh
 
     # Section 13: service verdicts (about an hour), then the arid sample to label

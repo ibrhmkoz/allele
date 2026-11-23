@@ -115,7 +115,11 @@ Kept so they are not retried without new evidence.
 
 - **Extreme mutation as a prefilter** (§12): a quarter of the mutants in
   pseudo-tested functions are killed by some test; skipping them hides
-  kills to save 3% of mutants.
+  kills to save 3% of mutants. Its code (`mutant.Extreme`, `killmatrix
+  -extreme`, `EXTREME=1 corpus.sh`) was removed; §12 reads the stored
+  `data-extreme/`. To rerun it, restore the code as of commit `ff8bb8e`:
+  `git checkout ff8bb8e -- mutant/mutant.go mutant/killmatrix/killmatrix.go
+  mutant/cmd/killmatrix/main.go mutant/docs/corpus.sh`.
 - **Selecting tests by the line they reach** (§9): a clock-dependent branch
   ran in no baseline yet ran against the mutants. Selection is by function.
 - **Confirming a kill by rerunning the mutant only**, or **by checking the

@@ -89,7 +89,7 @@ on six libraries and three services at pinned commits.
 
 | Package | Provides |
 |---|---|
-| `mutant` | `Find`: the mutants of a type-checked file, with equivalence and arid tags. `Embed`: all of them in one program (schemata). `Extreme`: one mutant per function, its body removed |
+| `mutant` | `Find`: the mutants of a type-checked file, with equivalence and arid tags. `Embed`: all of them in one program (schemata) |
 | `mutant/killmatrix` | Runs tests against mutants and records which test kills which: the full kill matrix, or verdicts only |
 | `mutant/adequacy` | Dominator mutants, the dominator score of a test set, the selective mutation protocol, and the mutants coupled to a real fault |
 | `cmd/mutant` | The command above |

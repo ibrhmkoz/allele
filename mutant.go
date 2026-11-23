@@ -31,9 +31,6 @@ const (
 	SDL Operator = "SDL"
 	// ERR flips err != nil and returns nil instead of an error.
 	ERR Operator = "ERR"
-	// EXT replaces a function's body with a return of zero values
-	// (extreme mutation: Niedermayr et al. 2016). Only Extreme makes it.
-	EXT Operator = "EXT"
 )
 
 // Mutant is one change to one file.
@@ -318,45 +315,6 @@ func (f *finder) capacityArg(call *ast.CallExpr) ast.Expr {
 		return call.Args[1]
 	}
 	return nil
-}
-
-// Extreme returns one mutant per function declared in file with a body
-// that does something: the body replaced by a return of zero values. A
-// function whose tests all pass without its body is pseudo-tested: they
-// run it but check nothing it does. init is left alone, since it runs
-// before any test could notice it gone.
-func Extreme(fset *token.FileSet, file *ast.File, src []byte, info *types.Info) []Mutant {
-	f := finder{fset: fset, src: src, info: info}
-	f.indexUses(file)
-	for _, d := range file.Decls {
-		fd, ok := d.(*ast.FuncDecl)
-		if !ok || fd.Body == nil || len(fd.Body.List) == 0 || fd.Recv == nil && fd.Name.Name == "init" {
-			continue
-		}
-		var body []string
-		exprs, ok := f.orphans(fd.Body)
-		if ok && len(exprs) > 0 {
-			body = append(body, blank(exprs))
-		}
-		if res := fd.Type.Results; res != nil && len(res.List) > 0 {
-			ret := "return"
-			if len(res.List[0].Names) == 0 {
-				// *new(T) is T's zero value for any T the signature can name.
-				zeros := make([]string, len(res.List))
-				for i, r := range res.List {
-					zeros[i] = "*new(" + f.source(r.Type) + ")"
-				}
-				ret += " " + strings.Join(zeros, ", ")
-			}
-			body = append(body, ret)
-		}
-		text := "{}"
-		if len(body) > 0 {
-			text = "{ " + strings.Join(body, "; ") + " }"
-		}
-		f.add(EXT, fd, fd.Body, fd.Body.Pos(), fd.Body.End(), text).Repaired = ok && len(exprs) > 0
-	}
-	return f.found
 }
 
 type finder struct {

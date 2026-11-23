@@ -7,7 +7,6 @@
 #   JOBS=1 OUT=mutant/docs/data-j1 mutant/docs/corpus.sh go-version
 #   SCHEMATA=1 OUT=mutant/docs/data-schemata mutant/docs/corpus.sh
 #   SCHEMATA=1 SELECT=1 OUT=mutant/docs/data-select mutant/docs/corpus.sh
-#   EXTREME=1 OUT=mutant/docs/data-extreme mutant/docs/corpus.sh
 #   SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh
 #
 # The first six were picked for fast, hermetic tests (no network, database
@@ -52,6 +51,6 @@ echo "$corpus" | while read -r name url commit; do
 	out="$out_root/$name"
 	rm -rf "$out"
 	echo "$name: computing kill matrix" >&2
-	(cd "$src" && "$bin" -j "$jobs" ${SCHEMATA:+-schemata} ${SELECT:+-select} ${FAILFAST:+-failfast} ${CONFIRM:+-confirm} ${EXTREME:+-extreme} -o "$out" ./... > /dev/null)
+	(cd "$src" && "$bin" -j "$jobs" ${SCHEMATA:+-schemata} ${SELECT:+-select} ${FAILFAST:+-failfast} ${CONFIRM:+-confirm} -o "$out" ./... > /dev/null)
 	gzip -9 "$out"/*.ndjson
 done
