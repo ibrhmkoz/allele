@@ -103,6 +103,9 @@ const (
 	// Timeout is not a kill: a mutant that only slows a test down may
 	// still be equivalent.
 	Timeout Status = "timeout"
+	// FlakyKill, with Confirm, is a test that failed against the mutant
+	// and then passed when run again. It is not a kill.
+	FlakyKill Status = "flaky"
 )
 
 // Verdict sums up how the tests did against one mutant.
@@ -183,6 +186,11 @@ type Runner struct {
 	// trying the fastest top-level tests first. The matrix then holds only
 	// the runs made: enough for Verdict, not for adequacy.
 	FailFast bool
+	// Confirm runs a top-level test again when it fails against a mutant,
+	// and counts a leaf as killed only if it fails both times. Timing
+	// tests fail now and then under load; a kill they invent hides a
+	// mutant no test catches.
+	Confirm bool
 	// Extreme takes the mutants from mutant.Extreme, one per function,
 	// instead of mutant.Find. Embed takes only Find's, so each builds on
 	// its own and Schemata and Select do nothing.
@@ -540,8 +548,8 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		slices.SortStableFunc(tests, func(a, b Test) int { return cmp.Compare(a.BaselineMS, b.BaselineMS) })
 	}
 	var results []Result
-	var rep report
-	ran := "" // the top-level test rep is from
+	var rep, again report
+	ran, ranAgain := "", "" // the top-level tests rep and again are from
 	killed := false
 	for _, t := range tests {
 		if t.State != OK {
@@ -564,6 +572,18 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 			}
 		}
 		status := rep.status(t.Name)
+		if status == Killed && r.Confirm {
+			if ranAgain != ran {
+				limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+				again, ranAgain = run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
+				if ctx.Err() != nil {
+					return nil, ctx.Err()
+				}
+			}
+			if again.status(t.Name) != Killed {
+				status = FlakyKill
+			}
+		}
 		killed = killed || r.FailFast && status == Killed
 		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.elapsed)})
 	}
@@ -733,13 +753,13 @@ func (r Runner) logf(format string, args ...any) { _, _ = fmt.Fprintf(r.Log, for
 func ms(d time.Duration) float64 { return float64(d) / float64(time.Millisecond) }
 
 // String draws the matrix a package at a time: K killed, . survived,
-// T timeout, B build error. Flaky and failing tests get no column.
+// T timeout, F flaky, B build error. Flaky and failing tests get no column.
 func (m *Matrix) String() string {
 	status := map[[2]int]Status{}
 	for _, r := range m.Results {
 		status[[2]int{r.MutantID, r.TestID}] = r.Status
 	}
-	glyph := map[Status]string{Killed: "K", Survived: ".", Timeout: "T"}
+	glyph := map[Status]string{Killed: "K", Survived: ".", Timeout: "T", FlakyKill: "F"}
 
 	var b strings.Builder
 	var pkgs []string

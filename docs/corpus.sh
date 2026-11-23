@@ -8,13 +8,14 @@
 #   SCHEMATA=1 OUT=mutant/docs/data-schemata mutant/docs/corpus.sh
 #   SCHEMATA=1 SELECT=1 OUT=mutant/docs/data-select mutant/docs/corpus.sh
 #   EXTREME=1 OUT=mutant/docs/data-extreme mutant/docs/corpus.sh
-#   SCHEMATA=1 SELECT=1 FAILFAST=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh
+#   SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh
 #
 # The first six were picked for fast, hermetic tests (no network, database
 # or Docker) and pure logic: parsers, formatters, encoders. Each takes 1-5
 # minutes with -j 8. The last three are service code that logs, with slow
-# tests (25-40 s): run them with SCHEMATA=1 SELECT=1 FAILFAST=1, which
-# records each mutant's verdict but not the full matrix.
+# tests (25-40 s): run them with SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1,
+# which records each mutant's verdict but not the full matrix, and counts a
+# kill only if the test fails twice: their timing tests fail under load.
 set -eu
 
 corpus='
@@ -51,6 +52,6 @@ echo "$corpus" | while read -r name url commit; do
 	out="$out_root/$name"
 	rm -rf "$out"
 	echo "$name: computing kill matrix" >&2
-	(cd "$src" && "$bin" -j "$jobs" ${SCHEMATA:+-schemata} ${SELECT:+-select} ${FAILFAST:+-failfast} ${EXTREME:+-extreme} -o "$out" ./... > /dev/null)
+	(cd "$src" && "$bin" -j "$jobs" ${SCHEMATA:+-schemata} ${SELECT:+-select} ${FAILFAST:+-failfast} ${CONFIRM:+-confirm} ${EXTREME:+-extreme} -o "$out" ./... > /dev/null)
 	gzip -9 "$out"/*.ndjson
 done

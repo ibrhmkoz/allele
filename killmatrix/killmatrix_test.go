@@ -236,3 +236,33 @@ func TestExtreme(t *testing.T) {
 		  M6 K  K  K  .    table.go:5:21 EXT { … → { return *new(int) }
 	`)
 }
+
+// TestConfirm runs a test that fails against a mutant on the first try
+// only. Without Confirm it reads as a kill; with it, as flaky, which no
+// verdict counts as killed.
+func TestConfirm(t *testing.T) {
+	t.Parallel()
+	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: true, Confirm: true}
+	m, err := r.Run(t.Context(), "testdata", "./flaky")
+	if err != nil {
+		t.Fatal(err)
+	}
+	xtesting.Prints(t, m, `
+		fixture/flaky
+		  T1 TestPick
+
+		     T1
+		  M1 .   flaky.go:7:5 COR n > 0 → true
+		  M2 F   flaky.go:7:5 COR n > 0 → false
+		  M3 F   flaky.go:7:7 ROR n > 0 → n < 0
+		  M4 F   flaky.go:7:7 ROR n > 0 → n <= 0
+		  M5 .   flaky.go:7:7 ROR n > 0 → n >= 0
+		  M6 F   flaky.go:7:7 ROR n > 0 → n == 0
+		  M7 .   flaky.go:7:7 ROR n > 0 → n != 0
+	`)
+	for id, v := range m.Verdicts() {
+		if v == killmatrix.VerdictKilled {
+			t.Errorf("M%d: a flaky kill counted as killed", id)
+		}
+	}
+}
