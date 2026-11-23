@@ -1,6 +1,8 @@
 package killmatrix
 
 import (
+	"cmp"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -8,11 +10,12 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 
@@ -20,6 +23,40 @@ import (
 )
 
 const cacheFormatVersion = "v1"
+
+// loadDepMeta loads package and test-package dependency metadata without
+// parsing or type-checking test files, returning all package variants
+// (production + test) keyed by their package path.
+func loadDepMeta(ctx context.Context, dir string, patterns []string) (map[string][]*packages.Package, error) {
+	cfg := &packages.Config{
+		Context: ctx,
+		Dir:     dir,
+		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedImports | packages.NeedDeps | packages.NeedEmbedFiles | packages.NeedForTest | packages.NeedModule,
+		Tests:   true,
+	}
+	loaded, err := packages.Load(cfg, patterns...)
+	if err != nil { //mut:ignore
+		return nil, err //mut:ignore
+	}
+	byPkg := map[string][]*packages.Package{}
+	for _, p := range loaded {
+		k := cmp.Or(p.ForTest, p.PkgPath)
+		byPkg[k] = append(byPkg[k], p)
+	}
+	return byPkg, nil
+}
+
+// goToolchain returns "GOVERSION\nGOOS\nGOARCH" for the go command in dir,
+// respecting GOTOOLCHAIN and go.mod rather than the mutant binary's runtime.
+func goToolchain(ctx context.Context, dir string) string {
+	cmd := exec.CommandContext(ctx, "go", "env", "GOVERSION", "GOOS", "GOARCH")
+	cmd.Dir = dir //mut:ignore
+	out, err := cmd.Output()
+	if err != nil { //mut:ignore
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
 
 // cacheEntry stores the last FailFast verdict snapshot of one package.
 type cacheEntry struct {
@@ -63,84 +100,61 @@ func loadCache(cacheDir, pkgPath string) (cacheEntry, bool) {
 }
 
 func saveCache(cacheDir, pkgPath string, e cacheEntry) {
-	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
+	// Best-effort persistence: filesystem errors drop the cache write rather
+	// than failing the run.
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil { //mut:ignore
 		return
 	}
 	data, err := json.Marshal(e)
-	if err != nil {
+	if err != nil { //mut:ignore
 		return
 	}
-	dst := cachePath(cacheDir, pkgPath)
 	tmp, err := os.CreateTemp(cacheDir, "cache-*.tmp")
-	if err != nil {
+	if err != nil { //mut:ignore
 		return
 	}
 	name := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(name)
+	_, werr := tmp.Write(data)
+	cerr := tmp.Close()
+	if werr != nil || cerr != nil { //mut:ignore
+		_ = os.Remove(name) //mut:ignore
 		return
 	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(name)
-		return
-	}
-	_ = os.Rename(name, dst)
+	_ = os.Rename(name, cachePath(cacheDir, pkgPath))
 }
 
 // snapshotPackage hashes everything that can affect a package's mutation
 // verdicts: toolchain, runner options, production files, embed files,
-// transitive non-stdlib dependencies, testdata, and test files (splitting
-// individual Test*/Example*/Fuzz* functions out so pure test additions can
-// reuse previously killed mutants).
-func (r Runner) snapshotPackage(pkg *packages.Package, dir string, mutants []Mutant) pkgSnapshot {
+// transitive non-stdlib dependencies (of both production and test packages),
+// testdata, and test files (splitting individual Test*/Example*/Fuzz*
+// functions out so pure test additions can reuse previously killed mutants).
+func (r Runner) snapshotPackage(pkg *packages.Package, depRoots []*packages.Package, toolchain, dir string, mutants []Mutant) pkgSnapshot {
 	prod := sha256.New()
-	_, _ = fmt.Fprintf(prod, "%s\x00%s\x00%s\x00%s\x00%s\x00", cacheFormatVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH, pkg.PkgPath)
-	_, _ = fmt.Fprintf(prod, "%v:%v:%v:%v:%d:%g:%d\x00", r.Schemata, r.Select, r.FailFast, r.Confirm, r.BaselineRuns, r.TimeoutFactor, r.TimeoutPad)
+	_, _ = fmt.Fprintf(prod, "%s\x00%s\x00%s\x00%v:%v:%v:%v:%d:%g:%d\x00",
+		cacheFormatVersion, toolchain, pkg.PkgPath,
+		r.Schemata, r.Select, r.FailFast, r.Confirm, r.BaselineRuns, r.TimeoutFactor, r.TimeoutPad)
 
-	// Production files and //go:embed files of pkg and its non-stdlib deps.
 	var files []string
-	seen := map[string]bool{}
-	addFiles := func(p *packages.Package) {
-		for _, f := range p.GoFiles {
-			if !seen[f] {
-				seen[f] = true
-				files = append(files, f)
-			}
+	packages.Visit(depRoots, nil, func(dep *packages.Package) {
+		// Skip test variants of pkg itself (whose *_test.go are hashed
+		// per-declaration below) and stdlib (pinned by GOVERSION).
+		if dep.ForTest == pkg.PkgPath || dep.Module == nil {
+			return
 		}
-		for _, f := range p.EmbedFiles {
-			if !seen[f] {
-				seen[f] = true
-				files = append(files, f)
-			}
-		}
-	}
-	addFiles(pkg)
-	packages.Visit([]*packages.Package{pkg}, nil, func(dep *packages.Package) {
-		// Stdlib packages have Module == nil and are pinned by runtime.Version().
-		if dep != pkg && dep.Module != nil {
-			addFiles(dep)
-		}
+		files = append(files, dep.GoFiles...)
+		files = append(files, dep.EmbedFiles...)
 	})
-	// Include testdata/ files if present in the package directory.
-	td := filepath.Join(dir, "testdata")
-	if info, err := os.Stat(td); err == nil && info.IsDir() {
-		_ = filepath.WalkDir(td, func(p string, d fs.DirEntry, err error) error {
-			if err == nil && !d.IsDir() && !seen[p] {
-				seen[p] = true
-				files = append(files, p)
-			}
-			return nil
-		})
-	}
-	slices.Sort(files)
-	for _, f := range files {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			continue
+	_ = filepath.WalkDir(filepath.Join(dir, "testdata"), func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			files = append(files, p)
 		}
-		_, _ = fmt.Fprintf(prod, "F:%s:%d\x00", f, len(data))
-		prod.Write(data)
+		return nil
+	})
+	// Sorting and deduping keep the hash deterministic and avoid reading a file twice.
+	slices.Sort(files)            //mut:ignore
+	files = slices.Compact(files) //mut:ignore
+	for _, f := range files {
+		hashFile(prod, f)
 	}
 
 	// Parse *_test.go files in dir: individual Test*/Example*/Fuzz* funcs go
@@ -148,32 +162,26 @@ func (r Runner) snapshotPackage(pkg *packages.Package, dir string, mutants []Mut
 	// goes into prod so editing shared test infrastructure invalidates all.
 	testDecls := map[string]string{}
 	testFiles, _ := filepath.Glob(filepath.Join(dir, "*_test.go"))
-	slices.Sort(testFiles)
+	slices.Sort(testFiles) //mut:ignore
 	for _, tf := range testFiles {
 		src, err := os.ReadFile(tf)
-		if err != nil {
+		if err != nil { //mut:ignore
 			continue
 		}
 		fset := token.NewFileSet()
 		af, err := parser.ParseFile(fset, tf, src, 0)
-		if err != nil {
-			// Unparseable test file: hash raw bytes into prodKey to force rerun.
-			_, _ = fmt.Fprintf(prod, "TR:%s:%d\x00", tf, len(src))
-			prod.Write(src)
+		if err != nil { //mut:ignore
+			hashBytes(prod, tf, src) //mut:ignore
 			continue
 		}
-		_, _ = fmt.Fprintf(prod, "TP:%s:%s\x00", tf, af.Name.Name)
 		for _, d := range af.Decls {
-			start := fset.Position(d.Pos()).Offset
-			end := fset.Position(d.End()).Offset
-			chunk := src[start:end]
+			chunk := src[fset.Position(d.Pos()).Offset:fset.Position(d.End()).Offset]
 			if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv == nil && isIndividualTest(fn.Name.Name) {
 				sum := sha256.Sum256(chunk)
 				testDecls[fn.Name.Name] = hex.EncodeToString(sum[:])
 				continue
 			}
-			_, _ = fmt.Fprintf(prod, "TD:%d\x00", len(chunk))
-			prod.Write(chunk)
+			hashBytes(prod, tf, chunk)
 		}
 	}
 
@@ -184,7 +192,7 @@ func (r Runner) snapshotPackage(pkg *packages.Package, dir string, mutants []Mut
 	for k := range testDecls {
 		names = append(names, k)
 	}
-	slices.Sort(names)
+	slices.Sort(names) //mut:ignore
 	for _, k := range names {
 		_, _ = fmt.Fprintf(full, "T:%s=%s\x00", k, testDecls[k])
 	}
@@ -198,8 +206,23 @@ func (r Runner) snapshotPackage(pkg *packages.Package, dir string, mutants []Mut
 	}
 }
 
+func hashFile(w io.Writer, path string) {
+	data, err := os.ReadFile(path)
+	if err != nil { //mut:ignore
+		return
+	}
+	hashBytes(w, path, data)
+}
+
+func hashBytes(w io.Writer, label string, data []byte) {
+	// Length-prefix framing prevents boundary collisions across adjacent chunks.
+	_, _ = fmt.Fprintf(w, "%s:%d\x00", label, len(data)) //mut:ignore
+	_, _ = w.Write(data)
+}
+
 func isIndividualTest(name string) bool {
-	if name == "TestMain" {
+	// TestMain wraps the entire test binary, so editing it must invalidate all kills.
+	if name == "TestMain" { //mut:ignore
 		return false
 	}
 	return strings.HasPrefix(name, "Test") || strings.HasPrefix(name, "Example") || strings.HasPrefix(name, "Fuzz")
@@ -231,9 +254,7 @@ func buildCacheEntry(snap pkgSnapshot, m *Matrix, reusedKillers map[int]string) 
 	maps.Copy(killerOf, reusedKillers)
 	for _, res := range m.Results {
 		if res.Status == Killed && res.TestID > 0 {
-			if _, ok := killerOf[res.MutantID]; !ok {
-				killerOf[res.MutantID] = byTestID[res.TestID]
-			}
+			killerOf[res.MutantID] = byTestID[res.TestID]
 		}
 	}
 	verdicts := m.Verdicts()

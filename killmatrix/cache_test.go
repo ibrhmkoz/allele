@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ibrhmkoz/go-kit/mutant"
 	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
 	"github.com/ibrhmkoz/go-kit/xtesting"
 )
@@ -284,4 +285,175 @@ func TestCacheInvalidatesOnDepEdit(t *testing.T) {
 			t.Fatalf("cache hit after dependency edit to %s; want cache miss", v)
 		}
 	}
+}
+
+// TestCacheInvalidatesOnTestDepEdit checks that editing a test-only
+// dependency (like xtesting in this repo) invalidates cached verdicts of
+// packages whose tests import it.
+func TestCacheInvalidatesOnTestDepEdit(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		p := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/testdep\n\ngo 1.21\n")
+	write("assert/assert.go", "package assert\nimport \"testing\"\nfunc True(t *testing.T, ok bool) { if !ok { t.Fatal(\"want true\") } }\n")
+	write("app/app.go", "package app\nfunc Pos(n int) bool { return n > 0 }\n")
+	write("app/app_test.go", "package app\nimport (\n\t\"testing\"\n\t\"example.com/testdep/assert\"\n)\nfunc TestPos(t *testing.T) { assert.True(t, Pos(1)) }\n")
+
+	r := killmatrix.Runner{
+		Workers:      2,
+		BaselineRuns: 1,
+		TimeoutPad:   500 * time.Millisecond,
+		Schemata:     true,
+		Select:       true,
+		FailFast:     true,
+		CacheDir:     t.TempDir(),
+	}
+	m1, err := r.Run(t.Context(), dir, "./app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m1.Verdicts()[1] != killmatrix.VerdictKilled {
+		t.Fatalf("cold run: M1 = %s, want killed", m1.Verdicts()[1])
+	}
+	// Break the test-only assertion helper so nothing is checked anymore.
+	write("assert/assert.go", "package assert\nimport \"testing\"\nfunc True(t *testing.T, ok bool) {}\n")
+	m2, err := r.Run(t.Context(), dir, "./app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m2.Mutants[0].BuildMS == 0 {
+		t.Fatal("cache hit after test-only dependency edit; want cache miss")
+	}
+	if m2.Verdicts()[1] != killmatrix.VerdictSurvived {
+		t.Fatalf("after breaking assert.True: M1 = %s, want survived", m2.Verdicts()[1])
+	}
+}
+
+// TestCacheInvalidatesOnInputs checks that edits to testdata/, //go:embed
+// files, shared test helpers, runner options, and Choose subsets all
+// invalidate the cache.
+func TestCacheInvalidatesOnInputs(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		p := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module example.com/inputs\n\ngo 1.21\n")
+	write("msg.txt", "ok")
+	write("testdata/want.txt", "ok")
+	write("p.go", `package p
+import _ "embed"
+//go:embed msg.txt
+var msg string
+func Check(n int) string {
+	if n > 0 {
+		return msg
+	}
+	return ""
+}
+`)
+	write("p_test.go", `package p
+import (
+	"os"
+	"testing"
+)
+func want(t *testing.T) string {
+	b, err := os.ReadFile("testdata/want.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+func TestCheck(t *testing.T) {
+	if got := Check(1); got != want(t) {
+		t.Fatalf("got %q, want %q", got, want(t))
+	}
+}
+`)
+
+	r := killmatrix.Runner{
+		Workers:      2,
+		BaselineRuns: 1,
+		TimeoutPad:   500 * time.Millisecond,
+		Schemata:     true,
+		Select:       true,
+		FailFast:     true,
+		CacheDir:     t.TempDir(),
+	}
+	mustMiss := func(label string, rr killmatrix.Runner) {
+		t.Helper()
+		m, err := rr.Run(t.Context(), dir, ".")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Mutants[0].BuildMS == 0 {
+			t.Fatalf("%s: unexpected cache hit", label)
+		}
+	}
+	mustMiss("cold", r)
+
+	// 1. //go:embed file edit alone
+	write("msg.txt", "ok!")
+	mustMiss("embed edit", r)
+
+	// 2. testdata/ file edit alone (warm cache first on current msg.txt)
+	write("testdata/extra.txt", "x")
+	mustMiss("testdata edit", r)
+
+	// 3. Shared helper edit in *_test.go
+	write("p_test.go", `package p
+import (
+	"os"
+	"testing"
+)
+func want(t *testing.T) string {
+	b, err := os.ReadFile("testdata/want.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b) + ""
+}
+func TestCheck(t *testing.T) {
+	if got := Check(1); got != want(t) {
+		t.Fatalf("got %q, want %q", got, want(t))
+	}
+}
+`)
+	mustMiss("test helper edit", r)
+
+	// 4. Runner option change (Confirm)
+	rConfirm := r
+	rConfirm.Confirm = true
+	mustMiss("runner option change", rConfirm)
+
+	// 5. Choose subset change (same runner options as rConfirm)
+	rSub := rConfirm
+	rSub.Choose = func(_ string, _ []mutant.Mutant) []int { return []int{0} }
+	mustMiss("Choose subset change", rSub)
+
+	// 6. Corrupt cache JSON is treated as a cache miss rather than an error.
+	entries, err := os.ReadDir(rSub.CacheDir)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("cache entries = %d, err = %v", len(entries), err)
+	}
+	if err := os.WriteFile(filepath.Join(rSub.CacheDir, entries[0].Name()), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mustMiss("corrupt cache", rSub)
 }

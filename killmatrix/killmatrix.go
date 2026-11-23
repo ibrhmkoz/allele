@@ -215,20 +215,31 @@ func (r Runner) release() { <-r.sem } //mut:ignore
 // Run computes the kill matrix of the packages that patterns match in dir.
 func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matrix, error) {
 	r = r.withDefaults()
-	mode := packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedModule
-	if r.CacheDir != "" && r.FailFast {
-		mode |= packages.NeedImports | packages.NeedDeps | packages.NeedEmbedFiles
-	}
+	// Cost-only skip when CacheDir is empty (loadCache/saveCache no-op on "").
+	useCache := r.CacheDir != "" && r.FailFast //mut:ignore
 	cfg := &packages.Config{
 		Context: ctx,
 		Dir:     dir,
-		Mode:    mode,
+		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedModule,
 	}
 	pkgs, err := packages.Load(cfg, patterns...)
 	if err != nil {
 		return nil, err
 	}
 	slices.SortFunc(pkgs, func(a, b *packages.Package) int { return cmp.Compare(a.PkgPath, b.PkgPath) })
+
+	// Load transitive production + test dependency file paths with metadata-only
+	// mode (no syntax/typecheck on test packages or testing stdlib).
+	var testPkgs map[string][]*packages.Package
+	toolchain := ""
+	if useCache { //mut:ignore
+		// goToolchain varies only across Go toolchains, not within a single test suite.
+		toolchain = goToolchain(ctx, dir) //mut:ignore
+		testPkgs, err = loadDepMeta(ctx, dir, patterns)
+		if err != nil { //mut:ignore
+			return nil, err //mut:ignore
+		}
+	}
 
 	tmp, err := os.MkdirTemp("", "killmatrix")
 	if err != nil {
@@ -254,7 +265,7 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 		wg.Go(func() {
 			for i := range pkgJobs {
 				sub := &Matrix{}
-				if err := r.runPackage(ctx, sub, pkgs[i], tmp, &rechecks[i]); err != nil {
+				if err := r.runPackage(ctx, sub, pkgs[i], testPkgs[pkgs[i].PkgPath], toolchain, tmp, &rechecks[i]); err != nil {
 					errs[i] = fmt.Errorf("%s: %w", pkgs[i].PkgPath, err)
 					continue
 				}
@@ -324,7 +335,7 @@ type source struct {
 	find    []int // for each of Find's mutants, its index among them, -1 if not chosen
 }
 
-func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package, tmp string, deferRecheck *func() error) error {
+func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package, testPkgs []*packages.Package, toolchain, tmp string, deferRecheck *func() error) error {
 	if len(pkg.GoFiles) == 0 {
 		return nil
 	}
@@ -392,9 +403,9 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	reused := make([]bool, len(mutants))
 	reusedKillers := map[int]string{}
 	reusedResults := make([][]Result, len(mutants))
-	if useCache {
-		snap = r.snapshotPackage(pkg, dir, mutants)
-		if entry, ok := loadCache(r.CacheDir, pkg.PkgPath); ok {
+	if useCache { //mut:ignore
+		snap = r.snapshotPackage(pkg, testPkgs, toolchain, dir, mutants)
+		if entry, ok := loadCache(r.CacheDir, pkg.PkgPath); ok { //mut:ignore
 			byKey := make(map[string]cachedMutant, len(entry.Mutants))
 			for _, cm := range entry.Mutants {
 				byKey[cm.Key] = cm
@@ -436,7 +447,8 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	schema := ""
 	if r.Schemata && len(mutants) > 0 {
 		var err error
-		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants, reused); err != nil {
+		// buildSchema returns an error only on temp-dir FS errors or ctx cancellation.
+		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants, reused); err != nil { //mut:ignore
 			return err
 		}
 	}

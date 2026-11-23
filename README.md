@@ -36,6 +36,7 @@ checked that `Prints` fails on a mismatch.
 | `mutant -arid ./...` | also mutants in logging, metrics and capacity hints |
 | `mutant -strict ./...` | exit 1 when a mutant survives or no test reaches it (CI) |
 | `mutant -json ./...` | one JSON object per mutant, every verdict included |
+| `mutant -no-cache ./...` | ignore and do not update the per-package verdict cache |
 | `mutant -j 4 -v ./...` | 4 mutants at once, progress on stderr |
 
 Each mutant gets a verdict: **killed** (a test failed), **survived** (all
@@ -104,5 +105,12 @@ on six libraries and three services at pinned commits.
   its mutants build one by one.
 - Mutants in constant expressions (`const`, array sizes) cannot call a
   function and build one by one.
+- **Verdict cache:** `mutant` caches verdicts per package under
+  `os.UserCacheDir()/mutant`, keyed by `go env GOVERSION`/`GOOS`/`GOARCH`,
+  runner flags, package and `//go:embed` files, `testdata/`, test files,
+  and transitive non-stdlib dependencies (including test-only
+  dependencies). It does not track environment variables, external services
+  (such as a database), or files read outside the package's `testdata/`;
+  pass `-no-cache` when those matter (as `make ci` does).
 
 [ROADMAP.md](ROADMAP.md) lists what is still open.
