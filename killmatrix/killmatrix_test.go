@@ -193,3 +193,44 @@ func TestFailFast(t *testing.T) {
 		t.Errorf("%d runs recorded; failing fast should stop at the first kill", ran)
 	}
 }
+
+// TestExtreme runs the fixture with each function's body removed.
+func TestExtreme(t *testing.T) {
+	t.Parallel()
+	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Extreme: true}
+	m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Error and Check have no test at all; Abs without its body still
+	// returns the right answer for 0.
+	xtesting.Prints(t, m, `
+		fixture/discount
+		  T1 TestVIPOver100
+		  T2 TestRegularOver100
+		  T3 TestVIPUnder100
+
+		     T1 T2 T3
+		  M1 K  K  K   discount.go:4:40 EXT { … → { return *new(int) }
+
+		fixture/loop
+		  T4 TestCount
+		  T5 TestLast
+		  T6 TestBroken (failing)
+
+		     T4 T5
+		  M2 K  .   loop.go:7:23 EXT { … → { return *new(int) }
+		  M3 .  K   loop.go:18:32 EXT { … → { return }
+		  M4 .  .   loop.go:28:30 EXT { return string(c) } → { return *new(string) }
+		  M5 .  .   loop.go:31:24 EXT { … → { _ = strconv.Itoa; return *new(code) }
+
+		fixture/table
+		  T7 TestAbs/index
+		  T8 TestAbs/negative
+		  T9 TestAbs/positive
+		  T10 TestAbs/zero
+
+		     T7 T8 T9 T10
+		  M6 K  K  K  .    table.go:5:21 EXT { … → { return *new(int) }
+	`)
+}

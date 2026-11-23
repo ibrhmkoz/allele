@@ -78,9 +78,18 @@ func (m Mutant) String() string {
 	if mutated == "" {
 		mutated = "(deleted)"
 	}
-	s := fmt.Sprintf("%s:%d:%d %s %s → %s", filepath.Base(m.Pos.Filename), m.Pos.Line, m.Pos.Column, m.Operator, m.Original, mutated)
+	s := fmt.Sprintf("%s:%d:%d %s %s → %s", filepath.Base(m.Pos.Filename), m.Pos.Line, m.Pos.Column, m.Operator, firstLine(m.Original), firstLine(mutated))
 	if m.Equivalent != "" {
 		s += " [equivalent: " + m.Equivalent + "]"
+	}
+	return s
+}
+
+// firstLine shortens text that spans lines, such as a function body, to
+// its first line and an ellipsis.
+func firstLine(s string) string {
+	if line, _, more := strings.Cut(s, "\n"); more {
+		return strings.TrimSpace(line) + " …"
 	}
 	return s
 }
