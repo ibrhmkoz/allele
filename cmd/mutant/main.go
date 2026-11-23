@@ -78,12 +78,13 @@ func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON 
 		log = os.Stderr
 	}
 	r := killmatrix.Runner{
-		Workers:  jobs,
-		Log:      log,
-		Schemata: true,
-		Select:   true,
-		FailFast: true,
-		Choose:   func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
+		Workers:      jobs,
+		BaselineRuns: 1,
+		Log:          log,
+		Schemata:     true,
+		Select:       true,
+		FailFast:     true,
+		Choose:       func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
 	}
 	start := time.Now()
 	m, err := r.Run(ctx, cwd, patterns...)

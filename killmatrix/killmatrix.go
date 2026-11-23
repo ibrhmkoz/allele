@@ -197,7 +197,15 @@ type Runner struct {
 	// several times in a row, and a kill they invent hides a mutant no
 	// test catches.
 	Confirm bool
+
+	// sem, when set, caps total concurrent build/test subprocesses across
+	// packages to Workers.
+	sem chan struct{}
 }
+
+func (r Runner) acquire() { r.sem <- struct{}{} } //mut:ignore
+
+func (r Runner) release() { <-r.sem } //mut:ignore
 
 // Run computes the kill matrix of the packages that patterns match in dir.
 func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matrix, error) {
@@ -219,13 +227,57 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	m := &Matrix{}
 	for _, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
 			return nil, fmt.Errorf("%s: %w", pkg.PkgPath, pkg.Errors[0])
 		}
-		if err := r.runPackage(ctx, m, pkg, tmp); err != nil {
-			return nil, fmt.Errorf("%s: %w", pkg.PkgPath, err)
+	}
+
+	// Throttle total concurrent build/test subprocesses across packages.
+	r.sem = make(chan struct{}, r.Workers) //mut:ignore
+	pkgWorkers := 1
+	if !r.Confirm { //mut:ignore
+		pkgWorkers = min(len(pkgs), r.Workers) //mut:ignore
+	}
+	subs := make([]*Matrix, len(pkgs))
+	errs := make([]error, len(pkgs))
+	pkgJobs := make(chan int)
+	var wg sync.WaitGroup
+	for range max(pkgWorkers, 1) {
+		wg.Go(func() {
+			for i := range pkgJobs {
+				sub := &Matrix{}
+				if err := r.runPackage(ctx, sub, pkgs[i], tmp); err != nil {
+					errs[i] = fmt.Errorf("%s: %w", pkgs[i].PkgPath, err)
+					continue
+				}
+				subs[i] = sub
+			}
+		})
+	}
+	for i := range pkgs {
+		pkgJobs <- i
+	}
+	close(pkgJobs)
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
+	}
+	m := &Matrix{}
+	for _, sub := range subs {
+		mOff, tOff := len(m.Mutants), len(m.Tests)
+		for _, mu := range sub.Mutants {
+			mu.ID += mOff
+			m.Mutants = append(m.Mutants, mu)
+		}
+		for _, t := range sub.Tests {
+			t.ID += tOff
+			m.Tests = append(m.Tests, t)
+		}
+		for _, res := range sub.Results {
+			res.MutantID += mOff
+			res.TestID += tOff
+			m.Results = append(m.Results, res)
 		}
 	}
 	return m, nil
@@ -333,7 +385,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	}
 	if schema != "" {
 		bin = schema // the baseline runs in it too, with no mutant on
-	} else if out, err := build(ctx, dir, bin, ""); err != nil {
+	} else if out, err := r.build(ctx, dir, bin, ""); err != nil {
 		return fmt.Errorf("baseline build: %w\n%s", err, out)
 	}
 	if _, err := os.Stat(bin); errors.Is(err, os.ErrNotExist) {
@@ -544,7 +596,7 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 			return "", err
 		}
 		bin := filepath.Join(work, "schema.test")
-		out, err := build(ctx, dir, bin, overlayFile)
+		out, err := r.build(ctx, dir, bin, overlayFile)
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}
@@ -650,7 +702,7 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		}
 		if top := topOf(t.Name); top != ran {
 			limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-			rep, ran = run(ctx, dir, bin, top, limit, mu.ID, ""), top
+			rep, ran = r.run(ctx, dir, bin, top, limit, mu.ID, ""), top
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
@@ -659,10 +711,10 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		if status == Killed && r.Confirm {
 			if ranAgain != ran {
 				limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-				again, ranAgain = run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
+				again, ranAgain = r.run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
 				original = report{ok: true}
 				if mu.Schema {
-					original = run(ctx, dir, bin, ran, limit, 0, "")
+					original = r.run(ctx, dir, bin, ran, limit, 0, "")
 				}
 				if ctx.Err() != nil {
 					return nil, ctx.Err()
@@ -814,7 +866,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		// Fast tests' baseline_ms is mostly process startup, paid once per
 		// batch; TimeoutPad (1s) covers the combined test bodies comfortably.
 		limit := time.Duration(maxMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-		rep := runBatch(ctx, dir, bin, names, limit, mu.ID)
+		rep := r.runBatch(ctx, dir, bin, names, limit, mu.ID)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -894,7 +946,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 					// Under load a fast test can hit its deadline; recheck alone
 					// before letting an unconfirmed timeout stop FailFast.
 					limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-					again := run(ctx, dir, bin, g.name, limit, mu.ID, "")
+					again := r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 					if ctx.Err() != nil {
 						return nil, ctx.Err()
 					}
@@ -984,7 +1036,7 @@ func topFailed(g topGroup, rep report) bool {
 func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g topGroup, rep report, fnID int, stats *killStats, results *[]Result) (bool, error) {
 	if rep.timedOut && r.Confirm {
 		limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-		again := run(ctx, dir, bin, g.name, limit, mu.ID, "")
+		again := r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 		if ctx.Err() != nil {
 			return false, ctx.Err()
 		}
@@ -999,10 +1051,10 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 		if status == Killed && r.Confirm {
 			if !confirmed {
 				limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-				again = run(ctx, dir, bin, g.name, limit, mu.ID, "")
+				again = r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 				original = report{ok: true}
 				if mu.Schema {
-					original = run(ctx, dir, bin, g.name, limit, 0, "")
+					original = r.run(ctx, dir, bin, g.name, limit, 0, "")
 				}
 				if ctx.Err() != nil {
 					return false, ctx.Err()
@@ -1039,7 +1091,7 @@ func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top, reach string) 
 	var reports []report
 	var names []string
 	for range r.BaselineRuns {
-		rep := run(ctx, dir, bin, top, 0, 0, reach)
+		rep := r.run(ctx, dir, bin, top, 0, 0, reach)
 		times = append(times, rep.elapsed)
 		reports = append(reports, rep)
 		for _, name := range rep.order {
@@ -1116,7 +1168,7 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 
 	bin := filepath.Join(work, "m.test")
 	start := time.Now()
-	_, buildErr := build(ctx, dir, bin, overlayFile)
+	_, buildErr := r.build(ctx, dir, bin, overlayFile)
 	mu.BuildMS = ms(time.Since(start))
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
@@ -1127,6 +1179,24 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 		return nil, nil
 	}
 	return r.runTests(ctx, dir, bin, mu, tests, nil, nil, nil, stats)
+}
+
+func (r Runner) build(ctx context.Context, dir, bin, overlay string) ([]byte, error) {
+	r.acquire()
+	defer r.release()
+	return build(ctx, dir, bin, overlay)
+}
+
+func (r Runner) run(ctx context.Context, dir, bin, top string, limit time.Duration, id int, reach string) report {
+	r.acquire()
+	defer r.release()
+	return run(ctx, dir, bin, top, limit, id, reach)
+}
+
+func (r Runner) runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Duration, id int) report {
+	r.acquire()
+	defer r.release()
+	return runBatch(ctx, dir, bin, tops, limit, id)
 }
 
 // build compiles the test binary of the package in dir into bin, with the

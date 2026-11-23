@@ -10,8 +10,9 @@ import (
 	"go/token"
 	"go/types"
 	"os"
-	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -20,6 +21,29 @@ import (
 	"github.com/ibrhmkoz/go-kit/mutant"
 	"github.com/ibrhmkoz/go-kit/xtesting"
 )
+
+// stdImporter caches standard library packages across tests so each test
+// does not re-read export data from disk.
+var stdImporter = &cachedImporter{base: importer.Default(), cache: map[string]*types.Package{}}
+
+type cachedImporter struct {
+	mu    sync.Mutex
+	base  types.Importer
+	cache map[string]*types.Package
+}
+
+func (c *cachedImporter) Import(path string) (*types.Package, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if pkg, ok := c.cache[path]; ok {
+		return pkg, nil
+	}
+	pkg, err := c.base.Import(path)
+	if err == nil {
+		c.cache[path] = pkg
+	}
+	return pkg, err
+}
 
 // find type-checks src as a file of its own package and returns its mutants.
 func find(t testing.TB, name, src string) []mutant.Mutant {
@@ -30,7 +54,7 @@ func find(t testing.TB, name, src string) []mutant.Mutant {
 		t.Fatal(err)
 	}
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
-	conf := types.Config{Importer: importer.Default()}
+	conf := types.Config{Importer: stdImporter}
 	if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
@@ -392,46 +416,73 @@ func Discount(price int, vip bool) int {
 	`)
 }
 
+// loadStdlib loads all stdlib packages needed by TestApplyOnStdlib and
+// TestEmbedTypeChecks in one packages.Load call.
+var loadStdlib = sync.OnceValues(func() ([]*packages.Package, error) {
+	cfg := &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps}
+	return packages.Load(cfg, "cmp", "os", "strconv", "sort", "strings", "net/url", "encoding/csv", "text/tabwriter", "path", "bufio")
+})
+
 // TestApplyOnStdlib checks, over every mutant of a few standard library
 // packages, that a mutant replaces exactly its Original with its Mutated and
 // that the result still parses.
 func TestApplyOnStdlib(t *testing.T) {
-	cfg := &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo}
-	pkgs, err := packages.Load(cfg, "strconv", "sort", "strings")
+	t.Parallel()
+	pkgs, err := loadStdlib()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var total atomic.Int64
-	t.Cleanup(func() {
-		if n := total.Load(); n < 1000 {
-			t.Errorf("only %d mutants over strconv, sort and strings; Find is missing nodes", n)
-		}
-	})
+	want := map[string]bool{"strconv": true, "sort": true, "strings": true}
+	type job struct {
+		src []byte
+		m   mutant.Mutant
+	}
+	var jobs []job
 	for _, pkg := range pkgs {
+		if !want[pkg.PkgPath] {
+			continue
+		}
 		for _, f := range pkg.Syntax {
 			name := pkg.Fset.File(f.Pos()).Name()
-			t.Run(filepath.Base(name), func(t *testing.T) {
-				t.Parallel()
-				src, err := os.ReadFile(name)
-				if err != nil {
-					t.Fatal(err)
-				}
-				for _, m := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
-					total.Add(1)
-					got := m.Apply(src)
-					if len(got)-len(src) != len(m.Mutated)-len(m.Original) {
-						t.Fatalf("%v: size changed by %d, want %d", m, len(got)-len(src), len(m.Mutated)-len(m.Original))
-					}
-					if !bytes.Contains(src, []byte(m.Original)) || !bytes.Contains(got, []byte(m.Mutated)) {
-						t.Fatalf("%v: original or mutated text not found", m)
-					}
-					if _, err := parser.ParseFile(token.NewFileSet(), "", got, parser.SkipObjectResolution); err != nil {
-						t.Fatalf("%v: %v", m, err)
-					}
-				}
-			})
+			src, err := os.ReadFile(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, m := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
+				jobs = append(jobs, job{src, m})
+			}
 		}
 	}
+	if len(jobs) < 1000 {
+		t.Errorf("only %d mutants over strconv, sort and strings; Find is missing nodes", len(jobs))
+	}
+	var next atomic.Int64
+	var wg sync.WaitGroup
+	for range runtime.NumCPU() {
+		wg.Go(func() {
+			for {
+				i := int(next.Add(1) - 1)
+				if i >= len(jobs) {
+					return
+				}
+				j := jobs[i]
+				got := j.m.Apply(j.src)
+				if len(got)-len(j.src) != len(j.m.Mutated)-len(j.m.Original) {
+					t.Errorf("%v: size changed by %d, want %d", j.m, len(got)-len(j.src), len(j.m.Mutated)-len(j.m.Original))
+					return
+				}
+				if !bytes.Contains(j.src, []byte(j.m.Original)) || !bytes.Contains(got, []byte(j.m.Mutated)) {
+					t.Errorf("%v: original or mutated text not found", j.m)
+					return
+				}
+				if _, err := parser.ParseFile(token.NewFileSet(), "", got, parser.SkipObjectResolution); err != nil {
+					t.Errorf("%v: %v", j.m, err)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
 }
 
 func ExampleFind() {
@@ -485,7 +536,7 @@ func check(xs []int, n int) bool {
 		t.Fatal(err)
 	}
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
-	if _, err := (&types.Config{Importer: importer.Default()}).Check("p", fset, []*ast.File{f}, info); err != nil {
+	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
 	// bytes is used only for a type: a nil pointer to it keeps it used.
@@ -523,7 +574,7 @@ func report(logger any, n int) int {
 		t.Fatal(err)
 	}
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Implicits: map[ast.Node]types.Object{}}
-	if _, err := (&types.Config{Importer: importer.Default()}).Check("p", fset, []*ast.File{f}, info); err != nil {
+	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
 	// A switch whose every case only logs is arid, and so is the if that
@@ -569,7 +620,7 @@ func work(l Logger, w io.Writer, n int, debug bool) []int {
 		t.Fatal(err)
 	}
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Selections: map[*ast.SelectorExpr]*types.Selection{}}
-	if _, err := (&types.Config{Importer: importer.Default()}).Check("p", fset, []*ast.File{f}, info); err != nil {
+	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
 	type key struct {

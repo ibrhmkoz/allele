@@ -22,10 +22,9 @@ func TestRun(t *testing.T) {
 		schemata := mode.schemata
 		t.Run(fmt.Sprintf("schemata=%v,select=%v", mode.schemata, mode.sel), func(t *testing.T) {
 			t.Parallel()
-			// A full second of pad: under ci load, a fast test's process can
-			// take hundreds of milliseconds to start, and a run that times
-			// out reads T instead of K or a dot.
-			r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: schemata, Select: mode.sel}
+			// 500 ms pad is 100× the 5 ms fixture tests; BaselineRuns=1 skips
+			// redundant baseline repeats on these deterministic fixtures.
+			r := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: schemata, Select: mode.sel}
 			m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
 			if err != nil {
 				t.Fatal(err)
@@ -163,7 +162,7 @@ func TestFailFast(t *testing.T) {
 		}
 		return keep
 	}
-	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: true, Select: true, FailFast: true, Choose: firstPerLine}
+	r := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: true, FailFast: true, Choose: firstPerLine}
 	m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
 	if err != nil {
 		t.Fatal(err)
@@ -234,11 +233,12 @@ func TestChooseNone(t *testing.T) {
 func TestFailFastVerdicts(t *testing.T) {
 	t.Parallel()
 	fast, err := (killmatrix.Runner{
-		Workers:    runtime.NumCPU(),
-		TimeoutPad: time.Second,
-		Schemata:   true,
-		Select:     true,
-		FailFast:   true,
+		Workers:      min(4, runtime.NumCPU()),
+		BaselineRuns: 1,
+		TimeoutPad:   500 * time.Millisecond,
+		Schemata:     true,
+		Select:       true,
+		FailFast:     true,
 	}).Run(t.Context(), "testdata", "./discount", "./loop", "./table")
 	if err != nil {
 		t.Fatal(err)
@@ -282,6 +282,25 @@ func TestFailFastVerdicts(t *testing.T) {
 	`)
 }
 
+// TestRunError checks that a package build failure surfaces as an error.
+func TestRunError(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module bad\n\ngo 1.21\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "bad.go"), []byte("package bad\nfunc f(n int) bool { return n > 0 }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "bad_test.go"), []byte("package bad\nimport \"testing\"\nfunc TestBad(t *testing.T) { _ = undefined }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := killmatrix.Runner{Workers: 2, BaselineRuns: 1}
+	if _, err := r.Run(t.Context(), dir, "."); err == nil {
+		t.Fatal("expected build error, got nil")
+	}
+}
+
 // TestConfirm runs a test that fails against a mutant on the first try
 // only. Without Confirm it reads as a kill; with it, as flaky, which no
 // verdict counts as killed.
@@ -290,7 +309,7 @@ func TestConfirm(t *testing.T) {
 	// Sequential subtests: testdata/flaky keys its marker files by ppid.
 	for _, failFast := range []bool{false, true} {
 		t.Run(fmt.Sprintf("failfast=%v", failFast), func(t *testing.T) {
-			r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: true, Select: failFast, FailFast: failFast, Confirm: true}
+			r := killmatrix.Runner{Workers: runtime.NumCPU(), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: failFast, FailFast: failFast, Confirm: true}
 			m, err := r.Run(t.Context(), "testdata", "./flaky")
 			if err != nil {
 				t.Fatal(err)
@@ -334,7 +353,7 @@ func TestConfirmUnderLoad(t *testing.T) {
 	for _, failFast := range []bool{false, true} {
 		t.Run(fmt.Sprintf("failfast=%v", failFast), func(t *testing.T) {
 			clean()
-			r := killmatrix.Runner{Workers: 1, TimeoutPad: time.Second, Schemata: true, Select: failFast, FailFast: failFast, Confirm: true}
+			r := killmatrix.Runner{Workers: 1, BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: failFast, FailFast: failFast, Confirm: true}
 			m, err := r.Run(t.Context(), "testdata", "./load")
 			if err != nil {
 				t.Fatal(err)

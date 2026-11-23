@@ -2,7 +2,6 @@ package mutant_test
 
 import (
 	"go/ast"
-	"go/importer"
 	"go/parser"
 	"go/token"
 	"go/types"
@@ -137,7 +136,7 @@ func half(n float64) float64 { return n / 2 }
 				t.Fatal(err)
 			}
 			info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
-			conf := types.Config{Importer: importer.Default()}
+			conf := types.Config{Importer: stdImporter}
 			if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
 				t.Fatal(err)
 			}
@@ -167,9 +166,9 @@ func TestWithGo121(t *testing.T) {
 // packages and type-checks the result with the runtime file: one bad
 // rewrite would break the build of a whole package.
 func TestEmbedTypeChecks(t *testing.T) {
+	t.Parallel()
 	roots := []string{"net/url", "encoding/csv", "text/tabwriter", "path", "bufio"}
-	cfg := &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps}
-	pkgs, err := packages.Load(cfg, append([]string{"cmp", "os", "strconv"}, roots...)...)
+	pkgs, err := loadStdlib()
 	if err != nil {
 		t.Fatal(err)
 	}
