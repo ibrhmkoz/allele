@@ -1,0 +1,42 @@
+{"key": "cron#24", "label": "unproductive", "reason": "only moves the threshold for logging a delay from over a minute to a minute or more"}
+{"key": "retryablehttp#62", "label": "useful", "reason": "a func body that is a LenReader no longer sets ContentLength, so the request goes out chunked"}
+{"key": "cron#22", "label": "unproductive", "reason": "logs the delay on almost every run instead of after a minute; only log output changes"}
+{"key": "retryablehttp#332", "label": "unproductive", "reason": "drops a leveled log line on a failed request"}
+{"key": "retryablehttp#364", "label": "unproductive", "reason": "drops a debug log line before a retry"}
+{"key": "retryablehttp#398", "label": "useful", "reason": "a response error is no longer returned when the check passed; the caller gets the generic giving-up error"}
+{"key": "cron#30", "label": "unproductive", "reason": "drops the log line for a skipped run"}
+{"key": "retryablehttp#419", "label": "unproductive", "reason": "drops the log line when draining a body fails"}
+{"key": "cron#21", "label": "unproductive", "reason": "never logs a delayed run"}
+{"key": "cron#23", "label": "unproductive", "reason": "logs delays under a minute instead of over; only log output changes"}
+{"key": "cron#132", "label": "unproductive", "reason": "drops the log line for an added entry"}
+{"key": "retryablehttp#354", "label": "useful", "reason": "the body of a response to be retried is not drained or closed: a connection leak a test can catch"}
+{"key": "retryablehttp#404", "label": "useful", "reason": "the final response body is not drained or closed: a connection leak"}
+{"key": "retryablehttp#365", "label": "unproductive", "reason": "drops a debug log line before a retry"}
+{"key": "retryablehttp#293", "label": "unproductive", "reason": "drops a debug log line before a request"}
+{"key": "cron#244", "label": "useful", "reason": "a bad TZ= location parses as a nil schedule with no error"}
+{"key": "cron#550", "label": "useful", "reason": "a schedule searching past December no longer wraps to the next year"}
+{"key": "retryablehttp#333", "label": "unproductive", "reason": "drops a log line on a failed request"}
+{"key": "cron#26", "label": "unproductive", "reason": "logs delays of any length but exactly a minute; only log output changes"}
+{"key": "retryablehttp#76", "label": "useful", "reason": "a ReadSeeker that is a LenReader no longer sets ContentLength"}
+{"key": "cron#248", "label": "unproductive", "reason": "only changes the location quoted in an error message"}
+{"key": "cron#20", "label": "unproductive", "reason": "logs a delay on every run"}
+{"key": "retryablehttp#171", "label": "useful", "reason": "Retry-After on a 429 or 503 is ignored"}
+{"key": "cron#529", "label": "equivalent", "reason": "the year limit grows from 5 to thousands of years: an impossible schedule still returns zero, only slower"}
+{"key": "cron#101", "label": "unproductive", "reason": "drops the start log line"}
+{"key": "retryablehttp#327", "label": "unproductive", "reason": "picks the wrong error, but this err only feeds the log line below; the returned error is computed later"}
+{"key": "retryablehttp#330", "label": "useful", "reason": "a failed request skips its error log and calls ResponseLogHook as if it had succeeded"}
+{"key": "cron#129", "label": "useful", "reason": "a new entry's next run is computed from a stale now"}
+{"key": "retryablehttp#70", "label": "useful", "reason": "a bytes.Buffer body no longer sets ContentLength"}
+{"key": "cron#354", "label": "equivalent", "reason": "min < max only when an optional field is set, and DowOptional is checked first, so SecondOptional is set whenever this case is reached"}
+{"key": "cron#25", "label": "unproductive", "reason": "logs only delays of exactly a minute"}
+{"key": "cron#120", "label": "unproductive", "reason": "drops the wake log line"}
+{"key": "cron#27", "label": "unproductive", "reason": "drops the delay log line"}
+{"key": "cron#565", "label": "equivalent", "reason": "an hour is never negative, so != 0 is > 0"}
+{"key": "cron#138", "label": "unproductive", "reason": "drops the log line for a removed entry"}
+{"key": "retryablehttp#351", "label": "useful", "reason": "a negative RetryMax retries forever instead of not at all"}
+{"key": "cron#134", "label": "unproductive", "reason": "drops the stop log line"}
+{"key": "retryablehttp#2", "label": "useful", "reason": "the default minimum wait becomes negative; a test of NewClient's defaults would catch it"}
+{"key": "cron#189", "label": "useful", "reason": "PrintfLogger's own output gains a leading comma; the format is what the logger offers"}
+{"key": "retryablehttp#35", "label": "useful", "reason": "GetBody returns a nil body with a nil error when the body reader fails"}
+{"key": "retryablehttp#418", "label": "unproductive", "reason": "drops a leveled log line when draining a body fails"}
+{"key": "retryablehttp#54", "label": "useful", "reason": "a body that is an io.Closer is no longer closed after reading its length: a leak"}

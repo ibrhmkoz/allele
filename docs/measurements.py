@@ -33,7 +33,7 @@ def _():
 def _(duckdb, mo):
     _dir = mo.notebook_dir()
     db = duckdb.connect()
-    for _name, _sub in [("", "data"), ("rerun_", "data-rerun"), ("j1_", "data-j1"), ("sch_", "data-schemata"), ("sel_", "data-select"), ("ext_", "data-extreme")]:
+    for _name, _sub in [("", "data"), ("rerun_", "data-rerun"), ("j1_", "data-j1"), ("sch_", "data-schemata"), ("sel_", "data-select"), ("ext_", "data-extreme"), ("ver_", "data-verdicts")]:
         for _t in ["mutants", "tests", "results"]:
             _ = db.sql(
                 f"create view {_name}{_t} as select split_part(parse_path(filename)[-2], '/', 1) repo, * exclude (filename) "
@@ -834,6 +834,77 @@ def _(alt, db, mo, title):
 
 
 @app.cell
+def _(alt, db, mo, pd, title):
+    _dir = mo.notebook_dir() / "labels"
+    _l = db.sql(f"""
+        select s.key, s.repo, s.arid, c.label claude, g.label gemini, a.label final, a.how
+        from read_json_auto('{_dir}/arid-sample.ndjson') s
+        join read_json_auto('{_dir}/arid-claude.ndjson') c using (key)
+        join read_json_auto('{_dir}/arid-gemini.ndjson') g using (key)
+        join read_json_auto('{_dir}/arid-adjudicated.ndjson') a using (key)
+    """).df()
+    _l["group"] = _l.arid.map(lambda a: "tagged arid" if a else "not tagged")
+    _cats = ["useful", "equivalent", "unproductive"]
+    _po = (_l.claude == _l.gemini).mean()
+    _pe = sum((_l.claude == c).mean() * (_l.gemini == c).mean() for c in _cats)
+    _counts = _l.groupby(["group", "final"], as_index=False).size()
+    _counts["share"] = _counts["size"] / _counts.groupby("group")["size"].transform("sum")
+    _bars = (
+        alt.Chart(_counts)
+        .mark_bar()
+        .encode(
+            x=alt.X("share:Q", title="share of the sampled surviving mutants", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+            y=alt.Y("group:N", sort=["tagged arid", "not tagged"], title=None),
+            color=alt.Color("final:N", scale=alt.Scale(domain=_cats, range=["#4c78a8", "#bab0ac", "#f58518"]), title=None, legend=alt.Legend(orient="top")),
+            order=alt.Order("final:N", sort="descending"),
+            tooltip=["group", "final", "size", alt.Tooltip("share:Q", format=".0%")],
+        )
+    )
+    _t = _l[_l.group == "tagged arid"]
+    _u = _l[_l.group == "not tagged"]
+    _chart = _bars.properties(
+        width=520,
+        height=110,
+        title=title(
+            f"All {int((_t.final == 'unproductive').sum())} of {len(_t)} arid-tagged survivors are unproductive; {(_u.final == 'useful').mean():.0%} of untagged ones are useful",
+            f"go-retryablehttp and robfig/cron: every arid-tagged survivor and as many untagged. Two blind raters agree on {_po:.0%} (κ = {(_po - _pe) / (1 - _pe):.2f}).",
+        ),
+    )
+    _v = db.sql("""
+        with agg as (
+            select m.repo, m.id, bool_or(r.status = 'killed') k, count(r.status) n
+            from ver_mutants m left join ver_results r on r.repo = m.repo and r.mutant_id = m.id group by all
+        )
+        select m.repo, count(*) mutants, count(*) filter (where m.arid <> '') arid,
+            count(*) filter (where m.arid <> '' and a.k) arid_killed,
+            count(*) filter (where m.compiled and not coalesce(a.k, false) and a.n > 0) survived,
+            count(*) filter (where m.arid <> '' and m.compiled and not coalesce(a.k, false) and a.n > 0) arid_survived
+        from ver_mutants m join agg a using (repo, id) group by m.repo order by m.repo
+    """).df()
+    _flaky = db.sql("select repo, count(*) flaky from ver_results where status = 'flaky' group by repo").df()
+    _v = _v.merge(_flaky, on="repo", how="left").fillna({"flaky": 0})
+    _rows = "".join(f"| {r.repo} | {r.mutants} | {r.arid} | {r.arid_killed} | {r.survived} | {r.arid_survived} | {int(r.flaky)} |\n" for r in _v.itertuples())
+    _md = "| repo | mutants | arid | arid, killed | survived | arid, survived | runs ruled flaky |\n|---|---:|---:|---:|---:|---:|---:|\n" + _rows
+    _miss = _u[_u.final == "unproductive"]
+    mo.vstack(
+        [
+            mo.md("## 13. Do the arid rules hide only noise?"),
+            _chart,
+            mo.md(_md),
+            mo.md(rf"""
+            - **Corpus:** three service libraries that log through a logger type: go-retryablehttp, robfig/cron, hashicorp/yamux. Their tests take 25–40 s, so verdicts come from schemata, selection and failing fast, not a full matrix.
+            - **Rules** (`Mutant.Arid`): a call statement that logs (by package or a logger-named type; never Fatal or Panic), records a metric or touches a trace; an if or switch whose branches do only that; a slice capacity or map size hint; a line marked `//mut:ignore`.
+            - **Precision:** both raters, blind to the tags, call every tagged survivor unproductive. **Recall:** {len(_miss)} of {len(_u)} untagged survivors are unproductive too ({", ".join(_miss.key)}: an error message's quoted text), so the rules catch most, not all, of the noise.
+            - **Some logging is tested:** cron's TestWithVerboseLogger, retryablehttp's ResponseLogHook tests and yamux's captureLogs assert on log lines, and kill those arid mutants. Skipping arid mutants costs nothing there: a killed mutant is never shown.
+            - **Flaky kills:** under 8 parallel workers these timing tests fail now and then, which read as kills and hid real survivors. A kill now counts only if the test fails against the mutant twice and passes against the original; when the original fails too, the cell is checked again alone after the run (`Runner.Confirm`). The last column counts the runs that rule threw out.
+            - **Decision:** `mutant` skips arid mutants unless `-arid` is given.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
@@ -863,7 +934,11 @@ def _(mo):
     # Section 12: extreme mutation, about 90 seconds
     EXTREME=1 OUT=mutant/docs/data-extreme mutant/docs/corpus.sh
 
-    # Sections 4-12 query the data directly; view everything
+    # Section 13: service verdicts (about an hour), then the arid sample to label
+    SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh retryablehttp cron yamux
+    uv run python mutant/docs/labels/sample_arid.py "$CORPUS_CACHE" > mutant/docs/labels/arid-sample.ndjson
+
+    # Sections 4-13 query the data directly; view everything
     make mutant-measurements
     ```
     """)
