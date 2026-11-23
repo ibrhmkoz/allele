@@ -54,6 +54,11 @@ type Mutant struct {
 
 	start, end int
 	text       string
+	// node is the node the mutant changes and alt what it changes it to:
+	// an operator, true or false for a condition, nil for a returned
+	// error, "" for a deleted statement. Embed builds on them.
+	node ast.Node
+	alt  string
 }
 
 // Apply returns a copy of src with the mutant applied. src must be the
@@ -231,7 +236,8 @@ func (f *finder) visit(n ast.Node) bool {
 	case *ast.IfStmt:
 		for _, lit := range []string{"true", "false"} {
 			text, repaired := f.repair(n.Cond, "bool", lit)
-			f.add(COR, n, n.Cond, n.Cond.Pos(), n.Cond.End(), text).Repaired = repaired
+			m := f.add(COR, n, n.Cond, n.Cond.Pos(), n.Cond.End(), text)
+			m.Repaired, m.alt = repaired, lit
 		}
 	case *ast.BinaryExpr:
 		f.binary(n)
@@ -244,7 +250,8 @@ func (f *finder) visit(n ast.Node) bool {
 		last := n.Results[len(n.Results)-1]
 		if tv := f.info.Types[last]; !tv.IsNil() && implementsError(tv.Type) {
 			text, repaired := f.repair(last, "error", "nil")
-			f.add(ERR, n, n, last.Pos(), last.End(), text).Repaired = repaired
+			m := f.add(ERR, n, n, last.Pos(), last.End(), text)
+			m.Repaired, m.alt = repaired, "nil"
 		}
 	// Statements are deleted only from statement lists: deleting a for
 	// loop's post statement or a select case's receive breaks the syntax.
@@ -407,7 +414,8 @@ func (f *finder) deleteEach(list []ast.Stmt) {
 
 func (f *finder) delete(s ast.Stmt) {
 	if exprs, ok := f.orphans(s); ok && len(exprs) > 0 {
-		f.add(SDL, s, s, s.Pos(), s.End(), blank(exprs)).Repaired = true
+		m := f.add(SDL, s, s, s.Pos(), s.End(), blank(exprs))
+		m.Repaired, m.alt = true, ""
 		return
 	}
 	f.add(SDL, s, s, s.Pos(), s.End(), "")
@@ -430,6 +438,8 @@ func (f *finder) add(o Operator, node ast.Node, ctx ast.Node, from, to token.Pos
 		start:    start,
 		end:      end,
 		text:     text,
+		node:     node,
+		alt:      text,
 	})
 	return &f.found[len(f.found)-1]
 }
