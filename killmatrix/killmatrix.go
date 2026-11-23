@@ -52,9 +52,10 @@ type Mutant struct {
 	Node     string          `json:"node"`
 	Original string          `json:"original"`
 	Mutated  string          `json:"mutated"`
-	// Equivalent and Repaired are as in mutant.Mutant.
+	// Equivalent, Repaired and Arid are as in mutant.Mutant.
 	Equivalent string `json:"equivalent"`
 	Repaired   bool   `json:"repaired"`
+	Arid       string `json:"arid"`
 	Compiled   bool   `json:"compiled"`
 	// Schema is set when the mutant ran in its package's schema binary
 	// rather than in a build of its own; BuildMS is then its share of the
@@ -301,6 +302,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 				Mutated:    mu.Mutated,
 				Equivalent: mu.Equivalent,
 				Repaired:   mu.Repaired,
+				Arid:       mu.Arid,
 				m:          mu,
 			})
 		}

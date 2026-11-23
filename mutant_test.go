@@ -2,6 +2,7 @@ package mutant_test
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"go/ast"
 	"go/importer"
@@ -118,7 +119,7 @@ func Sum(xs []int) int {
 				discount.go:8:9 AOR total += xs[i] → total *= xs[i]
 				discount.go:8:9 AOR total += xs[i] → total /= xs[i]
 				discount.go:8:9 AOR total += xs[i] → total %= xs[i]
-				discount.go:9:3 SDL fmt.Println(total) → _ = fmt.Println
+				discount.go:9:3 SDL fmt.Println(total) → _ = fmt.Println [arid: logging]
 			`,
 		},
 		{
@@ -533,5 +534,77 @@ func init() { ready = true }
 		p.go:11:31 EXT { if n < 0 { return 0, nil }; return n * 2, nil } → { return *new(int), *new(error) }
 		p.go:13:25 EXT { c.n++ } → {}
 		p.go:15:27 EXT { y = x + 1; return } → { return }
+	`)
+}
+
+func TestArid(t *testing.T) {
+	src := `package p
+
+import (
+	"fmt"
+	"io"
+	"log"
+)
+
+// Logger is the kind of interface services take for logging.
+type Logger interface {
+	Debug(msg string, args ...any)
+}
+
+func work(l Logger, w io.Writer, n int, debug bool) []int {
+	log.Printf("working on %d", n+1)
+	l.Debug("work", "n", n-1)
+	if debug {
+		log.Println("debug", n*2)
+	}
+	out := make([]int, 0, n+1)
+	fmt.Fprintf(w, "%d\n", n+2)
+	out = append(out, n*3) //mut:ignore
+	return out
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Selections: map[*ast.SelectorExpr]*types.Selection{}}
+	if _, err := (&types.Config{Importer: importer.Default()}).Check("p", fset, []*ast.File{f}, info); err != nil {
+		t.Fatal(err)
+	}
+	type key struct {
+		line int
+		op   mutant.Operator
+		arid string
+	}
+	var order []key
+	count := map[key]int{}
+	for _, m := range mutant.Find(fset, f, []byte(src), info) {
+		k := key{m.Pos.Line, m.Operator, cmp.Or(m.Arid, "-")}
+		if count[k] == 0 {
+			order = append(order, k)
+		}
+		count[k]++
+	}
+	var b strings.Builder
+	for _, k := range order {
+		fmt.Fprintf(&b, "%d %s ×%d: %s\n", k.line, k.op, count[k], k.arid)
+	}
+	// Logging, as a statement or behind an if that does nothing else, a
+	// slice's capacity, and a line marked mut:ignore are arid. Writing to
+	// a writer the caller passed is output, not logging.
+	xtesting.EqualText(t, b.String(), `
+		15 SDL ×1: logging
+		15 AOR ×4: logging
+		16 SDL ×1: logging
+		16 AOR ×4: logging
+		17 COR ×2: only arid statements
+		18 SDL ×1: logging
+		18 AOR ×4: logging
+		20 AOR ×4: capacity hint
+		21 SDL ×1: -
+		21 AOR ×4: -
+		22 SDL ×1: mut:ignore
+		22 AOR ×4: mut:ignore
 	`)
 }

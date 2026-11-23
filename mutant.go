@@ -50,6 +50,11 @@ type Mutant struct {
 	// program does, if one applies. Find keeps such mutants so a kill
 	// matrix can check the rule: a killed one would prove it wrong.
 	Equivalent string
+	// Arid names why a mutant is in code no one writes a test for, if it
+	// is: logging, metrics, tracing, a capacity hint, a mut:ignore comment
+	// or an if that does only such things (Google's arid nodes). Find keeps
+	// such mutants so the rule can be measured.
+	Arid string
 	// Repaired is set when the change removes the only use of a local
 	// variable or an import, which Go rejects, and the mutant keeps it used
 	// with _ = x.
@@ -82,6 +87,9 @@ func (m Mutant) String() string {
 	if m.Equivalent != "" {
 		s += " [equivalent: " + m.Equivalent + "]"
 	}
+	if m.Arid != "" {
+		s += " [arid: " + m.Arid + "]"
+	}
 	return s
 }
 
@@ -101,7 +109,193 @@ func Find(fset *token.FileSet, file *ast.File, src []byte, info *types.Info) []M
 	f.indexUses(file)
 	ast.Inspect(file, f.visit)
 	slices.SortStableFunc(f.found, func(a, b Mutant) int { return a.Pos.Offset - b.Pos.Offset })
+	f.markArid(file)
 	return f.found
+}
+
+type aridSpan struct {
+	from, to int
+	why      string
+}
+
+// markArid tags each mutant with the reason of the smallest arid span
+// holding its change, or with mut:ignore when its line asks for it.
+func (f *finder) markArid(file *ast.File) {
+	var spans []aridSpan
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case ast.Stmt:
+			if why := f.aridStmt(n); why != "" {
+				spans = append(spans, aridSpan{f.offset(n.Pos()), f.offset(n.End()), why})
+			}
+		case *ast.CallExpr:
+			if arg := f.capacityArg(n); arg != nil {
+				spans = append(spans, aridSpan{f.offset(arg.Pos()), f.offset(arg.End()), "capacity hint"})
+			}
+		}
+		return true
+	})
+	ignored := map[int]bool{}
+	for _, g := range file.Comments {
+		for _, c := range g.List {
+			if !strings.Contains(c.Text, "mut:ignore") {
+				continue
+			}
+			pos := f.fset.Position(c.Pos())
+			line := pos.Line
+			// A comment alone on its line marks the next line.
+			if start := pos.Offset - pos.Column + 1; strings.TrimSpace(string(f.src[start:pos.Offset])) == "" {
+				line++
+			}
+			ignored[line] = true
+		}
+	}
+	for i := range f.found {
+		m := &f.found[i]
+		if ignored[m.Pos.Line] {
+			m.Arid = "mut:ignore"
+			continue
+		}
+		best := -1
+		for j, sp := range spans {
+			if sp.from <= m.start && m.end <= sp.to && (best < 0 || sp.to-sp.from < spans[best].to-spans[best].from) {
+				best = j
+			}
+		}
+		if best >= 0 {
+			m.Arid = spans[best].why
+		}
+	}
+}
+
+// aridStmt returns why s is arid: a call that only logs, counts or traces,
+// or an if whose branches do only such things.
+func (f *finder) aridStmt(s ast.Stmt) string {
+	switch s := s.(type) {
+	case *ast.ExprStmt:
+		if call, ok := s.X.(*ast.CallExpr); ok {
+			return f.aridCall(call)
+		}
+	case *ast.BlockStmt:
+		if len(s.List) == 0 {
+			return ""
+		}
+		for _, st := range s.List {
+			if f.aridStmt(st) == "" {
+				return ""
+			}
+		}
+		return "only arid statements"
+	case *ast.IfStmt:
+		if f.aridStmt(s.Body) != "" && (s.Else == nil || f.aridStmt(s.Else) != "") {
+			return "only arid statements"
+		}
+	}
+	return ""
+}
+
+var (
+	logMethods    = setOf("Print", "Printf", "Println", "Debug", "Debugf", "Debugw", "Info", "Infof", "Infow", "Warn", "Warnf", "Warnw", "Warning", "Warningf", "Error", "Errorf", "Errorw", "Trace", "Tracef", "Log", "Logf", "LogAttrs", "DebugContext", "InfoContext", "WarnContext", "ErrorContext")
+	metricMethods = setOf("Inc", "Dec", "Add", "Sub", "Set", "Observe", "Record", "IncrCounter", "AddSample", "SetGauge", "MeasureSince", "EmitKey")
+	traceMethods  = setOf("End", "SetAttributes", "AddEvent", "RecordError", "SetStatus", "SetName", "SetTag", "Finish", "LogFields", "LogKV")
+)
+
+func setOf(names ...string) map[string]bool {
+	m := map[string]bool{}
+	for _, n := range names {
+		m[n] = true
+	}
+	return m
+}
+
+// aridCall returns why a call made for its effect is arid: it logs
+// (package log, slog or another logging package, fmt.Print, or a method of
+// a type named like a logger; never Fatal or Panic, which stop the
+// program), records a metric, or touches a trace.
+func (f *finder) aridCall(call *ast.CallExpr) string {
+	sel, ok := ast.Unparen(call.Fun).(*ast.SelectorExpr)
+	if !ok {
+		return ""
+	}
+	name := sel.Sel.Name
+	if x, ok := sel.X.(*ast.Ident); ok {
+		if pkg, ok := f.info.Uses[x].(*types.PkgName); ok {
+			path := pkg.Imported().Path()
+			last := path[strings.LastIndex(path, "/")+1:]
+			switch {
+			case path == "fmt":
+				if strings.HasPrefix(name, "Print") || strings.HasPrefix(name, "Fprint") && len(call.Args) > 0 && f.isStdStream(call.Args[0]) {
+					return "logging"
+				}
+			case strings.Contains(last, "log") && logMethods[name]:
+				return "logging"
+			case strings.Contains(path, "metrics") || strings.Contains(path, "prometheus"):
+				return "metrics"
+			}
+			return ""
+		}
+	}
+	t := f.info.TypeOf(sel.X)
+	if t == nil {
+		return ""
+	}
+	if p, ok := t.(*types.Pointer); ok {
+		t = p.Elem()
+	}
+	named, ok := t.(*types.Named)
+	if !ok || named.Obj().Pkg() == nil {
+		return ""
+	}
+	tname, path := strings.ToLower(named.Obj().Name()), named.Obj().Pkg().Path()
+	last := path[strings.LastIndex(path, "/")+1:]
+	switch {
+	case logMethods[name] && (strings.Contains(tname, "logger") || strings.Contains(last, "log")):
+		return "logging"
+	case metricMethods[name] && (strings.Contains(path, "metric") || strings.Contains(path, "prometheus")):
+		return "metrics"
+	case traceMethods[name] && (strings.Contains(path, "trace") || strings.Contains(path, "otel") || strings.Contains(tname, "span")):
+		return "tracing"
+	}
+	return ""
+}
+
+func (f *finder) isStdStream(e ast.Expr) bool {
+	sel, ok := e.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	x, ok := sel.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	pkg, ok := f.info.Uses[x].(*types.PkgName)
+	return ok && pkg.Imported().Path() == "os" && (sel.Sel.Name == "Stdout" || sel.Sel.Name == "Stderr")
+}
+
+// capacityArg returns the capacity of make([]T, len, cap) or the size hint
+// of make(map[K]V, n): they change speed and memory, not results. A
+// channel's buffer size changes behavior and is not one.
+func (f *finder) capacityArg(call *ast.CallExpr) ast.Expr {
+	id, ok := ast.Unparen(call.Fun).(*ast.Ident)
+	if !ok {
+		return nil
+	}
+	if b, ok := f.info.Uses[id].(*types.Builtin); !ok || b.Name() != "make" || len(call.Args) < 2 {
+		return nil
+	}
+	t := f.info.TypeOf(call.Args[0])
+	if t == nil {
+		return nil
+	}
+	switch t.Underlying().(type) {
+	case *types.Slice:
+		if len(call.Args) == 3 {
+			return call.Args[2]
+		}
+	case *types.Map:
+		return call.Args[1]
+	}
+	return nil
 }
 
 // Extreme returns one mutant per function declared in file with a body
