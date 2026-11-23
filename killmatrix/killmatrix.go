@@ -30,6 +30,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/ibrhmkoz/go-kit/mutant"
+	"github.com/ibrhmkoz/go-kit/mutant/fingerprint"
 )
 
 // Matrix holds one row per mutant, one per test and one per mutant and test
@@ -228,15 +229,10 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 	}
 	slices.SortFunc(pkgs, func(a, b *packages.Package) int { return cmp.Compare(a.PkgPath, b.PkgPath) })
 
-	// Load transitive production + test dependency file paths with metadata-only
-	// mode (no syntax/typecheck on test packages or testing stdlib).
-	var testPkgs map[string][]*packages.Package
-	toolchain := ""
-	if useCache { //mut:ignore
-		// goToolchain varies only across Go toolchains, not within a single test suite.
-		toolchain = goToolchain(ctx, dir) //mut:ignore
-		testPkgs, err = loadDepMeta(ctx, dir, patterns)
-		if err != nil { //mut:ignore
+	var prints map[string]fingerprint.Print
+	if useCache { //mut:ignore loading prints the cache does not use costs time, not verdicts
+		// The packages loaded above already failed on what fails here.
+		if prints, err = fingerprint.Load(ctx, dir, patterns...); err != nil { //mut:ignore
 			return nil, err //mut:ignore
 		}
 	}
@@ -265,7 +261,7 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 		wg.Go(func() {
 			for i := range pkgJobs {
 				sub := &Matrix{}
-				if err := r.runPackage(ctx, sub, pkgs[i], testPkgs[pkgs[i].PkgPath], toolchain, tmp, &rechecks[i]); err != nil {
+				if err := r.runPackage(ctx, sub, pkgs[i], prints[pkgs[i].PkgPath], tmp, &rechecks[i]); err != nil {
 					errs[i] = fmt.Errorf("%s: %w", pkgs[i].PkgPath, err)
 					continue
 				}
@@ -335,7 +331,7 @@ type source struct {
 	find    []int // for each of Find's mutants, its index among them, -1 if not chosen
 }
 
-func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package, testPkgs []*packages.Package, toolchain, tmp string, deferRecheck *func() error) error {
+func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package, fp fingerprint.Print, tmp string, deferRecheck *func() error) error {
 	if len(pkg.GoFiles) == 0 {
 		return nil
 	}
@@ -404,7 +400,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	reusedKillers := map[int]string{}
 	reusedResults := make([][]Result, len(mutants))
 	if useCache { //mut:ignore
-		snap = r.snapshotPackage(pkg, testPkgs, toolchain, dir, mutants)
+		snap = r.snapshot(fp, mutants)
 		if entry, ok := loadCache(r.CacheDir, pkg.PkgPath); ok { //mut:ignore
 			byKey := make(map[string]cachedMutant, len(entry.Mutants))
 			for _, cm := range entry.Mutants {

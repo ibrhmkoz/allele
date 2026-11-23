@@ -241,152 +241,13 @@ func TestVIPAt100(t *testing.T) {
 	}
 }
 
-// TestCacheInvalidatesOnDepEdit checks that editing a local dependency
-// invalidates the dependent package's cached verdicts.
-func TestCacheInvalidatesOnDepEdit(t *testing.T) {
+// TestCacheInvalidatesOnRunner: the cache misses when the runner options
+// that change verdicts change, and misses, rather than fails, on an entry
+// it cannot read.
+// Which edits to a package change its fingerprint is fingerprint's test.
+func TestCacheInvalidatesOnRunner(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	write := func(rel, content string) {
-		t.Helper()
-		p := filepath.Join(dir, rel)
-		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	write("go.mod", "module example.com/depcache\n\ngo 1.21\n")
-	write("dep/dep.go", "package dep\nfunc Threshold() int { return 10 }\n")
-	write("app/app.go", "package app\nimport \"example.com/depcache/dep\"\nfunc Big(n int) bool { return n > dep.Threshold() }\n")
-	write("app/app_test.go", "package app\nimport \"testing\"\nfunc TestBig(t *testing.T) { if !Big(15) { t.Fatal() } }\n")
-
-	r := killmatrix.Runner{
-		Workers:      2,
-		BaselineRuns: 1,
-		TimeoutPad:   500 * time.Millisecond,
-		Schemata:     true,
-		Select:       true,
-		FailFast:     true,
-		CacheDir:     t.TempDir(),
-	}
-	if _, err := r.Run(t.Context(), dir, "./app"); err != nil {
-		t.Fatal(err)
-	}
-	// Changing dep.Threshold() from 10 to 12 and back to 10 keeps TestBig
-	// passing while covering both hash orderings (old < new and old > new).
-	for _, v := range []string{"12", "10"} {
-		write("dep/dep.go", "package dep\nfunc Threshold() int { return "+v+" }\n")
-		m, err := r.Run(t.Context(), dir, "./app")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if m.Mutants[0].BuildMS == 0 {
-			t.Fatalf("cache hit after dependency edit to %s; want cache miss", v)
-		}
-	}
-}
-
-// TestCacheInvalidatesOnTestDepEdit checks that editing a test-only
-// dependency (like xtesting in this repo) invalidates cached verdicts of
-// packages whose tests import it.
-func TestCacheInvalidatesOnTestDepEdit(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	write := func(rel, content string) {
-		t.Helper()
-		p := filepath.Join(dir, rel)
-		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	write("go.mod", "module example.com/testdep\n\ngo 1.21\n")
-	write("assert/assert.go", "package assert\nimport \"testing\"\nfunc True(t *testing.T, ok bool) { if !ok { t.Fatal(\"want true\") } }\n")
-	write("app/app.go", "package app\nfunc Pos(n int) bool { return n > 0 }\n")
-	write("app/app_test.go", "package app\nimport (\n\t\"testing\"\n\t\"example.com/testdep/assert\"\n)\nfunc TestPos(t *testing.T) { assert.True(t, Pos(1)) }\n")
-
-	r := killmatrix.Runner{
-		Workers:      2,
-		BaselineRuns: 1,
-		TimeoutPad:   500 * time.Millisecond,
-		Schemata:     true,
-		Select:       true,
-		FailFast:     true,
-		CacheDir:     t.TempDir(),
-	}
-	m1, err := r.Run(t.Context(), dir, "./app")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if m1.Verdicts()[1] != killmatrix.VerdictKilled {
-		t.Fatalf("cold run: M1 = %s, want killed", m1.Verdicts()[1])
-	}
-	// Break the test-only assertion helper so nothing is checked anymore.
-	write("assert/assert.go", "package assert\nimport \"testing\"\nfunc True(t *testing.T, ok bool) {}\n")
-	m2, err := r.Run(t.Context(), dir, "./app")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if m2.Mutants[0].BuildMS == 0 {
-		t.Fatal("cache hit after test-only dependency edit; want cache miss")
-	}
-	if m2.Verdicts()[1] != killmatrix.VerdictSurvived {
-		t.Fatalf("after breaking assert.True: M1 = %s, want survived", m2.Verdicts()[1])
-	}
-}
-
-// TestCacheInvalidatesOnInputs checks that edits to testdata/, //go:embed
-// files, shared test helpers, runner options, and Choose subsets all
-// invalidate the cache.
-func TestCacheInvalidatesOnInputs(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	write := func(rel, content string) {
-		t.Helper()
-		p := filepath.Join(dir, rel)
-		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	write("go.mod", "module example.com/inputs\n\ngo 1.21\n")
-	write("msg.txt", "ok")
-	write("testdata/want.txt", "ok")
-	write("p.go", `package p
-import _ "embed"
-//go:embed msg.txt
-var msg string
-func Check(n int) string {
-	if n > 0 {
-		return msg
-	}
-	return ""
-}
-`)
-	write("p_test.go", `package p
-import (
-	"os"
-	"testing"
-)
-func want(t *testing.T) string {
-	b, err := os.ReadFile("testdata/want.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(b)
-}
-func TestCheck(t *testing.T) {
-	if got := Check(1); got != want(t) {
-		t.Fatalf("got %q, want %q", got, want(t))
-	}
-}
-`)
-
+	dir := copyDiscount(t)
 	r := killmatrix.Runner{
 		Workers:      2,
 		BaselineRuns: 1,
@@ -403,57 +264,51 @@ func TestCheck(t *testing.T) {
 			t.Fatal(err)
 		}
 		if m.Mutants[0].BuildMS == 0 {
-			t.Fatalf("%s: unexpected cache hit", label)
+			t.Fatalf("%s: cache hit", label)
 		}
 	}
 	mustMiss("cold", r)
 
-	// 1. //go:embed file edit alone
-	write("msg.txt", "ok!")
-	mustMiss("embed edit", r)
+	confirm := r
+	confirm.Confirm = true
+	mustMiss("runner option change", confirm)
 
-	// 2. testdata/ file edit alone (warm cache first on current msg.txt)
-	write("testdata/extra.txt", "x")
-	mustMiss("testdata edit", r)
-
-	// 3. Shared helper edit in *_test.go
-	write("p_test.go", `package p
-import (
-	"os"
-	"testing"
-)
-func want(t *testing.T) string {
-	b, err := os.ReadFile("testdata/want.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(b) + ""
-}
-func TestCheck(t *testing.T) {
-	if got := Check(1); got != want(t) {
-		t.Fatalf("got %q, want %q", got, want(t))
-	}
-}
-`)
-	mustMiss("test helper edit", r)
-
-	// 4. Runner option change (Confirm)
-	rConfirm := r
-	rConfirm.Confirm = true
-	mustMiss("runner option change", rConfirm)
-
-	// 5. Choose subset change (same runner options as rConfirm)
-	rSub := rConfirm
-	rSub.Choose = func(_ string, _ []mutant.Mutant) []int { return []int{0} }
-	mustMiss("Choose subset change", rSub)
-
-	// 6. Corrupt cache JSON is treated as a cache miss rather than an error.
-	entries, err := os.ReadDir(rSub.CacheDir)
+	entries, err := os.ReadDir(r.CacheDir)
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("cache entries = %d, err = %v", len(entries), err)
 	}
-	if err := os.WriteFile(filepath.Join(rSub.CacheDir, entries[0].Name()), []byte("{"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(r.CacheDir, entries[0].Name()), []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustMiss("corrupt cache", rSub)
+	mustMiss("corrupt cache", confirm)
+}
+
+// TestCacheChoosesMore: mutants chosen after the cache was filled run;
+// none of them is reported from an entry that never held it.
+func TestCacheChoosesMore(t *testing.T) {
+	t.Parallel()
+	dir := copyDiscount(t)
+	r := killmatrix.Runner{
+		Workers:      2,
+		BaselineRuns: 1,
+		TimeoutPad:   500 * time.Millisecond,
+		Schemata:     true,
+		Select:       true,
+		FailFast:     true,
+	}
+	fresh, err := r.Run(t.Context(), dir, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.CacheDir = t.TempDir()
+	few := r
+	few.Choose = func(_ string, _ []mutant.Mutant) []int { return []int{0} }
+	if _, err := few.Run(t.Context(), dir, "."); err != nil {
+		t.Fatal(err)
+	}
+	all, err := r.Run(t.Context(), dir, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	xtesting.EqualText(t, formatVerdicts(all), formatVerdicts(fresh))
 }
