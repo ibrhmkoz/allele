@@ -95,6 +95,7 @@ on six libraries and three services at pinned commits.
 | `mutant/fingerprint` | A hash of what a package's test results depend on (its files, dependencies, embeds, testdata), with each test hashed apart: the key of the verdict cache |
 | `mutant/adequacy` | Dominator mutants, the dominator score of a test set, the selective mutation protocol, and the mutants coupled to a real fault |
 | `cmd/mutant` | The command above |
+| `cmd/bench` | Scores builds of `mutant` with one number, M, that weighs the gaps they find against the time they take (see ROADMAP) |
 | `cmd/killmatrix`, `cmd/simulate`, `cmd/faults` | The measurement tools behind `docs/` |
 
 ## Limits

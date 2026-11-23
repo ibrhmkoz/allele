@@ -7,12 +7,10 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 
 	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
 )
@@ -48,33 +46,9 @@ func run(ctx context.Context, r killmatrix.Runner, out string, patterns []string
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(out, 0o755); err != nil {
-		return err
-	}
-	if err := write(filepath.Join(out, "mutants.ndjson"), m.Mutants); err != nil {
-		return err
-	}
-	if err := write(filepath.Join(out, "tests.ndjson"), m.Tests); err != nil {
-		return err
-	}
-	if err := write(filepath.Join(out, "results.ndjson"), m.Results); err != nil {
+	if err := m.Write(out); err != nil {
 		return err
 	}
 	fmt.Print(m)
 	return nil
-}
-
-func write[T any](name string, rows []T) error {
-	f, err := os.Create(name)
-	if err != nil {
-		return err
-	}
-	enc := json.NewEncoder(f)
-	for _, row := range rows {
-		if err := enc.Encode(row); err != nil {
-			_ = f.Close()
-			return err
-		}
-	}
-	return f.Close()
 }

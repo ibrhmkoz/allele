@@ -5,6 +5,31 @@ What is open, with enough context to pick it up cold. Findings live in
 it. The working rule so far: measure an idea on the corpus before it goes
 into `cmd/mutant`, and keep the measurement in the notebook.
 
+## The metric
+
+Changes to `cmd/mutant` and what it runs are judged by one number,
+`M = D · F · ((T0 + 2) / (T + 2))^0.18`, from `cmd/bench`:
+
+- **D**, detection: the dominator score (Kurtz, Ammann et al., FSE 2016)
+  of tests written until every mutant the build reports is dead,
+  simulated on the exhaustive matrices of `docs/data`; geometric mean
+  over the six libraries, so giving up on one gives up everything.
+- **F**, verdict fidelity: one minus weighted errors per mutant the two
+  exhaustive runs (`data`, `data-rerun`) agree on. A hidden gap costs 5,
+  a false gap or a mutant that no longer builds 2, a kill reported as a
+  timeout 0.5.
+- **T**, cost: summed wall seconds on the six libraries, `-j 8`, cold
+  verdict cache, the median of 3 reps, builds run in turns.
+- **0.18** prices speed: twice as fast makes up for 11.7% less `D · F`
+  and no more. T0 = 876 s, the naive exhaustive runner, scores M = 1.
+
+Merge a change when M rises beyond the noise of interleaved reps on a
+quiet machine; keep the constants, the corpus commits and the reference
+matrices frozen, or the numbers stop being comparable. Held out, never
+tuned on: `data-faults-heldout/` (checked when operators or filters
+change) and `data-verdicts/` (flaky services: dropping Confirm would look
+free on the six libraries).
+
 ## Open
 
 ### Compare with other Go tools
@@ -64,6 +89,10 @@ rules are untested by data; a service using Prometheus or OpenTelemetry
 would cover them.
 
 ## Known limits
+
+- **`-diff` misses untracked files:** it reads `git diff`, so a new file
+  is not mutated until it is added (`git add -N` is enough). `make ci` on
+  a branch with an uncommitted new package passes without testing it.
 
 - **Test granularity:** columns are leaf subtests. Table tests that loop
   without `t.Run` (go-version: 33 top-level tests, 36 leaves) give coarse

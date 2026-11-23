@@ -12,12 +12,9 @@
 package main
 
 import (
-	"bufio"
-	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -99,18 +96,11 @@ type repo struct {
 }
 
 func load(dir string) (*repo, error) {
-	ms, err := read[killmatrix.Mutant](filepath.Join(dir, "mutants.ndjson.gz"))
+	m, err := killmatrix.Read(dir)
 	if err != nil {
 		return nil, err
 	}
-	ts, err := read[killmatrix.Test](filepath.Join(dir, "tests.ndjson.gz"))
-	if err != nil {
-		return nil, err
-	}
-	rs, err := read[killmatrix.Result](filepath.Join(dir, "results.ndjson.gz"))
-	if err != nil {
-		return nil, err
-	}
+	ms, ts, rs := m.Mutants, m.Tests, m.Results
 
 	testIndex := map[int]int{}
 	top := map[int]string{}
@@ -290,32 +280,6 @@ func (rp *repo) measure(seed uint64, name string, control bool, picks [][]int, r
 	o.Random /= n
 	o.Cost /= n
 	return o
-}
-
-func read[T any](name string) ([]T, error) {
-	f, err := os.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = f.Close() }()
-	var src io.Reader = f
-	if strings.HasSuffix(name, ".gz") {
-		z, err := gzip.NewReader(f)
-		if err != nil {
-			return nil, err
-		}
-		src = z
-	}
-	var rows []T
-	dec := json.NewDecoder(bufio.NewReader(src))
-	for dec.More() {
-		var row T
-		if err := dec.Decode(&row); err != nil {
-			return nil, err
-		}
-		rows = append(rows, row)
-	}
-	return rows, nil
 }
 
 func write[T any](name string, rows []T) error {

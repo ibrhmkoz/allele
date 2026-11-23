@@ -1,11 +1,7 @@
 package killmatrix_test
 
 import (
-	"bufio"
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -146,37 +142,12 @@ func TestStoredMatrices(t *testing.T) {
 		dir := filepath.Dir(f)
 		t.Run(filepath.ToSlash(dir[len("../docs/"):]), func(t *testing.T) {
 			t.Parallel()
-			var m killmatrix.Matrix
-			readRows(t, filepath.Join(dir, "mutants.ndjson.gz"), &m.Mutants)
-			readRows(t, filepath.Join(dir, "tests.ndjson.gz"), &m.Tests)
-			readRows(t, filepath.Join(dir, "results.ndjson.gz"), &m.Results)
-			checkMatrix(t, &m)
+			m, err := killmatrix.Read(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkMatrix(t, m)
 		})
-	}
-}
-
-func readRows[T any](t *testing.T, path string, rows *[]T) {
-	t.Helper()
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = f.Close() }()
-	z, err := gzip.NewReader(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := bufio.NewScanner(z)
-	s.Buffer(nil, 1<<20)
-	for s.Scan() {
-		var row T
-		if err := json.Unmarshal(s.Bytes(), &row); err != nil {
-			t.Fatalf("%s: %v", path, err)
-		}
-		*rows = append(*rows, row)
-	}
-	if err := s.Err(); err != nil {
-		t.Fatal(err)
 	}
 }
 
