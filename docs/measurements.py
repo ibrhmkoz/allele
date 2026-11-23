@@ -33,7 +33,7 @@ def _():
 def _(duckdb, mo):
     _dir = mo.notebook_dir()
     db = duckdb.connect()
-    for _name, _sub in [("", "data"), ("rerun_", "data-rerun"), ("j1_", "data-j1"), ("sch_", "data-schemata"), ("sel_", "data-select")]:
+    for _name, _sub in [("", "data"), ("rerun_", "data-rerun"), ("j1_", "data-j1"), ("sch_", "data-schemata"), ("sel_", "data-select"), ("ext_", "data-extreme")]:
         for _t in ["mutants", "tests", "results"]:
             _ = db.sql(
                 f"create view {_name}{_t} as select split_part(parse_path(filename)[-2], '/', 1) repo, * exclude (filename) "
@@ -342,7 +342,7 @@ def _(RUN, alt, db, mo, pd, summary, title):
             _op_chart,
             mo.md(rf"""
             - **Repair vs filter:** {int(summary.repaired.sum())} mutants needed a repair. Dropping them instead would lose dominators: {_gain_txt}. Section 2's *all but repaired* compares dropping them with dropping as many at random.
-            - **Still failing:** AOR in constant expressions (`TByte * 1000` → `TByte - 1000` overflows a constant), ERR returning `nil` as a concrete type, an import used only for a type.
+            - **Still failing:** AOR in constant expressions (`TByte * 1000` → `TByte - 1000` overflows a constant), ERR returning `nil` as a concrete type, an import used only for a type (repaired since with `(*pkg.T)(nil)`, after these runs) or only through a generic function.
             - **Equivalence rule** (a value that cannot be negative compared with 0: `!=` is `>`, `==` is `<=`): {_eq[0]} mutants tagged, {_eq[1]} killed or timed out, so no counterexample. It covers {_eq[0]} of {_surv:,} surviving mutants ({_eq[0] / _surv:.0%}): cheap, but small.
             """),
         ]
@@ -758,6 +758,82 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
+def _(alt, db, mo, title):
+    _ = db.sql("""
+        create or replace temp table fx as
+        select e.repo, e.pkg, e.file, e.line from_line,
+            e.line + len(e.original) - len(replace(e.original, chr(10), '')) to_line, e.compiled,
+            coalesce((select bool_or(r.status = 'killed') from ext_results r where r.repo = e.repo and r.mutant_id = e.id), false) killed,
+            coalesce((select bool_or(r.status = 'timeout') from ext_results r where r.repo = e.repo and r.mutant_id = e.id), false) timeout
+        from ext_mutants e
+    """)
+    _ = db.sql("""
+        create or replace temp table fine as
+        select m.repo, m.pkg, m.file, m.line, m.id,
+            exists (select 1 from results r where r.repo = m.repo and r.mutant_id = m.id and r.status = 'killed') killed,
+            coalesce((select bool_or(not coalesce(s.skipped, false)) from sel_results s where s.repo = m.repo and s.mutant_id = m.id), false) covered
+        from mutants m where m.compiled
+    """)
+    _fn = db.sql("""
+        select x.*, (select bool_or(covered) from fine f where f.repo = x.repo and f.pkg = x.pkg and f.file = x.file and f.line between x.from_line and x.to_line) covered
+        from fx x
+    """).df()
+    _k = db.sql("""
+        with j as (
+            select f.*, x.from_line, x.killed fn_killed, x.timeout fn_timeout, x.compiled fn_compiled,
+                (select bool_or(covered) from fine g where g.repo = x.repo and g.pkg = x.pkg and g.file = x.file and g.line between x.from_line and x.to_line) fn_covered
+            from fine f left join fx x on x.repo = f.repo and x.pkg = f.pkg and x.file = f.file and f.line between x.from_line and x.to_line
+        )
+        select case when from_line is null then 'outside any function'
+                    when fn_killed then 'body removal fails a test'
+                    when fn_timeout or not fn_compiled then 'body removal timed out or did not build'
+                    when fn_covered then 'pseudo-tested function'
+                    else 'no test reaches the function' end kind,
+            count(*) mutants, count(*) filter (where killed) killed, count(*) filter (where not killed) survived
+        from j group by all
+    """).df()
+    _surv = _k.survived.sum()
+    _k["share"] = _k.survived / _surv
+    _k["label"] = _k.apply(lambda r: f"{r.survived} ({r.share:.0%}); {r.killed} of {r.mutants} killed", axis=1)
+    _order = ["body removal fails a test", "pseudo-tested function", "no test reaches the function", "body removal timed out or did not build", "outside any function"]
+    _bars = (
+        alt.Chart(_k)
+        .mark_bar(color="#4c78a8")
+        .encode(
+            x=alt.X("survived:Q", title="surviving fine-grained mutants"),
+            y=alt.Y("kind:N", sort=_order, title="the function they are in"),
+            color=alt.condition("datum.kind == 'body removal fails a test'", alt.value("#4c78a8"), alt.value("#bab0ac")),
+            tooltip=["kind", "mutants", "killed", "survived", alt.Tooltip("share:Q", format=".0%")],
+        )
+    )
+    _text = _bars.mark_text(align="left", dx=4, fontSize=11).encode(text="label:N", color=alt.value("black"))
+    _p = _k.set_index("kind")
+    _pt = _p.loc["pseudo-tested function"]
+    _alive = (~_fn.killed & ~_fn.timeout & _fn.compiled)
+    _chart = (_bars + _text).properties(
+        width=480,
+        height=190,
+        title=title(
+            f"{_p.loc['body removal fails a test'].share:.0%} of surviving mutants sit in functions whose body removal a test catches",
+            f"{len(_fn)} functions with a body, one extreme mutant each. Pseudo-tested: the tests run the function but pass without its body.",
+        ),
+    )
+    mo.vstack(
+        [
+            mo.md("## 12. Does removing a whole function's body find the same gaps? (extreme mutation)"),
+            _chart,
+            mo.md(rf"""
+            - **Pseudo-tested functions:** {int((_alive & _fn.covered.fillna(False)).sum())} of {len(_fn)}. Extreme mutation costs one build per function ({len(_fn)} mutants against {_k.mutants.sum():,}); the corpus ran in 83 s at `-j 8`.
+            - **Not a prefilter:** the roadmap's idea was to skip the fine-grained mutants of a pseudo-tested function. {_pt.killed} of its {_pt.mutants} are killed by some test: body removal returns the zero value the tests happen to accept (`constraintGreaterThan` returning false, `minLength` returning 0), while a finer mutant returns a wrong non-zero value or panics. Skipping them would hide those kills to save {_pt.mutants / _k.mutants.sum():.0%} of the mutants.
+            - **Most gaps are elsewhere:** the bulk of the survivors are in functions whose body removal some test does catch, as Maton, Kapfhammer and McMinn (2024) found for Java; extreme mutation cannot point at them.
+            - **Decision:** `mutant` does not prefilter with extreme mutation. The fine-grained run already reports the survivors in pseudo-tested functions.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
@@ -784,7 +860,10 @@ def _(mo):
     # Section 11: sample to label, then label (Gemini: agy -p "$(cat mutant/docs/labels/prompt.md)" --model gemini-4-neon-high)
     uv run python mutant/docs/labels/sample.py "$CORPUS_CACHE" > mutant/docs/labels/sample.ndjson
 
-    # Sections 4-11 query the data directly; view everything
+    # Section 12: extreme mutation, about 90 seconds
+    EXTREME=1 OUT=mutant/docs/data-extreme mutant/docs/corpus.sh
+
+    # Sections 4-12 query the data directly; view everything
     make mutant-measurements
     ```
     """)
