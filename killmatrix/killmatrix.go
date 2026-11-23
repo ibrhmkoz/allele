@@ -1328,7 +1328,7 @@ func runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Du
 		quoted[i] = regexp.QuoteMeta(top)
 	}
 	pattern := "^(" + strings.Join(quoted, "|") + ")$"
-	cmd := command(ctx, bin, "-test.run", pattern, "-test.count=1", "-test.failfast", "-test.v=test2json")
+	cmd := command(ctx, bin, append(testArgs(pattern, limit), "-test.failfast")...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
 	start := time.Now()
@@ -1340,6 +1340,19 @@ func runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Du
 	}).parse(out)
 }
 
+// testArgs runs the tests that pattern matches once, reporting as
+// test2json reads, with a deadline the test binary enforces itself: twice
+// limit, past the one killmatrix enforces, or go test's 10 minutes when
+// there is no limit. A binary orphaned with its killer, as when mutating
+// killmatrix runs killmatrix's own tests, then still stops.
+func testArgs(pattern string, limit time.Duration) []string {
+	deadline := 10 * time.Minute
+	if limit > 0 {
+		deadline = 2*limit + time.Second
+	}
+	return []string{"-test.run", pattern, "-test.count=1", "-test.v=test2json", "-test.timeout=" + deadline.String()}
+}
+
 // run runs one top-level test of bin in dir with mutant id switched on, if
 // bin is a schema binary, recording the sites it reaches into reach if
 // set. A limit of 0 means no limit.
@@ -1349,7 +1362,7 @@ func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int,
 		ctx, cancel = context.WithTimeout(ctx, limit)
 		defer cancel()
 	}
-	cmd := command(ctx, bin, "-test.run", "^"+top+"$", "-test.count=1", "-test.v=test2json")
+	cmd := command(ctx, bin, testArgs("^"+top+"$", limit)...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
 	if reach != "" {
