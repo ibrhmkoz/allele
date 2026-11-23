@@ -14,6 +14,8 @@ type report struct {
 	// passed maps each test the run reported, at any depth, to whether it
 	// passed. A skipped test passed: it did not fail.
 	passed map[string]bool
+	// started records every test name that printed "=== RUN".
+	started map[string]bool
 	// order lists the names in passed as the run reported them.
 	order []string
 }
@@ -43,10 +45,18 @@ func (r report) status(leaf string) Status {
 // start with ^V, which test output cannot fake by printing "--- FAIL".
 func (r *report) parse(out []byte) report {
 	r.passed = map[string]bool{}
+	r.started = map[string]bool{}
 	sc := bufio.NewScanner(bytes.NewReader(out))
 	sc.Buffer(nil, 1<<20)
 	for sc.Scan() {
-		line, ok := strings.CutPrefix(sc.Text(), "\x16--- ")
+		line := sc.Text()
+		if name, ok := strings.CutPrefix(line, "\x16=== RUN   "); ok {
+			if name = strings.TrimSpace(name); name != "" {
+				r.started[name] = true
+			}
+			continue
+		}
+		line, ok := strings.CutPrefix(line, "\x16--- ")
 		if !ok {
 			continue
 		}

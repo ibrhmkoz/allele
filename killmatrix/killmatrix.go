@@ -341,9 +341,10 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		return err
 	}
 	firstTest := len(m.Tests)
-	var reached map[string]map[int]bool // top-level test → functions it reached
+	var reached, reachedSite map[string]map[int]bool // top-level test → functions / mutant ids it reached
 	if schema != "" && r.Select {
 		reached = map[string]map[int]bool{}
+		reachedSite = map[string]map[int]bool{}
 	}
 	for i, top := range tops {
 		reach := ""
@@ -353,6 +354,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		tests, ids := r.baseline(ctx, dir, bin, pkg.PkgPath, top, reach)
 		if reached != nil {
 			reached[top] = map[int]bool{}
+			reachedSite[top] = ids
 			for id := range ids {
 				reached[top][fn[id]] = true
 			}
@@ -365,6 +367,10 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	tests := m.Tests[firstTest:]
 	r.logf("%s: %d top-level tests, %d leaves, %d mutants\n", pkg.PkgPath, len(tops), len(tests), len(mutants))
 
+	var stats *killStats
+	if r.FailFast {
+		stats = newKillStats()
+	}
 	results := make([][]Result, len(mutants))
 	errs := make([]error, len(mutants))
 	jobs := make(chan int)
@@ -373,10 +379,10 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		wg.Go(func() {
 			for i := range jobs {
 				if mutants[i].Schema {
-					results[i], errs[i] = r.runTests(ctx, dir, schema, &mutants[i], tests, reached, fn)
+					results[i], errs[i] = r.runTests(ctx, dir, schema, &mutants[i], tests, reached, reachedSite, fn, stats)
 					continue
 				}
-				results[i], errs[i] = r.runMutant(ctx, dir, tmp, &mutants[i], tests)
+				results[i], errs[i] = r.runMutant(ctx, dir, tmp, &mutants[i], tests, stats)
 			}
 		})
 	}
@@ -579,31 +585,22 @@ func compileErrors(out []byte) []position {
 // With reached, a top-level test that never reached mu's function in the
 // baseline does not run; its leaves survive, since code that never runs
 // cannot fail them.
-func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests []Test, reached map[string]map[int]bool, fn map[int]int) ([]Result, error) {
+func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests []Test, reached, reachedSite map[string]map[int]bool, fn map[int]int, stats *killStats) ([]Result, error) {
 	if r.FailFast {
-		// Leaves of one top-level test share its baseline time, so a
-		// stable sort keeps them together.
-		tests = slices.Clone(tests)
-		slices.SortStableFunc(tests, func(a, b Test) int { return cmp.Compare(a.BaselineMS, b.BaselineMS) })
+		return r.runTestsFailFast(ctx, dir, bin, mu, tests, reached, reachedSite, fn, stats)
 	}
 	var results []Result
 	var rep, again, original report
 	ran, ranAgain := "", "" // the top-level tests rep, and again and original, are from
-	killed := false
 	for _, t := range tests {
 		if t.State != OK {
 			continue
 		}
 		if reached != nil && fn[mu.ID] >= 0 && !reached[topOf(t.Name)][fn[mu.ID]] {
-			if !r.FailFast {
-				results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
-			}
+			results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
 			continue
 		}
 		if top := topOf(t.Name); top != ran {
-			if killed {
-				break
-			}
 			limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
 			rep, ran = run(ctx, dir, bin, top, limit, mu.ID, ""), top
 			if ctx.Err() != nil {
@@ -632,11 +629,322 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 				status = recheck
 			}
 		}
-		killed = killed || r.FailFast && status == Killed
 		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.elapsed)})
 	}
 	r.logf("M%d done\n", mu.ID)
 	return results, nil
+}
+
+// Fast-test batching bounds: tests below fastTestMS are grouped into one
+// process invocation (up to maxBatchLen tests) to amortize process startup.
+const (
+	fastTestMS  = 50.0
+	maxBatchLen = 32
+)
+
+type topGroup struct {
+	name        string
+	baseMS      float64
+	leaves      []Test
+	siteReached bool
+	score       float64
+}
+
+type fnTop struct {
+	fn  int
+	top string
+}
+
+// killStats tracks online kill rates per (function, test) and per test so
+// FailFast orders tests by Smith's rule (kill probability / baseline time).
+type killStats struct {
+	mu     sync.Mutex
+	gKills map[string]int
+	gRuns  map[string]int
+	fKills map[fnTop]int
+	fRuns  map[fnTop]int
+}
+
+func newKillStats() *killStats {
+	return &killStats{
+		gKills: map[string]int{},
+		gRuns:  map[string]int{},
+		fKills: map[fnTop]int{},
+		fRuns:  map[fnTop]int{},
+	}
+}
+
+func (s *killStats) scoreAll(fnID int, groups []topGroup) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range groups {
+		top := groups[i].name
+		pg := float64(s.gKills[top]+1) / float64(s.gRuns[top]+2)
+		pf := pg
+		if fnID >= 0 {
+			k := fnTop{fnID, top}
+			pf = (float64(s.fKills[k]) + 2*pg) / (float64(s.fRuns[k]) + 2)
+		}
+		groups[i].score = pf / max(groups[i].baseMS, 1.0)
+	}
+}
+
+func (s *killStats) record(fnID int, top string, killed bool) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.gRuns[top]++
+	if killed {
+		s.gKills[top]++
+	}
+	if fnID >= 0 {
+		k := fnTop{fnID, top}
+		s.fRuns[k]++
+		if killed {
+			s.fKills[k]++
+		}
+	}
+}
+
+func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutant, tests []Test, reached, reachedSite map[string]map[int]bool, fn map[int]int, stats *killStats) ([]Result, error) {
+	fnID := -1
+	if fn != nil {
+		if id, ok := fn[mu.ID]; ok {
+			fnID = id
+		}
+	}
+	byTop := map[string]int{}
+	var groups []topGroup
+	for _, t := range tests {
+		if t.State != OK {
+			continue
+		}
+		top := topOf(t.Name)
+		if reached != nil && fnID >= 0 && !reached[top][fnID] {
+			continue
+		}
+		idx, ok := byTop[top]
+		if !ok {
+			idx = len(groups)
+			byTop[top] = idx
+			groups = append(groups, topGroup{
+				name:        top,
+				baseMS:      t.BaselineMS,
+				siteReached: reachedSite != nil && fnID >= 0 && reachedSite[top][mu.ID],
+			})
+		}
+		groups[idx].leaves = append(groups[idx].leaves, t)
+	}
+	stats.scoreAll(fnID, groups)
+	slices.SortStableFunc(groups, func(a, b topGroup) int {
+		if a.siteReached != b.siteReached {
+			if a.siteReached {
+				return -1
+			}
+			return 1
+		}
+		return cmp.Or(cmp.Compare(b.score, a.score), cmp.Compare(a.baseMS, b.baseMS), cmp.Compare(a.name, b.name))
+	})
+
+	queue := makeBatches(groups)
+	var results []Result
+	for len(queue) > 0 {
+		batch := queue[0]
+		queue = queue[1:]
+
+		var maxMS float64
+		names := make([]string, len(batch))
+		for i, g := range batch {
+			maxMS = max(maxMS, g.baseMS)
+			names[i] = g.name
+		}
+		// Fast tests' baseline_ms is mostly process startup, paid once per
+		// batch; TimeoutPad (1s) covers the combined test bodies comfortably.
+		limit := time.Duration(maxMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+		rep := runBatch(ctx, dir, bin, names, limit, mu.ID)
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		if len(batch) == 1 {
+			killed, err := r.recordSingle(ctx, dir, bin, mu, batch[0], rep, fnID, stats, &results)
+			if err != nil {
+				return nil, err
+			}
+			if killed {
+				break
+			}
+			continue
+		}
+
+		// Multi-test batch: all passed.
+		if rep.ok {
+			for _, g := range batch {
+				for _, t := range g.leaves {
+					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, MS: ms(rep.elapsed)})
+				}
+				stats.record(fnID, g.name, false)
+			}
+			continue
+		}
+
+		// Multi-test batch failed or timed out: separate finished tests from
+		// unfinished ones so unrun tests are never misattributed.
+		var failedIdx = -1
+		var unfinished []topGroup
+		for i, g := range batch {
+			if topFailed(g, rep) {
+				if failedIdx < 0 {
+					failedIdx = i
+				}
+				continue
+			}
+			if passed, done := rep.passed[g.name]; done && passed {
+				for _, t := range g.leaves {
+					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, MS: ms(rep.elapsed)})
+				}
+				stats.record(fnID, g.name, false)
+				continue
+			}
+			unfinished = append(unfinished, g)
+		}
+
+		if failedIdx >= 0 {
+			killed, err := r.recordSingle(ctx, dir, bin, mu, batch[failedIdx], rep, fnID, stats, &results)
+			if err != nil {
+				return nil, err
+			}
+			if killed {
+				break
+			}
+			if len(unfinished) > 0 {
+				queue = append([][]topGroup{unfinished}, queue...)
+			}
+			continue
+		}
+
+		// No explicit FAIL line: either a timeout or a crash/panic.
+		var startedUnfinished []topGroup
+		var rest []topGroup
+		for _, g := range unfinished {
+			if rep.started[g.name] {
+				startedUnfinished = append(startedUnfinished, g)
+			} else {
+				rest = append(rest, g)
+			}
+		}
+
+		if len(startedUnfinished) == 1 {
+			g := startedUnfinished[0]
+			if rep.timedOut {
+				for _, t := range g.leaves {
+					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Timeout, MS: ms(rep.elapsed)})
+				}
+				stats.record(fnID, g.name, false)
+				if len(rest) > 0 {
+					queue = append([][]topGroup{rest}, queue...)
+				}
+				continue
+			}
+			killed, err := r.recordSingle(ctx, dir, bin, mu, g, rep, fnID, stats, &results)
+			if err != nil {
+				return nil, err
+			}
+			if killed {
+				break
+			}
+			if len(rest) > 0 {
+				queue = append([][]topGroup{rest}, queue...)
+			}
+			continue
+		}
+
+		// Ambiguous attribution (e.g. t.Parallel() tests crashing/timing out
+		// together): fall back to running unfinished tests individually.
+		singles := make([][]topGroup, len(unfinished))
+		for i, g := range unfinished {
+			singles[i] = []topGroup{g}
+		}
+		queue = append(singles, queue...)
+	}
+	r.logf("M%d done\n", mu.ID)
+	return results, nil
+}
+
+func makeBatches(groups []topGroup) [][]topGroup {
+	var batches [][]topGroup
+	var cur []topGroup
+	flush := func() {
+		if len(cur) > 0 {
+			batches = append(batches, cur)
+			cur = nil
+		}
+	}
+	for _, g := range groups {
+		if g.baseMS >= fastTestMS {
+			flush()
+			batches = append(batches, []topGroup{g})
+			continue
+		}
+		if len(cur) > 0 && (cur[0].siteReached != g.siteReached || len(cur) >= maxBatchLen) {
+			flush()
+		}
+		cur = append(cur, g)
+	}
+	flush()
+	return batches
+}
+
+func topFailed(g topGroup, rep report) bool {
+	if passed, ok := rep.passed[g.name]; ok && !passed {
+		return true
+	}
+	for _, t := range g.leaves {
+		if passed, ok := rep.passed[t.Name]; ok && !passed {
+			return true
+		}
+	}
+	return false
+}
+
+func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g topGroup, rep report, fnID int, stats *killStats, results *[]Result) (bool, error) {
+	var again, original report
+	confirmed := false
+	killed := false
+	for _, t := range g.leaves {
+		status := rep.status(t.Name)
+		if status == Killed && r.Confirm {
+			if !confirmed {
+				limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+				again = run(ctx, dir, bin, g.name, limit, mu.ID, "")
+				original = report{ok: true}
+				if mu.Schema {
+					original = run(ctx, dir, bin, g.name, limit, 0, "")
+				}
+				if ctx.Err() != nil {
+					return false, ctx.Err()
+				}
+				confirmed = true
+			}
+			switch {
+			case again.status(t.Name) != Killed:
+				status = FlakyKill
+			case original.status(t.Name) != Survived:
+				status = recheck
+			}
+		}
+		if status == Killed {
+			killed = true
+		}
+		*results = append(*results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.elapsed)})
+	}
+	stats.record(fnID, g.name, killed)
+	return killed, nil
 }
 
 // baseline runs a top-level test BaselineRuns times on the unmutated
@@ -700,7 +1008,7 @@ func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top, reach string) 
 	return tests, ids
 }
 
-func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, tests []Test) ([]Result, error) {
+func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, tests []Test, stats *killStats) ([]Result, error) {
 	work, err := os.MkdirTemp(tmp, fmt.Sprintf("m%d-", mu.ID))
 	if err != nil {
 		return nil, err
@@ -737,7 +1045,7 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 		r.logf("M%d build error\n", mu.ID)
 		return nil, nil
 	}
-	return r.runTests(ctx, dir, bin, mu, tests, nil, nil)
+	return r.runTests(ctx, dir, bin, mu, tests, nil, nil, nil, stats)
 }
 
 // build compiles the test binary of the package in dir into bin, with the
@@ -769,6 +1077,34 @@ func list(ctx context.Context, dir, bin string) ([]string, error) {
 		}
 	}
 	return names, nil
+}
+
+// runBatch runs one or more top-level tests of bin in one process, stopping
+// at the first failing test when more than one is given.
+func runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Duration, id int) report {
+	if len(tops) == 1 {
+		return run(ctx, dir, bin, tops[0], limit, id, "")
+	}
+	if limit > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, limit)
+		defer cancel()
+	}
+	quoted := make([]string, len(tops))
+	for i, top := range tops {
+		quoted[i] = regexp.QuoteMeta(top)
+	}
+	pattern := "^(" + strings.Join(quoted, "|") + ")$"
+	cmd := exec.CommandContext(ctx, bin, "-test.run", pattern, "-test.count=1", "-test.failfast", "-test.v=test2json")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
+	start := time.Now()
+	out, err := cmd.Output()
+	return (&report{
+		ok:       err == nil,
+		timedOut: limit > 0 && errors.Is(ctx.Err(), context.DeadlineExceeded),
+		elapsed:  time.Since(start),
+	}).parse(out)
 }
 
 // run runs one top-level test of bin in dir with mutant id switched on, if

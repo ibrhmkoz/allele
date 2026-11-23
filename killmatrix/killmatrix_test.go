@@ -198,33 +198,92 @@ func TestFailFast(t *testing.T) {
 	}
 }
 
+// TestFailFastVerdicts checks that FailFast (with schemata and selection)
+// reproduces every verdict of fixtureMatrix across all 29 fixture mutants:
+// kills, survivors, timeouts, panicking subtests, and build errors.
+func TestFailFastVerdicts(t *testing.T) {
+	t.Parallel()
+	fast, err := (killmatrix.Runner{
+		Workers:    runtime.NumCPU(),
+		TimeoutPad: time.Second,
+		Schemata:   true,
+		Select:     true,
+		FailFast:   true,
+	}).Run(t.Context(), "testdata", "./discount", "./loop", "./table")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := fast.Verdicts()
+	var lines strings.Builder
+	for _, mu := range fast.Mutants {
+		fmt.Fprintf(&lines, "M%d %s\n", mu.ID, got[mu.ID])
+	}
+	// Matches fixtureMatrix: M5, M18, M25 survive; M14 times out; M22 does not build; the rest are killed.
+	xtesting.EqualText(t, lines.String(), `
+		M1 killed
+		M2 killed
+		M3 killed
+		M4 killed
+		M5 survived
+		M6 killed
+		M7 killed
+		M8 killed
+		M9 killed
+		M10 killed
+		M11 killed
+		M12 killed
+		M13 killed
+		M14 timeout
+		M15 killed
+		M16 killed
+		M17 killed
+		M18 survived
+		M19 killed
+		M20 killed
+		M21 killed
+		M22 build error
+		M23 killed
+		M24 killed
+		M25 survived
+		M26 killed
+		M27 killed
+		M28 killed
+		M29 killed
+	`)
+}
+
 // TestConfirm runs a test that fails against a mutant on the first try
 // only. Without Confirm it reads as a kill; with it, as flaky, which no
 // verdict counts as killed.
 func TestConfirm(t *testing.T) {
 	t.Parallel()
-	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: true, Confirm: true}
-	m, err := r.Run(t.Context(), "testdata", "./flaky")
-	if err != nil {
-		t.Fatal(err)
-	}
-	xtesting.Prints(t, m, `
-		fixture/flaky
-		  T1 TestPick
+	// Sequential subtests: testdata/flaky keys its marker files by ppid.
+	for _, failFast := range []bool{false, true} {
+		t.Run(fmt.Sprintf("failfast=%v", failFast), func(t *testing.T) {
+			r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: true, Select: failFast, FailFast: failFast, Confirm: true}
+			m, err := r.Run(t.Context(), "testdata", "./flaky")
+			if err != nil {
+				t.Fatal(err)
+			}
+			xtesting.Prints(t, m, `
+				fixture/flaky
+				  T1 TestPick
 
-		     T1
-		  M1 .   flaky.go:7:5 COR n > 0 → true
-		  M2 F   flaky.go:7:5 COR n > 0 → false
-		  M3 F   flaky.go:7:7 ROR n > 0 → n < 0
-		  M4 F   flaky.go:7:7 ROR n > 0 → n <= 0
-		  M5 .   flaky.go:7:7 ROR n > 0 → n >= 0
-		  M6 F   flaky.go:7:7 ROR n > 0 → n == 0
-		  M7 .   flaky.go:7:7 ROR n > 0 → n != 0
-	`)
-	for id, v := range m.Verdicts() {
-		if v == killmatrix.VerdictKilled {
-			t.Errorf("M%d: a flaky kill counted as killed", id)
-		}
+				     T1
+				  M1 .   flaky.go:7:5 COR n > 0 → true
+				  M2 F   flaky.go:7:5 COR n > 0 → false
+				  M3 F   flaky.go:7:7 ROR n > 0 → n < 0
+				  M4 F   flaky.go:7:7 ROR n > 0 → n <= 0
+				  M5 .   flaky.go:7:7 ROR n > 0 → n >= 0
+				  M6 F   flaky.go:7:7 ROR n > 0 → n == 0
+				  M7 .   flaky.go:7:7 ROR n > 0 → n != 0
+			`)
+			for id, v := range m.Verdicts() {
+				if v == killmatrix.VerdictKilled {
+					t.Errorf("M%d: a flaky kill counted as killed", id)
+				}
+			}
+		})
 	}
 }
 
@@ -234,28 +293,35 @@ func TestConfirm(t *testing.T) {
 // end, alone, and finds them real.
 func TestConfirmUnderLoad(t *testing.T) {
 	t.Parallel()
-	t.Cleanup(func() {
+	clean := func() {
 		markers, _ := filepath.Glob(filepath.Join(os.TempDir(), fmt.Sprintf("killmatrix-load-%d*", os.Getpid())))
 		for _, m := range markers {
 			_ = os.Remove(m)
 		}
-	})
-	r := killmatrix.Runner{Workers: 1, TimeoutPad: time.Second, Schemata: true, Confirm: true}
-	m, err := r.Run(t.Context(), "testdata", "./load")
-	if err != nil {
-		t.Fatal(err)
 	}
-	xtesting.Prints(t, m, `
-		fixture/load
-		  T1 TestPick
+	t.Cleanup(clean)
+	// Sequential subtests: testdata/load keys its marker files by ppid.
+	for _, failFast := range []bool{false, true} {
+		t.Run(fmt.Sprintf("failfast=%v", failFast), func(t *testing.T) {
+			clean()
+			r := killmatrix.Runner{Workers: 1, TimeoutPad: time.Second, Schemata: true, Select: failFast, FailFast: failFast, Confirm: true}
+			m, err := r.Run(t.Context(), "testdata", "./load")
+			if err != nil {
+				t.Fatal(err)
+			}
+			xtesting.Prints(t, m, `
+				fixture/load
+				  T1 TestPick
 
-		     T1
-		  M1 .   load.go:8:5 COR n > 0 → true
-		  M2 K   load.go:8:5 COR n > 0 → false
-		  M3 K   load.go:8:7 ROR n > 0 → n < 0
-		  M4 K   load.go:8:7 ROR n > 0 → n <= 0
-		  M5 .   load.go:8:7 ROR n > 0 → n >= 0
-		  M6 K   load.go:8:7 ROR n > 0 → n == 0
-		  M7 .   load.go:8:7 ROR n > 0 → n != 0
-	`)
+				     T1
+				  M1 .   load.go:8:5 COR n > 0 → true
+				  M2 K   load.go:8:5 COR n > 0 → false
+				  M3 K   load.go:8:7 ROR n > 0 → n < 0
+				  M4 K   load.go:8:7 ROR n > 0 → n <= 0
+				  M5 .   load.go:8:7 ROR n > 0 → n >= 0
+				  M6 K   load.go:8:7 ROR n > 0 → n == 0
+				  M7 .   load.go:8:7 ROR n > 0 → n != 0
+			`)
+		})
+	}
 }
