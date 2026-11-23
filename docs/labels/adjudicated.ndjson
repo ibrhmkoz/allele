@@ -1,0 +1,50 @@
+{"key": "glob#1153", "label": "useful", "how": "both raters agreed"}
+{"key": "glob#867", "label": "equivalent", "how": "run: same Match results on 160 000 random pattern/input pairs; performance only, which the definitions call equivalent", "claude": "unproductive", "gemini": "equivalent"}
+{"key": "glob#955", "label": "equivalent", "how": "run: same Match results on 160 000 random pattern/input pairs and same commonSuffix on 81 string pairs", "claude": "useful", "gemini": "equivalent"}
+{"key": "glob#905", "label": "equivalent", "how": "run: same Match results on 160 000 random pattern/input pairs; performance only", "claude": "unproductive", "gemini": "equivalent"}
+{"key": "glob#734", "label": "equivalent", "how": "run: same Match results on 160 000 random pattern/input pairs", "claude": "useful", "gemini": "equivalent"}
+{"key": "glob#1053", "label": "unproductive", "how": "both raters agreed"}
+{"key": "glob#932", "label": "useful", "how": "run: 159 of 160 000 results differ, e.g. y{a?b?c,x}* with separator . no longer matches yxc", "claude": "unproductive", "gemini": "useful"}
+{"key": "glob#3", "label": "useful", "how": "both raters agreed"}
+{"key": "glob#353", "label": "useful", "how": "both raters agreed"}
+{"key": "go-humanize#1093", "label": "useful", "how": "both raters agreed"}
+{"key": "go-humanize#527", "label": "equivalent", "how": "both raters agreed"}
+{"key": "go-humanize#263", "label": "useful", "how": "both raters agreed"}
+{"key": "go-humanize#214", "label": "unproductive", "how": "run: same Bytes and IBytes output on 200 333 values including math.MaxUint64: the branch is unreachable, which the definitions call unproductive", "claude": "useful", "gemini": "unproductive"}
+{"key": "go-humanize#42", "label": "equivalent", "how": "both raters agreed"}
+{"key": "go-humanize#433", "label": "equivalent", "how": "both raters agreed"}
+{"key": "go-humanize#785", "label": "equivalent", "how": "both raters agreed"}
+{"key": "go-humanize#386", "label": "equivalent", "how": "both raters agreed"}
+{"key": "go-humanize#664", "label": "useful", "how": "both raters agreed"}
+{"key": "go-version#86", "label": "useful", "how": "both raters agreed"}
+{"key": "go-version#118", "label": "equivalent", "how": "both raters agreed"}
+{"key": "go-version#107", "label": "useful", "how": "both raters agreed"}
+{"key": "go-version#518", "label": "equivalent", "how": "both raters agreed"}
+{"key": "go-version#123", "label": "useful", "how": "both raters agreed"}
+{"key": "go-version#263", "label": "equivalent", "how": "both raters agreed"}
+{"key": "go-version#342", "label": "useful", "how": "both raters agreed"}
+{"key": "go-version#4", "label": "useful", "how": "both raters agreed"}
+{"key": "go-version#167", "label": "useful", "how": "both raters agreed"}
+{"key": "semver#501", "label": "equivalent", "how": "both raters agreed"}
+{"key": "semver#582", "label": "useful", "how": "both raters agreed"}
+{"key": "semver#1043", "label": "equivalent", "how": "both raters agreed"}
+{"key": "semver#55", "label": "useful", "how": "run: Validate returns 3 identical errors instead of 1 for 1.5.0-alpha against a 3-clause constraint: visible in the API", "claude": "unproductive", "gemini": "useful"}
+{"key": "semver#193", "label": "equivalent", "how": "both raters agreed"}
+{"key": "semver#626", "label": "equivalent", "how": "both raters agreed"}
+{"key": "semver#466", "label": "equivalent", "how": "both raters agreed"}
+{"key": "semver#572", "label": "useful", "how": "both raters agreed"}
+{"key": "semver#1214", "label": "unproductive", "how": "run: same NewVersion and StrictNewVersion results on 150 000 random metadata strings: versionRegex already rejects bad metadata", "claude": "useful", "gemini": "unproductive"}
+{"key": "shlex#52", "label": "equivalent", "how": "both raters agreed"}
+{"key": "shlex#62", "label": "useful", "how": "both raters agreed"}
+{"key": "shlex#56", "label": "useful", "how": "both raters agreed"}
+{"key": "shlex#7", "label": "useful", "how": "both raters agreed"}
+{"key": "shlex#55", "label": "useful", "how": "both raters agreed"}
+{"key": "uuid#338", "label": "useful", "how": "both raters agreed"}
+{"key": "uuid#113", "label": "useful", "how": "both raters agreed"}
+{"key": "uuid#110", "label": "useful", "how": "both raters agreed"}
+{"key": "uuid#588", "label": "useful", "how": "both raters agreed"}
+{"key": "uuid#76", "label": "useful", "how": "both raters agreed"}
+{"key": "uuid#649", "label": "useful", "how": "both raters agreed"}
+{"key": "uuid#656", "label": "equivalent", "how": "both raters agreed"}
+{"key": "uuid#564", "label": "useful", "how": "both raters agreed"}
+{"key": "uuid#631", "label": "unproductive", "how": "both raters agreed"}

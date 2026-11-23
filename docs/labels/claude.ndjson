@@ -1,0 +1,50 @@
+{"key": "glob#1153", "label": "useful", "reason": "r <= '!' also takes space and control runes as negation: [ a] changes meaning"}
+{"key": "glob#867", "label": "unproductive", "reason": "skips an optimization that folds a star into a following contains matcher; matches stay the same"}
+{"key": "glob#955", "label": "useful", "reason": "|| keeps looping past the shorter string and slices out of range when one string is a suffix of the other"}
+{"key": "glob#905", "label": "unproductive", "reason": "Next is a skip-ahead hint for the star; without it matching is slower, not different"}
+{"key": "glob#734", "label": "useful", "reason": "ms[i] is the star itself, so the predicate reports adjacent stars for any star after the first"}
+{"key": "glob#1053", "label": "unproductive", "reason": "defensive error for a double unread the lexer never does"}
+{"key": "glob#932", "label": "unproductive", "reason": "minLength only rejects too-short input early; a negative length disables the shortcut"}
+{"key": "glob#3", "label": "useful", "reason": "MustCompile no longer panics on an invalid pattern and returns nil"}
+{"key": "glob#353", "label": "useful", "reason": "a separator-bound star records a restart point past a separator, so it can match across one"}
+{"key": "go-humanize#1093", "label": "useful", "reason": "checks the middle letter, not the one before the o: radio becomes radioes"}
+{"key": "go-humanize#527", "label": "equivalent", "reason": "an infinite big.Float never has sign 0"}
+{"key": "go-humanize#263", "label": "useful", "reason": "a failed ParseUint (e.g. overflow) now takes the uint64 path with v=0 or max instead of the float path"}
+{"key": "go-humanize#214", "label": "useful", "reason": "at the last unit, e++ indexes past sizes and panics for values that round up there"}
+{"key": "go-humanize#42", "label": "equivalent", "reason": "10 formats as 10 B on either path"}
+{"key": "go-humanize#433", "label": "equivalent", "reason": "pos starts at a multiple-of-3 offset and steps by 3, so it reaches len exactly"}
+{"key": "go-humanize#785", "label": "equivalent", "reason": "len cannot be negative"}
+{"key": "go-humanize#386", "label": "equivalent", "reason": "j ends at 1 only for negatives and at 0 otherwise; it never exceeds 1"}
+{"key": "go-humanize#664", "label": "useful", "reason": "-math.MaxFloat64 itself becomes -Infinity: a boundary a test should pin"}
+{"key": "go-version#86", "label": "useful", "reason": "Compare returns -1, 0 or 1, so <= 1 makes > accept every version"}
+{"key": "go-version#118", "label": "equivalent", "reason": "a string is <= \"\" only when it is \"\""}
+{"key": "go-version#107", "label": "useful", "reason": "!= 0 rejects the equal version and accepts greater ones for <="}
+{"key": "go-version#518", "label": "equivalent", "reason": "a string is > \"\" exactly when it is not empty"}
+{"key": "go-version#123", "label": "useful", "reason": "drops the early reject of versions below a pessimistic constraint; later checks may accept them"}
+{"key": "go-version#263", "label": "equivalent", "reason": "i counts up from 0 by 1, so != and < stop at the same point"}
+{"key": "go-version#342", "label": "useful", "reason": "9 stops counting as a digit, so numeric prerelease identifiers ending in 9 compare as text"}
+{"key": "go-version#4", "label": "useful", "reason": "Equals holds for different operators when c.op sorts below con.op"}
+{"key": "go-version#167", "label": "useful", "reason": "a nil Option, which the code deliberately skips, now panics"}
+{"key": "semver#501", "label": "equivalent", "reason": "ranging over a nil slice does nothing and o is i"}
+{"key": "semver#582", "label": "useful", "reason": "a version exactly MaxVersionLen long is rejected: a boundary"}
+{"key": "semver#1043", "label": "equivalent", "reason": "a string is > \"\" exactly when it is not empty"}
+{"key": "semver#55", "label": "unproductive", "reason": "the prerelease error is appended once per constraint instead of once; only the error list changes"}
+{"key": "semver#193", "label": "equivalent", "reason": "with both prereleases empty comparePrerelease is 0 and the branch returns the same error as the else"}
+{"key": "semver#626", "label": "equivalent", "reason": "a string is > \"\" exactly when it is not empty"}
+{"key": "semver#466", "label": "equivalent", "reason": "Minor is unsigned"}
+{"key": "semver#572", "label": "useful", "reason": "an overflowing minor returns a nil version with a nil error"}
+{"key": "semver#1214", "label": "useful", "reason": "valid metadata returns early and invalid metadata is accepted"}
+{"key": "shlex#52", "label": "equivalent", "reason": "err is nil in the word state at EOF"}
+{"key": "shlex#62", "label": "useful", "reason": "EOF after an escape inside double quotes no longer reports an error"}
+{"key": "shlex#56", "label": "useful", "reason": "a backslash in a word no longer escapes the next rune"}
+{"key": "shlex#7", "label": "useful", "reason": "tokens of different types with the same value compare equal"}
+{"key": "shlex#55", "label": "useful", "reason": "a single quote inside a word no longer starts a quoted section"}
+{"key": "uuid#338", "label": "useful", "reason": "a rune below '-' (space, +, comma) at position 18 passes validation"}
+{"key": "uuid#113", "label": "useful", "reason": "NullUUID.UnmarshalBinary has no test: inverts the length check"}
+{"key": "uuid#110", "label": "useful", "reason": "NullUUID.UnmarshalBinary has no test: short input is copied in"}
+{"key": "uuid#588", "label": "useful", "reason": "a version 1 UUID keeps an all-zero node id when none was set"}
+{"key": "uuid#76", "label": "useful", "reason": "picks an interface without a hardware address; interfaces can be faked in tests"}
+{"key": "uuid#649", "label": "useful", "reason": "NewV7 hides a failing random source and returns a UUID with a nil error"}
+{"key": "uuid#656", "label": "equivalent", "reason": "a bounds-check hint on a fixed-size array; it changes nothing at run time"}
+{"key": "uuid#564", "label": "useful", "reason": "Version.String has no test: every version but 15 prints as bad"}
+{"key": "uuid#631", "label": "unproductive", "reason": "getTime fails only when the clock sequence cannot be seeded; the error path is not reachable in a test"}

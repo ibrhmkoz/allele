@@ -697,6 +697,67 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
+def _(alt, db, mo, pd, title):
+    _dir = mo.notebook_dir() / "labels"
+    _l = db.sql(f"""
+        select s.key, s.repo, s.operator, s.original, s.mutated, c.label claude, g.label gemini, a.label final, a.how
+        from read_json_auto('{_dir}/sample.ndjson') s
+        join read_json_auto('{_dir}/claude.ndjson') c using (key)
+        join read_json_auto('{_dir}/gemini.ndjson') g using (key)
+        join read_json_auto('{_dir}/adjudicated.ndjson') a using (key)
+    """).df()
+    _cats = ["useful", "equivalent", "unproductive"]
+    _n = len(_l)
+    _po = (_l.claude == _l.gemini).mean()
+    _pe = sum((_l.claude == c).mean() * (_l.gemini == c).mean() for c in _cats)
+    _kappa = (_po - _pe) / (1 - _pe)
+    _long = pd.concat(
+        [_l.assign(rater=r, label=_l[col]) for r, col in [("Claude", "claude"), ("Gemini 4 Neon", "gemini"), ("adjudicated", "final")]]
+    )
+    _counts = _long.groupby(["rater", "label"], as_index=False).size()
+    _counts["share"] = _counts["size"] / _n
+    _bars = (
+        alt.Chart(_counts)
+        .mark_bar()
+        .encode(
+            x=alt.X("share:Q", title="share of 50 surviving mutants", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+            y=alt.Y("rater:N", sort=["Claude", "Gemini 4 Neon", "adjudicated"], title=None),
+            color=alt.Color("label:N", scale=alt.Scale(domain=_cats, range=["#4c78a8", "#bab0ac", "#f58518"]), title=None, legend=alt.Legend(orient="top")),
+            order=alt.Order("label:N", sort="descending"),
+            tooltip=["rater", "label", "size", alt.Tooltip("share:Q", format=".0%")],
+        )
+    )
+    _final = _l.final.value_counts()
+    _chart = _bars.properties(
+        width=540,
+        height=130,
+        title=title(
+            f"{_final.get('useful', 0) / _n:.0%} of surviving mutants point at a real test gap, {_final.get('equivalent', 0) / _n:.0%} are equivalent",
+            f"50 survivors, 5 per repo for shlex and 9 for the others. Two blind raters agree on {_po:.0%} (Cohen's κ = {_kappa:.2f}); every disagreement was settled by running the mutant.",
+        ),
+    )
+    _dis = _l[_l.claude != _l.gemini]
+    _md = "| mutant | change | Claude | Gemini | settled as | by |\n|---|---|---|---|---|---|\n" + "".join(
+        f"| {r.key} | `{r.original[:30]}` → `{(r.mutated or '(deleted)')[:30]}` | {r.claude} | {r.gemini} | **{r.final}** | {r.how.removeprefix('run: ')} |\n" for r in _dis.itertuples()
+    )
+    _eq = _l[_l.final == "equivalent"]
+    mo.vstack(
+        [
+            mo.md("## 11. What are the mutants that survive? (axis D)"),
+            _chart,
+            mo.md(rf"""
+            - **Raters:** Claude labeled first and wrote its labels down; Gemini 4 Neon (`agy`, high effort) then labeled the same 50 from `labels/prompt.md` without seeing them or the tool's equivalence tags. Labels: *useful* (a maintainer would write a test), *equivalent* (no input changes behavior; performance does not count), *unproductive* (behavior changes, but not worth a test: unreachable or defensive paths, performance hints).
+            - **Disagreements, settled by running** the original and the mutant side by side on random inputs (glob: 160 000 pattern/input pairs; go-humanize: 200 333 values; semver: 150 000 versions). Gemini's label held in all {len(_dis)}. Claude had called performance-only changes unproductive against the definition, and missed that a loop's guard breaks on an empty suffix.
+            - **Cheap rules for the {len(_eq)} equivalents:** the first rule (unsigned, len, cap vs 0) tags 2. Every string is ≥ "", so `!= ""` → `> ""` is equivalent too: 4 more, and in the whole corpus 72 mutants fit that rule and no test kills one. Deleting `_ = a[15]` on an array is the 7th. The other 12 need reasoning about values (an infinite float's sign is never 0, a loop counter stepping by 3 meets its bound exactly).
+            - **Unproductive** is rare here ({_final.get('unproductive', 0)} of {_n}): these libraries log nothing. Arid-node suppression matters more for service code; measuring it needs a corpus with logging, metrics and tracing.
+            """),
+            mo.accordion({"Disagreements and how they were settled": mo.md(_md)}),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
@@ -720,7 +781,10 @@ def _(mo):
       go run ./mutant/cmd/faults -name $d -o mutant/docs/data-faults/$d.ndjson "$CORPUS_CACHE/$d"
     done
 
-    # Sections 4-10 query the data directly; view everything
+    # Section 11: sample to label, then label (Gemini: agy -p "$(cat mutant/docs/labels/prompt.md)" --model gemini-4-neon-high)
+    uv run python mutant/docs/labels/sample.py "$CORPUS_CACHE" > mutant/docs/labels/sample.ndjson
+
+    # Sections 4-11 query the data directly; view everything
     make mutant-measurements
     ```
     """)
