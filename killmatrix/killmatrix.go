@@ -197,6 +197,11 @@ type Runner struct {
 	// several times in a row, and a kill they invent hides a mutant no
 	// test catches.
 	Confirm bool
+	// CacheDir, with FailFast, persists per-package verdicts keyed by content
+	// hashes of production code, dependencies, testdata, and tests. Exact hits
+	// skip building and running; test-only additions reuse kills from unchanged
+	// test functions and re-run only survivors.
+	CacheDir string
 
 	// sem, when set, caps total concurrent build/test subprocesses across
 	// packages to Workers.
@@ -210,10 +215,14 @@ func (r Runner) release() { <-r.sem } //mut:ignore
 // Run computes the kill matrix of the packages that patterns match in dir.
 func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matrix, error) {
 	r = r.withDefaults()
+	mode := packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedModule
+	if r.CacheDir != "" && r.FailFast {
+		mode |= packages.NeedImports | packages.NeedDeps | packages.NeedEmbedFiles
+	}
 	cfg := &packages.Config{
 		Context: ctx,
 		Dir:     dir,
-		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedModule,
+		Mode:    mode,
 	}
 	pkgs, err := packages.Load(cfg, patterns...)
 	if err != nil {
@@ -377,13 +386,57 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		// baseline is what makes mutant -diff cheap in packages it misses.
 		return nil
 	}
+
+	var snap pkgSnapshot
+	useCache := r.CacheDir != "" && r.FailFast
+	reused := make([]bool, len(mutants))
+	reusedKillers := map[int]string{}
+	reusedResults := make([][]Result, len(mutants))
+	if useCache {
+		snap = r.snapshotPackage(pkg, dir, mutants)
+		if entry, ok := loadCache(r.CacheDir, pkg.PkgPath); ok {
+			byKey := make(map[string]cachedMutant, len(entry.Mutants))
+			for _, cm := range entry.Mutants {
+				byKey[cm.Key] = cm
+			}
+			if entry.FullKey == snap.fullKey {
+				for i := range mutants {
+					cm := byKey[mutantKey(mutants[i])]
+					compiled, rs := cachedResult(mutants[i].ID, cm.Verdict)
+					mutants[i].Compiled = compiled
+					m.Results = append(m.Results, rs...)
+				}
+				return nil
+			}
+			if entry.ProdKey == snap.prodKey {
+				for i := range mutants {
+					cm := byKey[mutantKey(mutants[i])]
+					// Only killed mutants record KillerTop; empty KillerTop never matches testDecls.
+					if h, exists := snap.testDecls[cm.KillerTop]; exists && h == entry.TestDecls[cm.KillerTop] {
+						reused[i] = true
+						reusedKillers[mutants[i].ID] = cm.KillerTop
+						mutants[i].Compiled = true
+						reusedResults[i] = []Result{{MutantID: mutants[i].ID, Status: Killed}}
+					}
+				}
+				if !slices.Contains(reused, false) {
+					for _, rs := range reusedResults {
+						m.Results = append(m.Results, rs...)
+					}
+					saveCache(r.CacheDir, pkg.PkgPath, buildCacheEntry(snap, m, reusedKillers))
+					return nil
+				}
+			}
+		}
+	}
+
 	fn := functions(pkg.Fset, sources, mutants)
 
 	bin := filepath.Join(tmp, strings.ReplaceAll(pkg.PkgPath, "/", "_")+".test")
 	schema := ""
 	if r.Schemata && len(mutants) > 0 {
 		var err error
-		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants); err != nil {
+		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants, reused); err != nil {
 			return err
 		}
 	}
@@ -484,6 +537,10 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	// Dispatch non-schema mutants first so their individual builds overlap
 	// with fast schema runs instead of sitting at the tail.
 	for i := range mutants {
+		if reused[i] {
+			results[i] = reusedResults[i]
+			continue
+		}
 		if !mutants[i].Schema {
 			jobs <- i
 		}
@@ -502,6 +559,9 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		err := r.recheck(ctx, dir, schema, tests, results, mutants)
 		for _, rs := range results {
 			m.Results = append(m.Results, rs...)
+		}
+		if err == nil && useCache {
+			saveCache(r.CacheDir, pkg.PkgPath, buildCacheEntry(snap, m, reusedKillers))
 		}
 		// recheck only returns ctx.Err() on cancellation.
 		return err //mut:ignore
@@ -550,7 +610,7 @@ func (r Runner) recheck(ctx context.Context, dir, bin string, tests []Test, resu
 // marks those mutants Schema. A compile error drops the mutants on the
 // lines it names and the build is tried again; when that stops helping,
 // it returns "" and every mutant builds on its own.
-func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp string, sources []source, mutants []Mutant) (string, error) {
+func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp string, sources []source, mutants []Mutant, skip []bool) (string, error) {
 	work := filepath.Join(tmp, strings.ReplaceAll(pkg.PkgPath, "/", "_")+".schema")
 	if err := os.MkdirAll(work, 0o700); err != nil {
 		return "", err
@@ -564,7 +624,7 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 		for _, s := range sources {
 			ids := make([]int, len(s.find))
 			for j, k := range s.find {
-				if k >= 0 && !dropped[k] {
+				if k >= 0 && !dropped[k] && !skip[k] {
 					ids[j] = mutants[k].ID
 				}
 			}

@@ -27,6 +27,8 @@ type options struct {
 	// diff, if set, maps absolute paths to the lines a diff touched; only
 	// mutants on those lines run.
 	diff map[string]map[int]bool
+	// noCache disables the per-package verdict cache.
+	noCache bool
 }
 
 // choose returns, in order, the indices of the mutants of the file at path

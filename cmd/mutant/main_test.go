@@ -11,7 +11,13 @@ import (
 // fails against a mutant only once, the way a timing test fails under
 // load, as a kill. Such a kill would hide a gap from -strict.
 func TestRunnerConfirmsKills(t *testing.T) {
-	r := runner(options{all: true}, 2, io.Discard)
+	r := runner(options{all: true, noCache: true}, 2, io.Discard)
+	if r.CacheDir != "" {
+		t.Fatalf("noCache set, got CacheDir=%q", r.CacheDir)
+	}
+	if withCache := runner(options{}, 2, io.Discard); withCache.CacheDir == "" {
+		t.Fatal("default runner should set CacheDir")
+	}
 	m, err := r.Run(t.Context(), "../../killmatrix/testdata", "./flaky")
 	if err != nil {
 		t.Fatal(err)

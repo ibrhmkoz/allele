@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -36,6 +37,8 @@ func main() {
 	base := flag.String("diff", "", "only mutate lines changed since this git revision, working tree included")
 	jobs := flag.Int("j", runtime.NumCPU(), "mutants to run at once")
 	strict := flag.Bool("strict", false, "exit 1 when a mutant survives or is not covered")
+	// CLI flag wiring in main() is not exercised by package unit tests.
+	flag.BoolVar(&o.noCache, "no-cache", false, "ignore and do not update the verdict cache") //mut:ignore
 	verbose := flag.Bool("v", false, "log progress to stderr")
 	asJSON := flag.Bool("json", false, "print one JSON object per mutant, every verdict included, instead of the report")
 	flag.Parse()
@@ -98,6 +101,13 @@ func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON 
 }
 
 func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
+	cacheDir := ""
+	if !o.noCache {
+		// os.UserCacheDir fails only when the environment lacks a cache dir.
+		if dir, err := os.UserCacheDir(); err == nil { //mut:ignore
+			cacheDir = filepath.Join(dir, "mutant")
+		}
+	}
 	return killmatrix.Runner{
 		Workers:      jobs,
 		BaselineRuns: 1,
@@ -106,6 +116,7 @@ func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
 		Select:       true,
 		FailFast:     true,
 		Confirm:      true,
+		CacheDir:     cacheDir,
 		Choose:       func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
 	}
 }
