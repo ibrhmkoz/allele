@@ -53,6 +53,33 @@ selection, `-j 1` and extreme runs), verdicts of three services
   contexts;
 - a place to publish (Zenodo gives a DOI) and a citation.
 
+### Wild-caught mutants: operators from the corpus' own bug fixes
+Invert real fixes into operators (Beller et al., *What it would take to use
+mutation testing in industry*, ICSE SEIP 2021, call them wild-caught
+mutants): a fix that turned `x > n` into `x >= n` yields `>=` → `>`. This
+is not learning from a large corpus; it needs only the fix pairs §10
+already holds.
+
+The 12 real faults of §10 that no mutant on the fix's lines stands for say
+which operators to try. Their fixes (2026-11-23):
+
+| Pattern | Faults | Example fix | Inverse operator |
+|---|---:|---|---|
+| String or regexp literal | 6 | `\s*-\s*` → `\s+-\s+`; a space added to a `Sprintf` format | change a character, class or quantifier inside a literal |
+| Defensive copy | 2 | return a copy of `v.segments`; `new(big.Int).Set(b)` | return the original instead of the copy |
+| Error instead of panic | 1 | `panic(err)` → `return nil, err` | `return ..., err` → `panic(err)` |
+| Larger rewrite or refactor | 3 | | none |
+
+None of these is in `Find` today, so literal mutation comes first.
+
+The trap: operators derived from these 12 faults and measured on the same
+12 prove nothing. Measure on held-out faults: derive from some
+repositories and score the others, or mine more fixes with `cmd/faults`
+from repositories outside the corpus. The question to answer is the one
+§10 asks: does the share of faults coupled to a mutant on the fix's lines
+rise above 74%, and at what cost in mutants (literals are everywhere, so
+expect many, and many equivalent: a regexp's redundant character)?
+
 ### Arid rules: what they miss
 §13: every tagged survivor was unproductive, but 1 of 21 untagged ones was
 too: a mutant in an error message's arguments (`spec[eq+1:i]` quoted in
@@ -110,9 +137,10 @@ Kept so they are not retried without new evidence.
 
 ## Not planned
 
-- Higher-order mutants, learned operators (Facebook's Mutation Monkey,
-  Google's context-based selection): they need far more data than one
-  corpus.
+- Higher-order mutants, operators learned by a model (Facebook's Mutation
+  Monkey, Google's context-based selection): they need far more data than
+  one corpus. Operators inverted from real fixes are a different matter and
+  are open above.
 - A mutation score as the main output: scores correlate weakly with fault
   detection once test-suite size is controlled (Papadakis et al., ICSE
   2018); the survivors' diffs are the product.
