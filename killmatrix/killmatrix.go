@@ -780,14 +780,14 @@ func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int,
 		ctx, cancel = context.WithTimeout(ctx, limit)
 		defer cancel()
 	}
-	cmd := exec.CommandContext(ctx, bin, "-test.run", "^"+top+"$", "-test.count=1", "-test.v=test2json")
+	cmd := command(ctx, bin, "-test.run", "^"+top+"$", "-test.count=1", "-test.v=test2json")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
 	if reach != "" {
 		cmd.Env = append(cmd.Env, mutant.ReachEnvVar+"="+reach)
 	}
 	start := time.Now()
-	out, err := cmd.Output()
+	out, err := output(cmd)
 	return (&report{
 		ok:       err == nil,
 		timedOut: limit > 0 && errors.Is(ctx.Err(), context.DeadlineExceeded),
