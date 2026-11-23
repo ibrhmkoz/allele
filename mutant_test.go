@@ -537,6 +537,45 @@ func init() { ready = true }
 	`)
 }
 
+func TestAridSwitch(t *testing.T) {
+	src := `package p
+
+import "log"
+
+type LeveledLogger interface{ Debug(msg string, args ...any) }
+
+func report(logger any, n int) int {
+	if logger != nil {
+		switch v := logger.(type) {
+		case LeveledLogger:
+			v.Debug("n", "n", n)
+		case *log.Logger:
+			v.Printf("n=%d", n)
+		}
+	}
+	return n
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}, Implicits: map[ast.Node]types.Object{}}
+	if _, err := (&types.Config{Importer: importer.Default()}).Check("p", fset, []*ast.File{f}, info); err != nil {
+		t.Fatal(err)
+	}
+	// A switch whose every case only logs is arid, and so is the if that
+	// guards it: its condition only decides whether to log.
+	xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
+		p.go:8:5 COR logger != nil → true [arid: only arid statements]
+		p.go:8:5 COR logger != nil → false [arid: only arid statements]
+		p.go:8:12 ROR logger != nil → logger == nil [arid: only arid statements]
+		p.go:11:4 SDL v.Debug("n", "n", n) → _ = v [arid: logging]
+		p.go:13:4 SDL v.Printf("n=%d", n) → _ = v [arid: logging]
+	`)
+}
+
 func TestArid(t *testing.T) {
 	src := `package p
 

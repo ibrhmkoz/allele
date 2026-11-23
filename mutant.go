@@ -190,8 +190,30 @@ func (f *finder) aridStmt(s ast.Stmt) string {
 		if f.aridStmt(s.Body) != "" && (s.Else == nil || f.aridStmt(s.Else) != "") {
 			return "only arid statements"
 		}
+	case *ast.SwitchStmt:
+		return f.aridCases(s.Body)
+	case *ast.TypeSwitchStmt:
+		return f.aridCases(s.Body)
 	}
 	return ""
+}
+
+// aridCases returns why a switch is arid: every case does only arid
+// things, such as picking how to log by the logger's type.
+func (f *finder) aridCases(body *ast.BlockStmt) string {
+	n := 0
+	for _, c := range body.List {
+		for _, st := range c.(*ast.CaseClause).Body {
+			if f.aridStmt(st) == "" {
+				return ""
+			}
+			n++
+		}
+	}
+	if n == 0 {
+		return ""
+	}
+	return "only arid statements"
 }
 
 var (
