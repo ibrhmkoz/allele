@@ -15,13 +15,14 @@ import (
 // schemata. Both must print the same: a schema binary that switches a
 // mutant on by its id must behave as the mutant built on its own.
 func TestRun(t *testing.T) {
-	for _, schemata := range []bool{false, true} {
-		t.Run(fmt.Sprintf("schemata=%v", schemata), func(t *testing.T) {
+	for _, mode := range []struct{ schemata, sel bool }{{false, false}, {true, false}, {true, true}} {
+		schemata := mode.schemata
+		t.Run(fmt.Sprintf("schemata=%v,select=%v", mode.schemata, mode.sel), func(t *testing.T) {
 			t.Parallel()
 			// A full second of pad: under ci load, a fast test's process can
 			// take hundreds of milliseconds to start, and a run that times
 			// out reads T instead of K or a dot.
-			r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: schemata}
+			r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: schemata, Select: mode.sel}
 			m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
 			if err != nil {
 				t.Fatal(err)
@@ -38,6 +39,20 @@ func TestRun(t *testing.T) {
 				}
 			}
 			xtesting.EqualText(t, strings.Join(own, " "), "M22")
+			if !mode.sel {
+				return
+			}
+			// TestCount never calls Last, TestLast never calls Count, and
+			// neither a regular customer nor a cheap order reaches
+			// price - 20, so its 4 AOR mutants run against TestVIPOver100
+			// alone.
+			skipped := map[string]int{}
+			for _, res := range m.Results {
+				if res.Skipped {
+					skipped[m.Tests[res.TestID-1].Name]++
+				}
+			}
+			xtesting.EqualText(t, fmt.Sprint(skipped), "map[TestCount:1 TestLast:8 TestRegularOver100:4 TestVIPUnder100:4]")
 		})
 	}
 }

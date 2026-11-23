@@ -14,6 +14,11 @@ import (
 // program built from Embed runs; unset or 0 runs none.
 const EnvVar = "GOMUTANT"
 
+// ReachEnvVar names the environment variable that, set to a file, makes a
+// program built from Embed append to it the id of every mutant whose site
+// runs, one per line: a test that never reaches a mutant cannot kill it.
+const ReachEnvVar = "GOMUTANT_REACH"
+
 // Embed returns file's source with its mutants built in, each switched on
 // at run time by its id in EnvVar (mutant schemata: Untch, Offutt and
 // Harrold, ISSTA 1993). One build then serves every mutant.
@@ -224,7 +229,11 @@ func (e *embedder) idArray(s *site, ops []token.Token) string {
 func (e *embedder) opAssign(n *ast.AssignStmt, s *site) string {
 	l, r := e.text(e.spanOf(n.Lhs[0])), e.text(e.spanOf(n.Rhs[0]))
 	var b strings.Builder
-	b.WriteString("switch _mutActive {")
+	ids := make([]string, len(s.alts))
+	for i, a := range s.alts {
+		ids[i] = fmt.Sprint(a.id)
+	}
+	fmt.Fprintf(&b, "switch _mutAt(%s) {", strings.Join(ids, ", "))
 	for _, a := range s.alts {
 		fmt.Fprintf(&b, " case %d: %s %s %s;", a.id, l, a.to, r)
 	}
@@ -406,6 +415,7 @@ import (
 	"cmp"
 	"os"
 	"strconv"
+	"sync"
 )
 
 var _mutActive = func() int { n, _ := strconv.Atoi(os.Getenv("` + EnvVar + `")); return n }()
@@ -427,7 +437,51 @@ const (
 	_mutREM
 )
 
-func _mutOn(id int) bool { return id != 0 && _mutActive == id }
+// _mutReach, when $` + ReachEnvVar + ` names a file, receives the id of each mutant
+// whose site runs, once, as it first runs: a test binary ends in os.Exit,
+// so nothing written later would land.
+var _mutReach = func() *os.File {
+	path := os.Getenv("` + ReachEnvVar + `")
+	if path == "" {
+		return nil
+	}
+	f, _ := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
+	return f
+}()
+
+var _mutSeen sync.Map
+
+func _mutMark(id int) {
+	if _mutReach == nil || id == 0 {
+		return
+	}
+	if _, seen := _mutSeen.LoadOrStore(id, true); !seen {
+		_, _ = _mutReach.Write(strconv.AppendInt(nil, int64(id), 10))
+		_, _ = _mutReach.Write([]byte("\n"))
+	}
+}
+
+func _mutMarkAll(ids []int) {
+	if _mutReach != nil {
+		for _, id := range ids {
+			_mutMark(id)
+		}
+	}
+}
+
+func _mutIs(id int) bool { return id != 0 && _mutActive == id }
+
+// _mutOn guards a deletable statement.
+func _mutOn(id int) bool {
+	_mutMark(id)
+	return _mutIs(id)
+}
+
+// _mutAt returns the active mutant for an op-assignment's switch.
+func _mutAt(ids ...int) int {
+	_mutMarkAll(ids)
+	return _mutActive
+}
 
 // _mutPick returns the operator the active mutant puts in place of op:
 // ids[alt] is the id of the mutant that uses alt.
@@ -443,6 +497,7 @@ func _mutPick(op int, ids []int) int {
 }
 
 func _mutOrd[T cmp.Ordered](x, y T, op int, ids [6]int) bool {
+	_mutMarkAll(ids[:])
 	switch _mutPick(op, ids[:]) {
 	case _mutLSS:
 		return x < y
@@ -474,6 +529,7 @@ type _mutFloat interface {
 }
 
 func _mutArith[T _mutInteger](x, y T, op int, ids [5]int) T {
+	_mutMarkAll(ids[:])
 	switch _mutPick(op, ids[:]) {
 	case _mutADD:
 		return x + y
@@ -488,6 +544,7 @@ func _mutArith[T _mutInteger](x, y T, op int, ids [5]int) T {
 }
 
 func _mutArithF[T _mutFloat](x, y T, op int, ids [5]int) T {
+	_mutMarkAll(ids[:])
 	switch _mutPick(op, ids[:]) {
 	case _mutADD:
 		return x + y
@@ -514,10 +571,12 @@ func _mutOr(x bool, y func() bool, id int) bool {
 }
 
 func _mutCond(c func() bool, t, f int) bool {
+	_mutMark(t)
+	_mutMark(f)
 	switch {
-	case _mutOn(t):
+	case _mutIs(t):
 		return true
-	case _mutOn(f):
+	case _mutIs(f):
 		return false
 	}
 	return c()

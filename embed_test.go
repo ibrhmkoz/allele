@@ -102,7 +102,7 @@ func parse(xs []string) (int, error) {
 						if _mutCond(func() bool { return _mutNot(err != nil, 3) }, 1, 2) {
 							return 0, _mutErr(err, 4)
 						}
-						if !_mutOn(5) { switch _mutActive { case 6: total -= n; case 7: total *= n; case 8: total /= n; case 9: total %= n; default: total += n } }
+						if !_mutOn(5) { switch _mutAt(6, 7, 8, 9) { case 6: total -= n; case 7: total *= n; case 8: total /= n; case 9: total %= n; default: total += n } }
 					}
 					return total, nil
 				}

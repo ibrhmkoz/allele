@@ -107,6 +107,9 @@ type Result struct {
 	TestID   int     `json:"test_id"`
 	Status   Status  `json:"status"`
 	MS       float64 `json:"ms"`
+	// Skipped is set when the test did not run: in the baseline, its
+	// top-level test never reached the mutant's site, so it survives.
+	Skipped bool `json:"skipped,omitempty"`
 }
 
 // Runner computes kill matrices. The zero value is ready to use.
@@ -126,6 +129,9 @@ type Runner struct {
 	// Schemata builds each package once with every mutant it can embed
 	// (mutant.Embed) and picks one per run; the rest build on their own.
 	Schemata bool
+	// Select, with Schemata, runs a top-level test against a mutant only
+	// if the test reached the mutant's site in the baseline.
+	Select bool
 }
 
 // Run computes the kill matrix of the packages that patterns match in dir.
@@ -249,8 +255,20 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		return err
 	}
 	firstTest := len(m.Tests)
-	for _, top := range tops {
-		for _, t := range r.baseline(ctx, dir, bin, pkg.PkgPath, top) {
+	var reached map[string]map[int]bool // top-level test → ids of mutants it reached
+	if schema != "" && r.Select {
+		reached = map[string]map[int]bool{}
+	}
+	for i, top := range tops {
+		reach := ""
+		if reached != nil {
+			reach = filepath.Join(tmp, fmt.Sprintf("%s.reach%d", strings.ReplaceAll(pkg.PkgPath, "/", "_"), i))
+		}
+		tests, ids := r.baseline(ctx, dir, bin, pkg.PkgPath, top, reach)
+		if reached != nil {
+			reached[top] = ids
+		}
+		for _, t := range tests {
 			t.ID = len(m.Tests) + 1
 			m.Tests = append(m.Tests, t)
 		}
@@ -266,7 +284,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		wg.Go(func() {
 			for i := range jobs {
 				if mutants[i].Schema {
-					results[i], errs[i] = r.runTests(ctx, dir, schema, &mutants[i], tests)
+					results[i], errs[i] = r.runTests(ctx, dir, schema, &mutants[i], tests, reached)
 					continue
 				}
 				results[i], errs[i] = r.runMutant(ctx, dir, tmp, &mutants[i], tests)
@@ -398,7 +416,10 @@ func compileErrors(out []byte) []position {
 
 // runTests runs every test against mu in bin: a build of mu alone, or a
 // schema binary that switches mu on by its id.
-func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests []Test) ([]Result, error) {
+//
+// With reached, a top-level test that never reached mu in the baseline does
+// not run; its leaves survive, since code that never runs cannot fail them.
+func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests []Test, reached map[string]map[int]bool) ([]Result, error) {
 	var results []Result
 	var rep report
 	ran := "" // the top-level test rep is from
@@ -406,9 +427,13 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		if t.State != OK {
 			continue
 		}
+		if reached != nil && !reached[topOf(t.Name)][mu.ID] {
+			results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
+			continue
+		}
 		if top := topOf(t.Name); top != ran {
 			limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-			rep, ran = run(ctx, dir, bin, top, limit, mu.ID), top
+			rep, ran = run(ctx, dir, bin, top, limit, mu.ID, ""), top
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
@@ -422,12 +447,15 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 // baseline runs a top-level test BaselineRuns times on the unmutated
 // package and returns its leaves. A leaf that fails or is missing in some
 // runs is flaky; one that never passes is failing.
-func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top string) []Test {
+//
+// With reach, a file for a schema binary to record into, it also returns
+// the ids of the mutants whose sites the test reached in any run.
+func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top, reach string) ([]Test, map[int]bool) {
 	var times []time.Duration
 	var reports []report
 	var names []string
 	for range r.BaselineRuns {
-		rep := run(ctx, dir, bin, top, 0, 0)
+		rep := run(ctx, dir, bin, top, 0, 0, reach)
 		times = append(times, rep.elapsed)
 		reports = append(reports, rep)
 		for _, name := range rep.order {
@@ -464,7 +492,17 @@ func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top string) []Test 
 		}
 		tests = append(tests, Test{Pkg: pkg, Name: leaf, BaselineMS: ms(times[len(times)/2]), State: state})
 	}
-	return tests
+	if reach == "" {
+		return tests, nil
+	}
+	ids := map[int]bool{}
+	data, _ := os.ReadFile(reach) // absent when the test reached no site
+	for f := range strings.FieldsSeq(string(data)) {
+		if id, err := strconv.Atoi(f); err == nil {
+			ids[id] = true
+		}
+	}
+	return tests, ids
 }
 
 func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, tests []Test) ([]Result, error) {
@@ -504,7 +542,7 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 		r.logf("M%d build error\n", mu.ID)
 		return nil, nil
 	}
-	return r.runTests(ctx, dir, bin, mu, tests)
+	return r.runTests(ctx, dir, bin, mu, tests, nil)
 }
 
 // build compiles the test binary of the package in dir into bin, with the
@@ -539,8 +577,9 @@ func list(ctx context.Context, dir, bin string) ([]string, error) {
 }
 
 // run runs one top-level test of bin in dir with mutant id switched on, if
-// bin is a schema binary. A limit of 0 means no limit.
-func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int) report {
+// bin is a schema binary, recording the sites it reaches into reach if
+// set. A limit of 0 means no limit.
+func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int, reach string) report {
 	if limit > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, limit)
@@ -549,6 +588,9 @@ func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int)
 	cmd := exec.CommandContext(ctx, bin, "-test.run", "^"+top+"$", "-test.count=1", "-test.v=test2json")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
+	if reach != "" {
+		cmd.Env = append(cmd.Env, mutant.ReachEnvVar+"="+reach)
+	}
 	start := time.Now()
 	out, err := cmd.Output()
 	return (&report{

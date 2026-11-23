@@ -6,6 +6,7 @@
 #   mutant/docs/corpus.sh semver shlex        some
 #   JOBS=1 OUT=mutant/docs/data-j1 mutant/docs/corpus.sh go-version
 #   SCHEMATA=1 OUT=mutant/docs/data-schemata mutant/docs/corpus.sh
+#   SCHEMATA=1 SELECT=1 OUT=mutant/docs/data-select mutant/docs/corpus.sh
 #
 # Picked for fast, hermetic tests (no network, database or Docker) and pure
 # logic: parsers, formatters, encoders. Each takes 1-5 minutes with -j 8.
@@ -42,6 +43,6 @@ echo "$corpus" | while read -r name url commit; do
 	out="$out_root/$name"
 	rm -rf "$out"
 	echo "$name: computing kill matrix" >&2
-	(cd "$src" && "$bin" -j "$jobs" ${SCHEMATA:+-schemata} -o "$out" ./... > /dev/null)
+	(cd "$src" && "$bin" -j "$jobs" ${SCHEMATA:+-schemata} ${SELECT:+-select} -o "$out" ./... > /dev/null)
 	gzip -9 "$out"/*.ndjson
 done
