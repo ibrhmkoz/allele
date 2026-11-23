@@ -982,6 +982,95 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
+def _(alt, db, mo, pd, title):
+    _dir = mo.notebook_dir() / "data-fast-failfast"
+    _t = db.sql(f"select * from read_json_auto('{_dir}/timings.ndjson')").df()
+    _agg = _t.groupby(["cmd", "repo", "mode"], as_index=False).agg(
+        med=("wall_s", "median"),
+        lo=("wall_s", "min"),
+        hi=("wall_s", "max"),
+    )
+    _all = _agg[_agg.cmd == "killmatrix_all"].copy()
+    _order = _all[_all.mode == "before"].sort_values("med", ascending=False).repo.tolist()
+    _bars = (
+        alt.Chart(_all)
+        .mark_bar()
+        .encode(
+            x=alt.X("med:Q", title="median wall seconds over 3 interleaved runs (-j 8)"),
+            y=alt.Y("repo:N", sort=_order, title=None),
+            yOffset=alt.YOffset("mode:N", sort=["before", "after"]),
+            color=alt.Color(
+                "mode:N",
+                scale=alt.Scale(domain=["before", "after"], range=["#bab0ac", "#4c78a8"]),
+                title=None,
+                legend=alt.Legend(orient="top"),
+            ),
+            tooltip=["repo", "mode", alt.Tooltip("med:Q", format=".2f"), alt.Tooltip("lo:Q", format=".2f"), alt.Tooltip("hi:Q", format=".2f")],
+        )
+    )
+    _err = (
+        alt.Chart(_all)
+        .mark_rule(color="black", strokeWidth=1.5)
+        .encode(
+            x="lo:Q",
+            x2="hi:Q",
+            y=alt.Y("repo:N", sort=_order),
+            yOffset=alt.YOffset("mode:N", sort=["before", "after"]),
+        )
+    )
+    _tot = _all.groupby("mode").med.sum()
+    _def = _agg[_agg.cmd == "mutant_default"].groupby("mode").med.sum()
+    _sem = _all[_all.repo == "semver"].set_index("mode").med
+    _chart = (_bars + _err).properties(
+        width=540,
+        height=240,
+        title=title(
+            f"Batching fast tests + online p/t ordering cuts FailFast wall time {_tot['before']:.0f} → {_tot['after']:.0f} s ({_tot['before'] / _tot['after']:.2f}×); semver {_sem['before']:.1f} → {_sem['after']:.1f} s ({_sem['before'] / _sem['after']:.1f}×)",
+            "All mutants (killmatrix -schemata -select -failfast -j 8), 3 interleaved rounds; whiskers show min–max. Remaining time in go-version and glob is dominated by repeated timeouts.",
+        ),
+    )
+    _v = db.sql(f"""
+        with ff as (
+            select split_part(parse_path(filename)[-2], '/', 1) repo, id, compiled
+            from read_json_auto('{_dir}/*/mutants.ndjson.gz', filename=true)
+        ),
+        ff_res as (
+            select split_part(parse_path(filename)[-2], '/', 1) repo, mutant_id id,
+                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce(skipped, false)) ran
+            from read_json_auto('{_dir}/*/results.ndjson.gz', filename=true) group by all
+        ),
+        sel_res as (
+            select repo, mutant_id id,
+                bool_or(status = 'killed') k, bool_or(status = 'timeout') tmo, bool_or(not coalesce(skipped, false)) ran
+            from sel_results group by all
+        ),
+        both as (
+            select m.repo, m.id,
+                case when not m.compiled then 'build error' when f.k then 'killed' when f.tmo then 'timeout' when f.ran then 'survived' else 'not covered' end ff_v,
+                case when not m.compiled then 'build error' when s.k then 'killed' when s.tmo then 'timeout' when s.ran then 'survived' else 'not covered' end sel_v
+            from ff m left join ff_res f using (repo, id) left join sel_res s using (repo, id)
+        )
+        select count(*) total,
+            count(*) filter (where ff_v <> sel_v) differ,
+            count(*) filter (where ff_v = 'timeout' and sel_v in ('killed', 'survived')) false_tmo
+        from both
+    """).fetchall()[0]
+    mo.vstack(
+        [
+            mo.md("## 15. Does batching fast tests and online ordering speed up FailFast?"),
+            _chart,
+            mo.md(rf"""
+            - **Change:** in `FailFast` mode, fast top-level tests (`baseline_ms < 50 ms`) run in batches of up to 32 via `-test.run "^(T1|…|Tk)$" -test.failfast`, with batch timeout `max(baseline_ms) × factor + pad` (amortizing Go binary startup). Tests are ordered site-reached first, then by online hierarchical Bayes `kill_rate / baseline_ms` (Smith's rule / FaMT). Slow tests (`≥ 50 ms`) still run alone.
+            - **Speed (3 interleaved rounds at `-j 8`):** all mutants `{_tot['before']:.1f} → {_tot['after']:.1f} s` (`{_tot['before'] / _tot['after']:.2f}×`); default `mutant ./...` `{_def['before']:.1f} → {_def['after']:.1f} s` (`{_def['before'] / _def['after']:.2f}×`). Where timeouts are absent (`semver`), wall time drops `{_sem['before']:.1f} → {_sem['after']:.1f} s` (`{_sem['before'] / _sem['after']:.1f}×`).
+            - **Why `go-version` and `glob` barely move:** in `go-version`, a single infinite-loop mutant times out on 32 tests in a row (`32.6 s` of the `33.6 s` wall time on one worker); in `glob`, 79 timed-out mutants burn `165.7 CPU-s` (`82.5 CPU-s` on 2nd+ timeouts).
+            - **Fidelity vs `data-select/`:** {_v[0] - _v[1]:,} of {_v[0]:,} mutants match identically; **{_v[2]} false timeouts** (mutants that timed out in a batch yet passed or died when run alone). The {_v[1]} differing verdicts are all in `uuid` (2 on §7's clock-dependent `TestVersion7Monotonicity`, 2 from package-global state shared across tests in one process, matching `go test ./...`).
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
