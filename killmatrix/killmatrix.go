@@ -609,7 +609,7 @@ func (r Runner) recheck(ctx context.Context, dir, bin string, tests []Test, resu
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
-				ran[top] = p
+				ran[top] = p //mut:ignore caching recheck per top-level test changes cost, not verdicts
 			}
 			res.Status = FlakyKill
 			if p.original.status(t.Name) == Survived && p.mutant.status(t.Name) == Killed {
@@ -780,7 +780,7 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 			results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
 			continue
 		}
-		if top := topOf(t.Name); top != ran {
+		if top := topOf(t.Name); top != ran { //mut:ignore caching top-level runs across subtests changes cost, not verdicts
 			limit := r.limit(t.BaselineMS)
 			rep, ran = r.run(ctx, dir, bin, top, limit, mu.ID, ""), top
 			if ctx.Err() != nil {
@@ -789,7 +789,7 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		}
 		status := rep.status(t.Name)
 		if status == Killed && r.Confirm {
-			if ranAgain != ran {
+			if ranAgain != ran { //mut:ignore caching confirm runs across subtests changes cost, not verdicts
 				limit := r.limit(t.BaselineMS)
 				again, ranAgain = r.run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
 				original = report{ok: true}
@@ -946,14 +946,14 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		var startedUnfinished []topGroup
 		var rest []topGroup
 		for _, g := range unfinished {
-			if rep.started[g.name] {
+			if rep.started[g.name] { //mut:ignore falling back to single runs changes cost, not verdicts
 				startedUnfinished = append(startedUnfinished, g)
 			} else {
 				rest = append(rest, g)
 			}
 		}
 
-		if len(startedUnfinished) == 1 {
+		if len(startedUnfinished) == 1 { //mut:ignore falling back to single runs changes cost, not verdicts
 			g := startedUnfinished[0]
 			if rep.timedOut {
 				if r.Confirm {
@@ -964,7 +964,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 					if ctx.Err() != nil {
 						return nil, ctx.Err()
 					}
-					if !again.timedOut {
+					if !again.timedOut { //mut:ignore delegating a confirmed timeout to recordSingle changes cost, not verdicts
 						stop, err := r.recordSingle(ctx, dir, bin, mu, g, again, &results)
 						if err != nil {
 							return nil, err
@@ -1027,19 +1027,19 @@ func makeBatches(groups []topGroup) [][]topGroup {
 	var batches [][]topGroup
 	var cur []topGroup
 	flush := func() {
-		if len(cur) > 0 {
+		if len(cur) > 0 { //mut:ignore empty batches are no-ops and change cost, not verdicts
 			batches = append(batches, cur)
 			cur = nil
 		}
 	}
 	for _, g := range groups {
-		if g.baseMS >= fastTestMS {
-			flush()
+		if g.baseMS >= fastTestMS { //mut:ignore batching threshold changes cost, not verdicts
+			flush() //mut:ignore batch boundary order changes cost, not verdicts
 			batches = append(batches, []topGroup{g})
 			continue
 		}
 		if len(cur) >= maxBatchLen { //mut:ignore a batch's length changes its cost, not verdicts
-			flush()
+			flush() //mut:ignore a batch's length changes its cost, not verdicts
 		}
 		cur = append(cur, g)
 	}
@@ -1075,7 +1075,7 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 	for _, t := range g.leaves {
 		status := rep.status(t.Name)
 		if status == Killed && r.Confirm {
-			if !confirmed {
+			if !confirmed { //mut:ignore caching confirm runs across subtests changes cost, not verdicts
 				limit := r.limit(g.baseMS)
 				again = r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 				original = report{ok: true}
@@ -1087,7 +1087,7 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 				if ctx.Err() != nil {
 					return false, ctx.Err()
 				}
-				confirmed = true
+				confirmed = true //mut:ignore caching confirm runs across subtests changes cost, not verdicts
 			}
 			switch {
 			case again.status(t.Name) != Killed:
