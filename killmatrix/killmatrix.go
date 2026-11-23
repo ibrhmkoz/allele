@@ -104,7 +104,8 @@ const (
 	// still be equivalent.
 	Timeout Status = "timeout"
 	// FlakyKill, with Confirm, is a test that failed against the mutant
-	// and then passed when run again. It is not a kill.
+	// but passed when run against it again, or failed against the
+	// original code too. It is not a kill.
 	FlakyKill Status = "flaky"
 )
 
@@ -186,10 +187,12 @@ type Runner struct {
 	// trying the fastest top-level tests first. The matrix then holds only
 	// the runs made: enough for Verdict, not for adequacy.
 	FailFast bool
-	// Confirm runs a top-level test again when it fails against a mutant,
-	// and counts a leaf as killed only if it fails both times. Timing
-	// tests fail now and then under load; a kill they invent hides a
-	// mutant no test catches.
+	// Confirm runs a top-level test again when it fails against a mutant
+	// and, in a schema binary, once against the original code. A leaf
+	// counts as killed only if it fails against the mutant both times and
+	// passes against the original: timing tests fail under load, often
+	// several times in a row, and a kill they invent hides a mutant no
+	// test catches.
 	Confirm bool
 	// Extreme takes the mutants from mutant.Extreme, one per function,
 	// instead of mutant.Find. Embed takes only Find's, so each builds on
@@ -548,8 +551,8 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		slices.SortStableFunc(tests, func(a, b Test) int { return cmp.Compare(a.BaselineMS, b.BaselineMS) })
 	}
 	var results []Result
-	var rep, again report
-	ran, ranAgain := "", "" // the top-level tests rep and again are from
+	var rep, again, original report
+	ran, ranAgain := "", "" // the top-level tests rep, and again and original, are from
 	killed := false
 	for _, t := range tests {
 		if t.State != OK {
@@ -576,11 +579,15 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 			if ranAgain != ran {
 				limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
 				again, ranAgain = run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
+				original = report{ok: true}
+				if mu.Schema {
+					original = run(ctx, dir, bin, ran, limit, 0, "")
+				}
 				if ctx.Err() != nil {
 					return nil, ctx.Err()
 				}
 			}
-			if again.status(t.Name) != Killed {
+			if again.status(t.Name) != Killed || original.status(t.Name) != Survived {
 				status = FlakyKill
 			}
 		}

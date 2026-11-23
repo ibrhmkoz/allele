@@ -266,3 +266,28 @@ func TestConfirm(t *testing.T) {
 		}
 	}
 }
+
+// TestConfirmUnderLoad runs a test that, after a mutant breaks it, fails
+// against that mutant again and then against the original code too: the
+// failure belongs to the machine, not the mutant, so it is no kill.
+func TestConfirmUnderLoad(t *testing.T) {
+	t.Parallel()
+	r := killmatrix.Runner{Workers: 1, TimeoutPad: time.Second, Schemata: true, Confirm: true}
+	m, err := r.Run(t.Context(), "testdata", "./load")
+	if err != nil {
+		t.Fatal(err)
+	}
+	xtesting.Prints(t, m, `
+		fixture/load
+		  T1 TestPick
+
+		     T1
+		  M1 .   load.go:8:5 COR n > 0 → true
+		  M2 F   load.go:8:5 COR n > 0 → false
+		  M3 F   load.go:8:7 ROR n > 0 → n < 0
+		  M4 F   load.go:8:7 ROR n > 0 → n <= 0
+		  M5 .   load.go:8:7 ROR n > 0 → n >= 0
+		  M6 F   load.go:8:7 ROR n > 0 → n == 0
+		  M7 .   load.go:8:7 ROR n > 0 → n != 0
+	`)
+}
