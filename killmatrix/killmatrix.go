@@ -14,11 +14,14 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/version"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,10 +52,14 @@ type Mutant struct {
 	Original string          `json:"original"`
 	Mutated  string          `json:"mutated"`
 	// Equivalent and Repaired are as in mutant.Mutant.
-	Equivalent string  `json:"equivalent"`
-	Repaired   bool    `json:"repaired"`
-	Compiled   bool    `json:"compiled"`
-	BuildMS    float64 `json:"build_ms"`
+	Equivalent string `json:"equivalent"`
+	Repaired   bool   `json:"repaired"`
+	Compiled   bool   `json:"compiled"`
+	// Schema is set when the mutant ran in its package's schema binary
+	// rather than in a build of its own; BuildMS is then its share of the
+	// schema build.
+	Schema  bool    `json:"schema"`
+	BuildMS float64 `json:"build_ms"`
 
 	m mutant.Mutant
 }
@@ -116,6 +123,9 @@ type Runner struct {
 	Workers int
 	// Log, if set, receives a line per package and per mutant.
 	Log io.Writer
+	// Schemata builds each package once with every mutant it can embed
+	// (mutant.Embed) and picks one per run; the rest build on their own.
+	Schemata bool
 }
 
 // Run computes the kill matrix of the packages that patterns match in dir.
@@ -124,7 +134,7 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 	cfg := &packages.Config{
 		Context: ctx,
 		Dir:     dir,
-		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
+		Mode:    packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedModule,
 	}
 	pkgs, err := packages.Load(cfg, patterns...)
 	if err != nil {
@@ -169,34 +179,22 @@ func (r Runner) withDefaults() Runner {
 	return r
 }
 
+// source is a Go file of a package and the mutants Find returned for it.
+type source struct {
+	name    string
+	src     []byte
+	file    *ast.File
+	mutants []int // indices into the package's mutants
+}
+
 func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package, tmp string) error {
 	if len(pkg.GoFiles) == 0 {
 		return nil
 	}
 	dir := filepath.Dir(pkg.GoFiles[0])
-	bin := filepath.Join(tmp, strings.ReplaceAll(pkg.PkgPath, "/", "_")+".test")
-	if out, err := build(ctx, dir, bin, ""); err != nil {
-		return fmt.Errorf("baseline build: %w\n%s", err, out)
-	}
-	if _, err := os.Stat(bin); errors.Is(err, os.ErrNotExist) {
-		return nil // no test files
-	}
-
-	tops, err := list(ctx, dir, bin)
-	if err != nil {
-		return err
-	}
-	firstTest := len(m.Tests)
-	for _, top := range tops {
-		for _, t := range r.baseline(ctx, dir, bin, pkg.PkgPath, top) {
-			t.ID = len(m.Tests) + 1
-			m.Tests = append(m.Tests, t)
-		}
-	}
-	tests := m.Tests[firstTest:]
-	r.logf("%s: %d top-level tests, %d leaves\n", pkg.PkgPath, len(tops), len(tests))
 
 	firstMutant := len(m.Mutants)
+	var sources []source
 	for _, f := range pkg.Syntax {
 		name := pkg.Fset.File(f.Pos()).Name()
 		if ast.IsGenerated(f) || !slices.Contains(pkg.GoFiles, name) {
@@ -206,7 +204,9 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		if err != nil {
 			return err
 		}
+		s := source{name: name, src: src, file: f}
 		for _, mu := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
+			s.mutants = append(s.mutants, len(m.Mutants)-firstMutant)
 			m.Mutants = append(m.Mutants, Mutant{
 				ID:         len(m.Mutants) + 1,
 				Pkg:        pkg.PkgPath,
@@ -222,9 +222,41 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 				m:          mu,
 			})
 		}
+		sources = append(sources, s)
 	}
 	mutants := m.Mutants[firstMutant:]
-	r.logf("%s: %d mutants\n", pkg.PkgPath, len(mutants))
+
+	bin := filepath.Join(tmp, strings.ReplaceAll(pkg.PkgPath, "/", "_")+".test")
+	schema := ""
+	if r.Schemata && len(mutants) > 0 {
+		var err error
+		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants); err != nil {
+			return err
+		}
+	}
+	if schema != "" {
+		bin = schema // the baseline runs in it too, with no mutant on
+	} else if out, err := build(ctx, dir, bin, ""); err != nil {
+		return fmt.Errorf("baseline build: %w\n%s", err, out)
+	}
+	if _, err := os.Stat(bin); errors.Is(err, os.ErrNotExist) {
+		m.Mutants = m.Mutants[:firstMutant]
+		return nil // no test files
+	}
+
+	tops, err := list(ctx, dir, bin)
+	if err != nil {
+		return err
+	}
+	firstTest := len(m.Tests)
+	for _, top := range tops {
+		for _, t := range r.baseline(ctx, dir, bin, pkg.PkgPath, top) {
+			t.ID = len(m.Tests) + 1
+			m.Tests = append(m.Tests, t)
+		}
+	}
+	tests := m.Tests[firstTest:]
+	r.logf("%s: %d top-level tests, %d leaves, %d mutants\n", pkg.PkgPath, len(tops), len(tests), len(mutants))
 
 	results := make([][]Result, len(mutants))
 	errs := make([]error, len(mutants))
@@ -233,6 +265,10 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	for range r.Workers {
 		wg.Go(func() {
 			for i := range jobs {
+				if mutants[i].Schema {
+					results[i], errs[i] = r.runTests(ctx, dir, schema, &mutants[i], tests)
+					continue
+				}
 				results[i], errs[i] = r.runMutant(ctx, dir, tmp, &mutants[i], tests)
 			}
 		})
@@ -251,6 +287,138 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	return nil
 }
 
+// buildSchema builds pkg's test binary with every mutant it can embed and
+// marks those mutants Schema. A compile error drops the mutants on the
+// lines it names and the build is tried again; when that stops helping,
+// it returns "" and every mutant builds on its own.
+func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp string, sources []source, mutants []Mutant) (string, error) {
+	work := filepath.Join(tmp, strings.ReplaceAll(pkg.PkgPath, "/", "_")+".schema")
+	if err := os.MkdirAll(work, 0o700); err != nil {
+		return "", err
+	}
+	// Embed's helpers are generic; a file older than Go 1.18 cannot call them.
+	old := pkg.Module == nil || pkg.Module.GoVersion == "" || version.Compare("go"+pkg.Module.GoVersion, "go1.21") < 0
+	dropped := map[int]bool{}
+	start := time.Now()
+	for attempt := 1; ; attempt++ {
+		replace := map[string]string{}
+		for _, s := range sources {
+			ids := make([]int, len(s.mutants))
+			for j, k := range s.mutants {
+				if !dropped[k] {
+					ids[j] = mutants[k].ID
+				}
+			}
+			out, in := mutant.Embed(pkg.Fset, s.file, s.src, pkg.TypesInfo, ids)
+			changed := false
+			for j, k := range s.mutants {
+				mutants[k].Schema = in[j]
+				changed = changed || in[j]
+			}
+			if !changed {
+				continue
+			}
+			if old {
+				out = mutant.WithGo121(out, s.name)
+			}
+			path := filepath.Join(work, filepath.Base(s.name))
+			if err := os.WriteFile(path, out, 0o600); err != nil {
+				return "", err
+			}
+			replace[s.name] = path
+		}
+		rt := filepath.Join(work, "zz_mutant_runtime.go")
+		if err := os.WriteFile(rt, mutant.Runtime(pkg.Name), 0o600); err != nil {
+			return "", err
+		}
+		replace[filepath.Join(dir, "zz_mutant_runtime.go")] = rt
+		overlay, err := json.Marshal(map[string]map[string]string{"Replace": replace})
+		if err != nil {
+			return "", err
+		}
+		overlayFile := filepath.Join(work, "overlay.json")
+		if err := os.WriteFile(overlayFile, overlay, 0o600); err != nil {
+			return "", err
+		}
+		bin := filepath.Join(work, "schema.test")
+		out, err := build(ctx, dir, bin, overlayFile)
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		if err == nil {
+			n := 0
+			for _, mu := range mutants {
+				if mu.Schema {
+					n++
+				}
+			}
+			share := ms(time.Since(start)) / float64(max(n, 1))
+			for i := range mutants {
+				if mutants[i].Schema {
+					mutants[i].Compiled, mutants[i].BuildMS = true, share
+				}
+			}
+			r.logf("%s: schema of %d mutants built in %d attempt(s)\n", pkg.PkgPath, n, attempt)
+			return bin, nil
+		}
+		more := false
+		for _, at := range compileErrors(out) {
+			for k, mu := range mutants {
+				if mu.Schema && mu.File == at.file && mu.Line == at.line && !dropped[k] {
+					dropped[k], more = true, true
+				}
+			}
+		}
+		if !more || attempt == 5 {
+			r.logf("%s: schema build failed, building each mutant on its own:\n%s\n", pkg.PkgPath, out)
+			for i := range mutants {
+				mutants[i].Schema = false
+			}
+			return "", nil
+		}
+	}
+}
+
+type position struct {
+	file string
+	line int
+}
+
+var compileError = regexp.MustCompile(`(?m)^(?:.*/)?([^/:\s]+\.go):(\d+):\d+: `)
+
+// compileErrors returns the files and lines go build reports errors at.
+func compileErrors(out []byte) []position {
+	var at []position
+	for _, m := range compileError.FindAllSubmatch(out, -1) {
+		line, _ := strconv.Atoi(string(m[2]))
+		at = append(at, position{string(m[1]), line})
+	}
+	return at
+}
+
+// runTests runs every test against mu in bin: a build of mu alone, or a
+// schema binary that switches mu on by its id.
+func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests []Test) ([]Result, error) {
+	var results []Result
+	var rep report
+	ran := "" // the top-level test rep is from
+	for _, t := range tests {
+		if t.State != OK {
+			continue
+		}
+		if top := topOf(t.Name); top != ran {
+			limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+			rep, ran = run(ctx, dir, bin, top, limit, mu.ID), top
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+		}
+		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: rep.status(t.Name), MS: ms(rep.elapsed)})
+	}
+	r.logf("M%d done\n", mu.ID)
+	return results, nil
+}
+
 // baseline runs a top-level test BaselineRuns times on the unmutated
 // package and returns its leaves. A leaf that fails or is missing in some
 // runs is flaky; one that never passes is failing.
@@ -259,7 +427,7 @@ func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top string) []Test 
 	var reports []report
 	var names []string
 	for range r.BaselineRuns {
-		rep := run(ctx, dir, bin, top, 0)
+		rep := run(ctx, dir, bin, top, 0, 0)
 		times = append(times, rep.elapsed)
 		reports = append(reports, rep)
 		for _, name := range rep.order {
@@ -336,25 +504,7 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 		r.logf("M%d build error\n", mu.ID)
 		return nil, nil
 	}
-
-	var results []Result
-	var rep report
-	ran := "" // the top-level test rep is from
-	for _, t := range tests {
-		if t.State != OK {
-			continue
-		}
-		if top := topOf(t.Name); top != ran {
-			limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
-			rep, ran = run(ctx, dir, bin, top, limit), top
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-		}
-		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: rep.status(t.Name), MS: ms(rep.elapsed)})
-	}
-	r.logf("M%d done\n", mu.ID)
-	return results, nil
+	return r.runTests(ctx, dir, bin, mu, tests)
 }
 
 // build compiles the test binary of the package in dir into bin, with the
@@ -388,8 +538,9 @@ func list(ctx context.Context, dir, bin string) ([]string, error) {
 	return names, nil
 }
 
-// run runs one top-level test of bin in dir. A limit of 0 means no limit.
-func run(ctx context.Context, dir, bin, top string, limit time.Duration) report {
+// run runs one top-level test of bin in dir with mutant id switched on, if
+// bin is a schema binary. A limit of 0 means no limit.
+func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int) report {
 	if limit > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, limit)
@@ -397,6 +548,7 @@ func run(ctx context.Context, dir, bin, top string, limit time.Duration) report 
 	}
 	cmd := exec.CommandContext(ctx, bin, "-test.run", "^"+top+"$", "-test.count=1", "-test.v=test2json")
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
 	start := time.Now()
 	out, err := cmd.Output()
 	return (&report{

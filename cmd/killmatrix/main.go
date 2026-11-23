@@ -24,6 +24,7 @@ func main() {
 	flag.IntVar(&r.BaselineRuns, "runs", 3, "runs per test on the unmutated package, to find flaky tests")
 	flag.Float64Var(&r.TimeoutFactor, "timeout-factor", 3, "a run times out after baseline × factor + pad")
 	flag.DurationVar(&r.TimeoutPad, "timeout-pad", 1e9, "a run times out after baseline × factor + pad")
+	flag.BoolVar(&r.Schemata, "schemata", false, "build each package once with its mutants embedded, switched on per run")
 	flag.Parse()
 	r.Log = os.Stderr
 

@@ -11,18 +11,40 @@ import (
 	"github.com/ibrhmkoz/go-kit/xtesting"
 )
 
+// TestRun computes the fixture's matrix with a build per mutant and with
+// schemata. Both must print the same: a schema binary that switches a
+// mutant on by its id must behave as the mutant built on its own.
 func TestRun(t *testing.T) {
-	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: 300 * time.Millisecond}
-	m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
-	if err != nil {
-		t.Fatal(err)
+	for _, schemata := range []bool{false, true} {
+		t.Run(fmt.Sprintf("schemata=%v", schemata), func(t *testing.T) {
+			t.Parallel()
+			r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: 300 * time.Millisecond, Schemata: schemata}
+			m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
+			if err != nil {
+				t.Fatal(err)
+			}
+			xtesting.Prints(t, m, fixtureMatrix)
+			if !schemata {
+				return
+			}
+			// M22 returns nil as a concrete type; _mutErr returns error.
+			var own []string
+			for _, mu := range m.Mutants {
+				if !mu.Schema {
+					own = append(own, fmt.Sprint("M", mu.ID))
+				}
+			}
+			xtesting.EqualText(t, strings.Join(own, " "), "M22")
+		})
 	}
-	// M5 is the boundary test the suite lacks (price == 100), M18 is
-	// equivalent for n >= 0 and M14 loops forever. M21 would leave x unused,
-	// so it keeps it used with _ = x; M22 returns nil as a concrete type.
-	// Each subtest of TestAbs is a column; where index panics, the subtests
-	// it hides count as killed too (M24, M26-M28).
-	xtesting.Prints(t, m, `
+}
+
+// M5 is the boundary test the suite lacks (price == 100), M18 is
+// equivalent for n >= 0 and M14 loops forever. M21 would leave x unused,
+// so it keeps it used with _ = x; M22 returns nil as a concrete type.
+// Each subtest of TestAbs is a column; where index panics, the subtests
+// it hides count as killed too (M24, M26-M28).
+const fixtureMatrix = `
 		fixture/discount
 		  T1 TestVIPOver100
 		  T2 TestRegularOver100
@@ -73,8 +95,7 @@ func TestRun(t *testing.T) {
 		  M27 K  K  K  K    table.go:6:7 ROR x < 0 → x >= 0
 		  M28 K  K  K  K    table.go:6:7 ROR x < 0 → x == 0
 		  M29 .  .  K  .    table.go:6:7 ROR x < 0 → x != 0
-	`)
-}
+`
 
 // TestUnstableNames checks that a leaf whose name changes between runs is
 // flaky, gets no results, and that no parent test becomes a column.
