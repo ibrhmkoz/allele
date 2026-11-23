@@ -18,7 +18,10 @@ func TestRun(t *testing.T) {
 	for _, schemata := range []bool{false, true} {
 		t.Run(fmt.Sprintf("schemata=%v", schemata), func(t *testing.T) {
 			t.Parallel()
-			r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: 300 * time.Millisecond, Schemata: schemata}
+			// A full second of pad: under ci load, a fast test's process can
+			// take hundreds of milliseconds to start, and a run that times
+			// out reads T instead of K or a dot.
+			r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second, Schemata: schemata}
 			m, err := r.Run(t.Context(), "testdata", "./discount", "./loop", "./table")
 			if err != nil {
 				t.Fatal(err)
@@ -100,7 +103,7 @@ const fixtureMatrix = `
 // TestUnstableNames checks that a leaf whose name changes between runs is
 // flaky, gets no results, and that no parent test becomes a column.
 func TestUnstableNames(t *testing.T) {
-	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: 300 * time.Millisecond}
+	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second}
 	m, err := r.Run(t.Context(), "testdata", "./unstable")
 	if err != nil {
 		t.Fatal(err)
