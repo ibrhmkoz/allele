@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/version"
 	"io"
 	"os"
@@ -130,7 +131,11 @@ type Runner struct {
 	// (mutant.Embed) and picks one per run; the rest build on their own.
 	Schemata bool
 	// Select, with Schemata, runs a top-level test against a mutant only
-	// if the test reached the mutant's site in the baseline.
+	// if, in the baseline, the test reached a site in the function that
+	// holds the mutant. A function, not the site itself: a branch that
+	// runs only when two calls share a clock tick may run in one run and
+	// not in the next, and the function around it reaches some site
+	// every time it runs.
 	Select bool
 }
 
@@ -231,6 +236,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		sources = append(sources, s)
 	}
 	mutants := m.Mutants[firstMutant:]
+	fn := functions(pkg.Fset, sources, mutants)
 
 	bin := filepath.Join(tmp, strings.ReplaceAll(pkg.PkgPath, "/", "_")+".test")
 	schema := ""
@@ -255,7 +261,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		return err
 	}
 	firstTest := len(m.Tests)
-	var reached map[string]map[int]bool // top-level test → ids of mutants it reached
+	var reached map[string]map[int]bool // top-level test → functions it reached
 	if schema != "" && r.Select {
 		reached = map[string]map[int]bool{}
 	}
@@ -266,7 +272,10 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		}
 		tests, ids := r.baseline(ctx, dir, bin, pkg.PkgPath, top, reach)
 		if reached != nil {
-			reached[top] = ids
+			reached[top] = map[int]bool{}
+			for id := range ids {
+				reached[top][fn[id]] = true
+			}
 		}
 		for _, t := range tests {
 			t.ID = len(m.Tests) + 1
@@ -284,7 +293,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		wg.Go(func() {
 			for i := range jobs {
 				if mutants[i].Schema {
-					results[i], errs[i] = r.runTests(ctx, dir, schema, &mutants[i], tests, reached)
+					results[i], errs[i] = r.runTests(ctx, dir, schema, &mutants[i], tests, reached, fn)
 					continue
 				}
 				results[i], errs[i] = r.runMutant(ctx, dir, tmp, &mutants[i], tests)
@@ -397,6 +406,34 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 	}
 }
 
+// functions maps each mutant's id to the function declaration it lies in,
+// numbered across the package, or -1 outside any: a package variable's
+// initializer runs in every test.
+func functions(fset *token.FileSet, sources []source, mutants []Mutant) map[int]int {
+	fn := map[int]int{}
+	n := 0
+	for _, s := range sources {
+		type decl struct{ from, to, id int }
+		var decls []decl
+		for _, d := range s.file.Decls {
+			if f, ok := d.(*ast.FuncDecl); ok {
+				decls = append(decls, decl{fset.Position(f.Pos()).Offset, fset.Position(f.End()).Offset, n})
+				n++
+			}
+		}
+		for _, k := range s.mutants {
+			mu := mutants[k]
+			fn[mu.ID] = -1
+			for _, d := range decls {
+				if off := mu.m.Pos.Offset; off >= d.from && off < d.to {
+					fn[mu.ID] = d.id
+				}
+			}
+		}
+	}
+	return fn
+}
+
 type position struct {
 	file string
 	line int
@@ -417,9 +454,10 @@ func compileErrors(out []byte) []position {
 // runTests runs every test against mu in bin: a build of mu alone, or a
 // schema binary that switches mu on by its id.
 //
-// With reached, a top-level test that never reached mu in the baseline does
-// not run; its leaves survive, since code that never runs cannot fail them.
-func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests []Test, reached map[string]map[int]bool) ([]Result, error) {
+// With reached, a top-level test that never reached mu's function in the
+// baseline does not run; its leaves survive, since code that never runs
+// cannot fail them.
+func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests []Test, reached map[string]map[int]bool, fn map[int]int) ([]Result, error) {
 	var results []Result
 	var rep report
 	ran := "" // the top-level test rep is from
@@ -427,7 +465,7 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		if t.State != OK {
 			continue
 		}
-		if reached != nil && !reached[topOf(t.Name)][mu.ID] {
+		if reached != nil && fn[mu.ID] >= 0 && !reached[topOf(t.Name)][fn[mu.ID]] {
 			results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
 			continue
 		}
@@ -542,7 +580,7 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 		r.logf("M%d build error\n", mu.ID)
 		return nil, nil
 	}
-	return r.runTests(ctx, dir, bin, mu, tests, nil)
+	return r.runTests(ctx, dir, bin, mu, tests, nil, nil)
 }
 
 // build compiles the test binary of the package in dir into bin, with the

@@ -42,17 +42,16 @@ func TestRun(t *testing.T) {
 			if !mode.sel {
 				return
 			}
-			// TestCount never calls Last, TestLast never calls Count, and
-			// neither a regular customer nor a cheap order reaches
-			// price - 20, so its 4 AOR mutants run against TestVIPOver100
-			// alone.
+			// TestCount never calls Last and TestLast never calls Count.
+			// Every discount test calls Discount, so all run against its
+			// mutants, even where a branch such as price - 20 does not run.
 			skipped := map[string]int{}
 			for _, res := range m.Results {
 				if res.Skipped {
 					skipped[m.Tests[res.TestID-1].Name]++
 				}
 			}
-			xtesting.EqualText(t, fmt.Sprint(skipped), "map[TestCount:1 TestLast:8 TestRegularOver100:4 TestVIPUnder100:4]")
+			xtesting.EqualText(t, fmt.Sprint(skipped), "map[TestCount:1 TestLast:8]")
 		})
 	}
 }
