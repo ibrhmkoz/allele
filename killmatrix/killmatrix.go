@@ -234,12 +234,10 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 	}
 
 	// Throttle total concurrent build/test subprocesses across packages.
-	r.sem = make(chan struct{}, r.Workers) //mut:ignore
-	pkgWorkers := 1
-	if !r.Confirm { //mut:ignore
-		pkgWorkers = min(len(pkgs), r.Workers) //mut:ignore
-	}
+	r.sem = make(chan struct{}, r.Workers)  //mut:ignore
+	pkgWorkers := min(len(pkgs), r.Workers) //mut:ignore
 	subs := make([]*Matrix, len(pkgs))
+	rechecks := make([]func() error, len(pkgs))
 	errs := make([]error, len(pkgs))
 	pkgJobs := make(chan int)
 	var wg sync.WaitGroup
@@ -247,7 +245,7 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 		wg.Go(func() {
 			for i := range pkgJobs {
 				sub := &Matrix{}
-				if err := r.runPackage(ctx, sub, pkgs[i], tmp); err != nil {
+				if err := r.runPackage(ctx, sub, pkgs[i], tmp, &rechecks[i]); err != nil {
 					errs[i] = fmt.Errorf("%s: %w", pkgs[i].PkgPath, err)
 					continue
 				}
@@ -260,6 +258,12 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 	}
 	close(pkgJobs)
 	wg.Wait()
+	// Recheck runs after all packages finish so nothing else competes for CPU.
+	for i, fn := range rechecks {
+		if fn != nil {
+			errs[i] = fn()
+		}
+	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
@@ -311,7 +315,7 @@ type source struct {
 	find    []int // for each of Find's mutants, its index among them, -1 if not chosen
 }
 
-func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package, tmp string) error {
+func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package, tmp string, deferRecheck *func() error) error {
 	if len(pkg.GoFiles) == 0 {
 		return nil
 	}
@@ -494,11 +498,13 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	if err := r.recheck(ctx, dir, schema, tests, results, mutants); err != nil {
-		return err
-	}
-	for _, rs := range results {
-		m.Results = append(m.Results, rs...)
+	*deferRecheck = func() error {
+		err := r.recheck(ctx, dir, schema, tests, results, mutants)
+		for _, rs := range results {
+			m.Results = append(m.Results, rs...)
+		}
+		// recheck only returns ctx.Err() on cancellation.
+		return err //mut:ignore
 	}
 	return nil
 }
@@ -713,7 +719,9 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 				limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
 				again, ranAgain = r.run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
 				original = report{ok: true}
-				if mu.Schema {
+				// Cost-only skip: when again passed, every leaf becomes FlakyKill
+				// and original is never read, so mutating this guard cannot change verdicts.
+				if mu.Schema && !again.ok { //mut:ignore
 					original = r.run(ctx, dir, bin, ran, limit, 0, "")
 				}
 				if ctx.Err() != nil {
@@ -1053,7 +1061,9 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 				limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
 				again = r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 				original = report{ok: true}
-				if mu.Schema {
+				// Cost-only skip: when again passed, every leaf becomes FlakyKill
+				// and original is never read, so mutating this guard cannot change verdicts.
+				if mu.Schema && !again.ok { //mut:ignore
 					original = r.run(ctx, dir, bin, g.name, limit, 0, "")
 				}
 				if ctx.Err() != nil {

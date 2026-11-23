@@ -53,6 +53,13 @@ selection, `-j 1` and extreme runs), verdicts of three services
   contexts;
 - a place to publish (Zenodo gives a DOI) and a citation.
 
+### Incremental verdict cache
+Content-hash each package's source, test files, and dependencies (or Go's
+build ActionID) to reuse prior verdicts across repeated local runs
+(Stryker `--incremental` / PIT incremental). CI already scopes runs with
+`-diff`, so the main payoff is the local "fix a survivor, rerun `mutant
+./...`" loop.
+
 ### Arid rules: what they miss
 §13: every tagged survivor was unproductive, but 1 of 21 untagged ones was
 too: a mutant in an error message's arguments (`spec[eq+1:i]` quoted in
