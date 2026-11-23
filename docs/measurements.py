@@ -671,6 +671,15 @@ def _(alt, db, mo, pd, title):
             f"{len(_ok)} faults (package × fixing commit) from {_f.commit.nunique()} candidate commits in 6 repos. Random: 200 sets of as many non-revealing tests per fault.",
         ),
     )
+    _ops = db.sql(f"""
+        select op, count(*) filter (where n > 0) "with", count(*) filter (where n > 0 and n = coupled) "only"
+        from (
+            select coupled, unnest(['ROR', 'COR', 'AOR', 'SDL', 'ERR']) op,
+                unnest([coalesce(coupled_operators.ROR, 0), coalesce(coupled_operators.COR, 0), coalesce(coupled_operators.AOR, 0),
+                        coalesce(coupled_operators.SDL, 0), coalesce(coupled_operators.ERR, 0)]) n
+            from read_json_auto('{_dir}/*.ndjson', union_by_name=true) where status = 'ok'
+        ) group by op
+    """).df().set_index("op")
     _status = _f.status.value_counts()
     _funnel = ", ".join(f"{n} {st}" for st, n in _status.items())
     _table = _ok.sort_values(["repo", "coupled_on_fix"])[["repo", "commit", "subject", "revealing", "on_fix", "coupled_on_fix", "chance_on_fix", "coupled", "chance"]].copy()
@@ -689,6 +698,7 @@ def _(alt, db, mo, pd, title):
             - **Candidates:** {_funnel}. A fix that changes an API its tests use cannot run its tests on the code before it.
             - **On any line** the measure is weak: a test often kills some mutant no other test kills, whatever the fault, so {_m['any line', 'as many random tests']:.0%} of random test sets look coupled too. **On the fix's lines** random tests almost never do, and that gap is the evidence that mutants stand for real faults.
             - **Limits:** {len(_ok)} faults is a small sample, a few fixes add a broad new test, and a commit touching two packages counts twice. Faults whose revealing tests do not build before the fix are lost.
+            - **The Go-specific ERR operator** (`err != nil` → `err == nil`, `return err` → `return nil`), a hypothesis in the roadmap: {_ops.loc['ERR', 'with']} of {int((_ok.coupled > 0).sum())} coupled faults have an ERR mutant among their coupled ones, and {_ops.loc['ERR', 'only']} are coupled through ERR alone (COR: {_ops.loc['COR', 'with']} and {_ops.loc['COR', 'only']}; ROR: {_ops.loc['ROR', 'with']} and {_ops.loc['ROR', 'only']}). ERR is cheap and reads well, but on this corpus another operator always stands for the same fault; section 2 agrees: dropping it is no worse than dropping as many random mutants.
             """),
             mo.accordion({"Every fault": mo.md(_md)}),
         ]
