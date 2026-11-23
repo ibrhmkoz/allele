@@ -1095,11 +1095,11 @@ func runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Du
 		quoted[i] = regexp.QuoteMeta(top)
 	}
 	pattern := "^(" + strings.Join(quoted, "|") + ")$"
-	cmd := exec.CommandContext(ctx, bin, "-test.run", pattern, "-test.count=1", "-test.failfast", "-test.v=test2json")
+	cmd := command(ctx, bin, "-test.run", pattern, "-test.count=1", "-test.failfast", "-test.v=test2json")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
 	start := time.Now()
-	out, err := cmd.Output()
+	out, err := output(cmd)
 	return (&report{
 		ok:       err == nil,
 		timedOut: limit > 0 && errors.Is(ctx.Err(), context.DeadlineExceeded),
