@@ -631,6 +631,72 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
+def _(alt, db, mo, pd, title):
+    _dir = mo.notebook_dir() / "data-faults"
+    _f = db.sql(f"select * from read_json_auto('{_dir}/*.ndjson', union_by_name=true)").df()
+    _ok = _f[_f.status == "ok"].copy()
+    _ctl = _ok[_ok.chance >= 0]
+    _rows = pd.DataFrame(
+        [
+            ("any line", "fix's revealing tests", (_ok.coupled > 0).mean(), len(_ok)),
+            ("any line", "as many random tests", _ctl.chance.mean(), len(_ctl)),
+            ("the fix's lines", "fix's revealing tests", (_ok.coupled_on_fix > 0).mean(), len(_ok)),
+            ("the fix's lines", "as many random tests", _ctl.chance_on_fix.mean(), len(_ctl)),
+        ],
+        columns=["where", "tests", "share", "faults"],
+    )
+    _rows["label"] = _rows.share.map(lambda x: f"{x:.0%}")
+    _y = alt.Y("where:N", title="coupled to a mutant on", sort=["the fix's lines", "any line"])
+    _bars = (
+        alt.Chart(_rows)
+        .mark_bar()
+        .encode(
+            x=alt.X("share:Q", title="faults that look coupled", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+            y=_y,
+            yOffset=alt.YOffset("tests:N", sort=["fix's revealing tests", "as many random tests"]),
+            color=alt.Color("tests:N", scale=alt.Scale(domain=["fix's revealing tests", "as many random tests"], range=["#4c78a8", "#9e9e9e"]), title=None, legend=alt.Legend(orient="top")),
+            tooltip=["where", "tests", alt.Tooltip("share:Q", format=".1%"), "faults"],
+        )
+    )
+    _text = _bars.mark_text(align="left", dx=4, fontSize=11).encode(text="label:N", color=alt.value("black"))
+    _ref = alt.Chart(pd.DataFrame({"x": [0.70], "t": ["Google 70%, Just et al. 73%"]}))
+    _rule = _ref.mark_rule(strokeDash=[4, 4], color="gray").encode(x="x:Q")
+    _rule_text = _ref.mark_text(align="left", dx=4, y=-8, color="gray").encode(x="x:Q", text="t:N")
+    _m = _rows.set_index(["where", "tests"]).share
+    _chart = (_bars + _text + _rule + _rule_text).properties(
+        width=540,
+        height=170,
+        title=title(
+            f"{_m['the fix' + chr(39) + 's lines', 'fix' + chr(39) + 's revealing tests']:.0%} of real faults are coupled to a mutant on the lines their fix changed; random tests manage {_m['the fix' + chr(39) + 's lines', 'as many random tests']:.0%}",
+            f"{len(_ok)} faults (package × fixing commit) from {_f.commit.nunique()} candidate commits in 6 repos. Random: 200 sets of as many non-revealing tests per fault.",
+        ),
+    )
+    _status = _f.status.value_counts()
+    _funnel = ", ".join(f"{n} {st}" for st, n in _status.items())
+    _table = _ok.sort_values(["repo", "coupled_on_fix"])[["repo", "commit", "subject", "revealing", "on_fix", "coupled_on_fix", "chance_on_fix", "coupled", "chance"]].copy()
+    _table["commit"] = _table.commit.str[:10]
+    _table["subject"] = _table.subject.str[:50]
+    _table["revealing"] = _table.revealing.map(len)
+    _md = "| repo | commit | subject | revealing tests | mutants on fix | coupled on fix | chance on fix | coupled | chance |\n|---|---|---|---:|---:|---:|---:|---:|---:|\n" + "".join(
+        f"| {r.repo} | `{r.commit}` | {r.subject} | {r.revealing} | {r.on_fix} | {r.coupled_on_fix} | {r.chance_on_fix:.0%} | {r.coupled} | {r.chance:.0%} |\n" for r in _table.itertuples()
+    )
+    mo.vstack(
+        [
+            mo.md("## 10. Are real faults coupled to mutants?"),
+            _chart,
+            mo.md(rf"""
+            - **Protocol:** a commit whose message says fix or bug and changes code and tests in one package. Its revealing tests pass on the fix and fail when the changed code files go back to before it. The fault is coupled when a mutant of the fixed code is killed by a revealing test and by no other test (`adequacy.Matrix.Coupled`), as in Just et al. (FSE 2014).
+            - **Candidates:** {_funnel}. A fix that changes an API its tests use cannot run its tests on the code before it.
+            - **On any line** the measure is weak: a test often kills some mutant no other test kills, whatever the fault, so {_m['any line', 'as many random tests']:.0%} of random test sets look coupled too. **On the fix's lines** random tests almost never do, and that gap is the evidence that mutants stand for real faults.
+            - **Limits:** {len(_ok)} faults is a small sample, a few fixes add a broad new test, and a commit touching two packages counts twice. Faults whose revealing tests do not build before the fix are lost.
+            """),
+            mo.accordion({"Every fault": mo.md(_md)}),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
@@ -648,7 +714,13 @@ def _(mo):
     # Sections 1-3: simulate the strategies, about 15 seconds
     go run ./mutant/cmd/simulate -o mutant/docs/data mutant/docs/data/*/
 
-    # Sections 4-9 query the matrices directly; view everything
+    # Section 10: real faults, about 25 minutes over the corpus' history
+    for d in shlex go-version glob uuid go-humanize semver; do
+      git -C "$CORPUS_CACHE/$d" fetch --unshallow origin   # corpus.sh clones at depth 1
+      go run ./mutant/cmd/faults -name $d -o mutant/docs/data-faults/$d.ndjson "$CORPUS_CACHE/$d"
+    done
+
+    # Sections 4-10 query the data directly; view everything
     make mutant-measurements
     ```
     """)
