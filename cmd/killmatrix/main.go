@@ -25,6 +25,7 @@ func main() {
 	flag.Float64Var(&r.TimeoutFactor, "timeout-factor", 3, "a run times out after baseline × factor + pad")
 	flag.DurationVar(&r.TimeoutPad, "timeout-pad", 1e9, "a run times out after baseline × factor + pad")
 	flag.BoolVar(&r.Schemata, "schemata", false, "build each package once with its mutants embedded, switched on per run")
+	flag.BoolVar(&r.FailFast, "failfast", false, "stop a mutant's tests at its first kill: verdicts, not the full matrix")
 	flag.BoolVar(&r.Extreme, "extreme", false, "one mutant per function, its body replaced by zero values, instead of the usual operators")
 	flag.BoolVar(&r.Select, "select", false, "with -schemata, run a test against a mutant only if the test reached it in the baseline")
 	flag.Parse()

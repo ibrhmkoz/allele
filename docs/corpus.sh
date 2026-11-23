@@ -8,9 +8,13 @@
 #   SCHEMATA=1 OUT=mutant/docs/data-schemata mutant/docs/corpus.sh
 #   SCHEMATA=1 SELECT=1 OUT=mutant/docs/data-select mutant/docs/corpus.sh
 #   EXTREME=1 OUT=mutant/docs/data-extreme mutant/docs/corpus.sh
+#   SCHEMATA=1 SELECT=1 FAILFAST=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh
 #
-# Picked for fast, hermetic tests (no network, database or Docker) and pure
-# logic: parsers, formatters, encoders. Each takes 1-5 minutes with -j 8.
+# The first six were picked for fast, hermetic tests (no network, database
+# or Docker) and pure logic: parsers, formatters, encoders. Each takes 1-5
+# minutes with -j 8. The last three are service code that logs, with slow
+# tests (25-40 s): run them with SCHEMATA=1 SELECT=1 FAILFAST=1, which
+# records each mutant's verdict but not the full matrix.
 set -eu
 
 corpus='
@@ -20,6 +24,9 @@ go-humanize https://github.com/dustin/go-humanize     f5b54ae1392365a578bb43ab72
 uuid        https://github.com/google/uuid            2d3c2a9cc518326daf99a383f07c4d3c44317e4d
 glob        https://github.com/gobwas/glob            ff0540d668f8280e0be2afab426e9c9598c80aaf
 shlex       https://github.com/google/shlex           e7afc7fbc51079733e9468cdfd1efcd7d196cd1d
+retryablehttp https://github.com/hashicorp/go-retryablehttp 7e8e6f42169e7dc20bf5af008698a6a06997b6e4
+cron        https://github.com/robfig/cron            bc59245fe10efaed9d51b56900192527ed733435
+yamux       https://github.com/hashicorp/yamux        98ba9c9ac60f4c45b2331377b50305798b41f611
 '
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -44,6 +51,6 @@ echo "$corpus" | while read -r name url commit; do
 	out="$out_root/$name"
 	rm -rf "$out"
 	echo "$name: computing kill matrix" >&2
-	(cd "$src" && "$bin" -j "$jobs" ${SCHEMATA:+-schemata} ${SELECT:+-select} ${EXTREME:+-extreme} -o "$out" ./... > /dev/null)
+	(cd "$src" && "$bin" -j "$jobs" ${SCHEMATA:+-schemata} ${SELECT:+-select} ${FAILFAST:+-failfast} ${EXTREME:+-extreme} -o "$out" ./... > /dev/null)
 	gzip -9 "$out"/*.ndjson
 done
