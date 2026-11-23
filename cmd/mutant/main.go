@@ -116,13 +116,17 @@ func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
 	return killmatrix.Runner{
 		Workers:      jobs,
 		BaselineRuns: 1,
-		Log:          log,
-		Schemata:     true,
-		Select:       true,
-		FailFast:     true,
-		Confirm:      true,
-		CacheDir:     cacheDir,
-		Choose:       func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
+		// A test's baseline time already holds its process start; a 100 ms
+		// pad over 3× that times out no run that would finish, on a loaded
+		// machine or on flaky services, and halves the corpus' time (§18).
+		TimeoutPad: 100 * time.Millisecond,
+		Log:        log,
+		Schemata:   true,
+		Select:     true,
+		FailFast:   true,
+		Confirm:    true,
+		CacheDir:   cacheDir,
+		Choose:     func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
 	}
 }
 

@@ -1235,6 +1235,55 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
+def _(alt, db, mo, title):
+    _docs = mo.notebook_dir()
+    # One row per build and run of cmd/bench: M, and the errors behind F.
+    _m = db.sql(f"""
+        with r as (select split_part(split_part(filename, '/', -1), '.', 1) run, * from read_json_auto('{_docs}/data-bench/pad-*.ndjson', filename=true, union_by_name=true))
+        select run, bin,
+            case bin when 'main' then 1000 when 'pad500' then 500 when 'pad250' then 250 when 'pad100' then 100 else 1 end pad_ms,
+            max(m) m, max(t) t, sum(hidden) hidden, sum(timeout) timeout
+        from r group by all having max(m) is not null order by run, pad_ms
+    """).df()
+    _lib = _m[_m.run != "pad-services"]
+    _chart = (
+        alt.Chart(_lib)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("pad_ms:Q", title="timeout pad over 3× a test's baseline (ms, log)", scale=alt.Scale(type="log", domain=[1, 1000])),
+            y=alt.Y("m:Q", title="M", scale=alt.Scale(domain=[1.5, 1.8])),
+            color=alt.Color("run:N", title=None, legend=alt.Legend(orient="top")),
+            tooltip=["run", "bin", alt.Tooltip("m:Q", format=".3f"), alt.Tooltip("t:Q", format=".1f", title="T (s)"), "hidden", "timeout"],
+        )
+        .properties(
+            width=520,
+            height=240,
+            title=title(
+                "A 100 ms timeout pad scores best: half the time, no gap hidden",
+                "Six corpus libraries, -j 8, worst of 3 reps; pad-stress ran beside 4 busy loops. At 1 ms, runs that would finish time out.",
+            ),
+        )
+    )
+    _svc = _m[_m.run == "pad-services"].set_index("bin")
+    _q = _lib[_lib.run == "pad-quiet-2"].set_index("bin")
+    _base = _lib[(_lib.run == "pad-quiet-1") & (_lib.bin == "main")].iloc[0]
+    mo.vstack(
+        [
+            mo.md("## 18. How long should a mutant run before it times out?"),
+            _chart,
+            mo.md(rf"""
+            - **Metric:** `M = D · F · ((876 + 2) / (T + 2))^0.18` from `cmd/bench` (ROADMAP): detection, verdict fidelity and time in one number.
+            - **Mechanism:** a run times out after 3 × its test's baseline plus a fixed pad, 1 s by default. Fast tests' baselines already hold the process start, so the pad is almost all of the limit, and every hanging mutant pays it twice, since Confirm reruns a timeout.
+            - **Result:** from 1 s to 100 ms, T falls from {_base.t:.1f} s to {_q.loc['pad100'].t:.1f} s and M rises from {_base.m:.3f} to {_q.loc['pad100'].m:.3f}, with no verdict error added, on a quiet machine or beside 4 busy loops. At 1 ms, {int(_q.loc['pad1'].hidden)} gaps hide behind false timeouts.
+            - **Held out:** on cron and retryablehttp, whose timing tests are flaky, a 100 ms pad hides no gap ({int(_svc.loc['pad100'].hidden)} hidden, {int(_svc.loc['pad100'].timeout)} kills read as timeouts against {int(_svc.loc['main'].timeout)} at 1 s); their slow tests make the pad irrelevant to time.
+            - **Decision:** `cmd/mutant` sets `TimeoutPad` to 100 ms. `killmatrix` keeps 1 s for the reference matrices.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {

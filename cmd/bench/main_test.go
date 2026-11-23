@@ -91,7 +91,7 @@ func TestCLI(t *testing.T) {
 			ms[m.Bin] = m
 			summary = append(summary, "metric "+m.Bin)
 		default:
-			summary = append(summary, fmt.Sprintf("score %s reported %v unknown %v stable %v hidden %v", r["repo"], r["reported"], r["unknown"], r["stable"], r["hidden"]))
+			summary = append(summary, fmt.Sprintf("score %s %s reported %v unknown %v stable %v hidden %v", r["bin"], r["repo"], r["reported"], r["unknown"], r["stable"], r["hidden"]))
 		}
 	}
 	xtesting.EqualText(t, strings.Join(summary, "\n"), `
@@ -99,9 +99,9 @@ func TestCLI(t *testing.T) {
 		timing good rep 1
 		timing good rep 2
 		timing hiding rep 2
-		score m reported 4 unknown 1 stable 2 hidden 0
+		score good m reported 4 unknown 1 stable 2 hidden 0
 		metric good
-		score m reported 2 unknown 0 stable 2 hidden 1
+		score hiding m reported 2 unknown 0 stable 2 hidden 1
 		metric hiding
 	`)
 	// One untimed warm-up rep and two timed ones, each with these flags.

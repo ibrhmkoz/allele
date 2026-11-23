@@ -1,0 +1,10 @@
+{"bin": "pad100", "repo": "cron", "rep": 1, "wall_s": 193.604807667}
+{"bin": "main", "repo": "cron", "rep": 1, "wall_s": 200.068879917}
+{"bin": "pad100", "repo": "retryablehttp", "rep": 1, "wall_s": 557.025690958}
+{"bin": "main", "repo": "retryablehttp", "rep": 1, "wall_s": 547.677846125}
+{"repo": "cron", "reported": 229, "unknown": 0, "d": 0.9016666666666667, "stable": 229, "hidden": 0, "false": 0, "timeout": 8, "build": 0, "bin": "main"}
+{"repo": "retryablehttp", "reported": 179, "unknown": 0, "d": 0.8746666666666677, "stable": 179, "hidden": 0, "false": 4, "timeout": 4, "build": 0, "bin": "main"}
+{"bin": "main", "d": 0.8880640617533054, "f": 0.9656862745098039, "t": 747.746726042, "m": 0.8823171947516388}
+{"repo": "cron", "reported": 229, "unknown": 0, "d": 0.9016666666666667, "stable": 229, "hidden": 0, "false": 0, "timeout": 8, "build": 0, "bin": "pad100"}
+{"repo": "retryablehttp", "reported": 179, "unknown": 0, "d": 0.8746666666666677, "stable": 179, "hidden": 0, "false": 3, "timeout": 3, "build": 0, "bin": "pad100"}
+{"bin": "pad100", "d": 0.8880640617533054, "f": 0.9718137254901961, "t": 750.630498625, "m": 0.8873023064366434}

@@ -139,6 +139,7 @@ func class(v killmatrix.Verdict) kind {
 
 // score is how one run did on one repository.
 type score struct {
+	Bin      string  `json:"bin"`
 	Repo     string  `json:"repo"`
 	Reported int     `json:"reported"`
 	Unknown  int     `json:"unknown"` // reported mutants the reference lacks

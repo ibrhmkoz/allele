@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"testing"
 
 	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/go-kit/xtesting"
 )
 
 // TestRunnerConfirmsKills: the command's runner must not count a test that
@@ -49,4 +51,13 @@ func TestStrictOK(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRunnerSettings: what the command runs mutants with. The timeout pad
+// is measured in §18: 100 ms halves the corpus' time and hides no gap.
+func TestRunnerSettings(t *testing.T) {
+	r := runner(options{noCache: true}, 8, io.Discard)
+	xtesting.EqualText(t, fmt.Sprintf("workers %d, baseline runs %d, timeout 3× baseline + %v, schemata %v, select %v, fail fast %v, confirm %v",
+		r.Workers, r.BaselineRuns, r.TimeoutPad, r.Schemata, r.Select, r.FailFast, r.Confirm),
+		"workers 8, baseline runs 1, timeout 3× baseline + 100ms, schemata true, select true, fail fast true, confirm true")
 }

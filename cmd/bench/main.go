@@ -182,6 +182,7 @@ func (b bench) run(ctx context.Context, bins []bin) error {
 		for _, repo := range b.repos {
 			k := [2]string{bn.name, repo}
 			s := worst[k]
+			s.Bin = bn.name
 			med := median(walls[k])
 			total += med
 			scores = append(scores, s)

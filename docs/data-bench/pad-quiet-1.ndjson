@@ -1,0 +1,75 @@
+{"bin": "pad250", "repo": "glob", "rep": 1, "wall_s": 4.158311959}
+{"bin": "pad500", "repo": "glob", "rep": 1, "wall_s": 6.270439625}
+{"bin": "main", "repo": "glob", "rep": 1, "wall_s": 10.66536575}
+{"bin": "pad250", "repo": "go-humanize", "rep": 1, "wall_s": 2.879669667}
+{"bin": "pad500", "repo": "go-humanize", "rep": 1, "wall_s": 3.33393225}
+{"bin": "main", "repo": "go-humanize", "rep": 1, "wall_s": 4.395614459}
+{"bin": "pad250", "repo": "go-version", "rep": 1, "wall_s": 1.30176025}
+{"bin": "pad500", "repo": "go-version", "rep": 1, "wall_s": 1.8134668330000001}
+{"bin": "main", "repo": "go-version", "rep": 1, "wall_s": 2.842389583}
+{"bin": "pad250", "repo": "semver", "rep": 1, "wall_s": 1.8805377920000002}
+{"bin": "pad500", "repo": "semver", "rep": 1, "wall_s": 1.8439045840000001}
+{"bin": "main", "repo": "semver", "rep": 1, "wall_s": 1.8875834999999999}
+{"bin": "pad250", "repo": "shlex", "rep": 1, "wall_s": 0.948157292}
+{"bin": "pad500", "repo": "shlex", "rep": 1, "wall_s": 1.447956792}
+{"bin": "main", "repo": "shlex", "rep": 1, "wall_s": 2.44765875}
+{"bin": "pad250", "repo": "uuid", "rep": 1, "wall_s": 7.062530458}
+{"bin": "pad500", "repo": "uuid", "rep": 1, "wall_s": 7.6027175}
+{"bin": "main", "repo": "uuid", "rep": 1, "wall_s": 9.606038291}
+{"bin": "main", "repo": "glob", "rep": 2, "wall_s": 10.941655}
+{"bin": "pad500", "repo": "glob", "rep": 2, "wall_s": 6.357726084}
+{"bin": "pad250", "repo": "glob", "rep": 2, "wall_s": 4.085364833}
+{"bin": "main", "repo": "go-humanize", "rep": 2, "wall_s": 4.743226667}
+{"bin": "pad500", "repo": "go-humanize", "rep": 2, "wall_s": 3.313549625}
+{"bin": "pad250", "repo": "go-humanize", "rep": 2, "wall_s": 2.7786572080000003}
+{"bin": "main", "repo": "go-version", "rep": 2, "wall_s": 3.030869416}
+{"bin": "pad500", "repo": "go-version", "rep": 2, "wall_s": 1.7959675000000002}
+{"bin": "pad250", "repo": "go-version", "rep": 2, "wall_s": 1.263731709}
+{"bin": "main", "repo": "semver", "rep": 2, "wall_s": 2.008236125}
+{"bin": "pad500", "repo": "semver", "rep": 2, "wall_s": 1.858539}
+{"bin": "pad250", "repo": "semver", "rep": 2, "wall_s": 1.812272542}
+{"bin": "main", "repo": "shlex", "rep": 2, "wall_s": 2.65605025}
+{"bin": "pad500", "repo": "shlex", "rep": 2, "wall_s": 1.441078125}
+{"bin": "pad250", "repo": "shlex", "rep": 2, "wall_s": 0.943793291}
+{"bin": "main", "repo": "uuid", "rep": 2, "wall_s": 10.083242583}
+{"bin": "pad500", "repo": "uuid", "rep": 2, "wall_s": 7.689264833}
+{"bin": "pad250", "repo": "uuid", "rep": 2, "wall_s": 7.062392166}
+{"bin": "pad250", "repo": "glob", "rep": 3, "wall_s": 4.088331459}
+{"bin": "pad500", "repo": "glob", "rep": 3, "wall_s": 6.351797458}
+{"bin": "main", "repo": "glob", "rep": 3, "wall_s": 10.709909333}
+{"bin": "pad250", "repo": "go-humanize", "rep": 3, "wall_s": 2.870367458}
+{"bin": "pad500", "repo": "go-humanize", "rep": 3, "wall_s": 3.278907167}
+{"bin": "main", "repo": "go-humanize", "rep": 3, "wall_s": 4.290741666}
+{"bin": "pad250", "repo": "go-version", "rep": 3, "wall_s": 1.3235375}
+{"bin": "pad500", "repo": "go-version", "rep": 3, "wall_s": 1.7877019170000001}
+{"bin": "main", "repo": "go-version", "rep": 3, "wall_s": 2.821275458}
+{"bin": "pad250", "repo": "semver", "rep": 3, "wall_s": 1.860048125}
+{"bin": "pad500", "repo": "semver", "rep": 3, "wall_s": 1.930297709}
+{"bin": "main", "repo": "semver", "rep": 3, "wall_s": 1.860671}
+{"bin": "pad250", "repo": "shlex", "rep": 3, "wall_s": 0.950408417}
+{"bin": "pad500", "repo": "shlex", "rep": 3, "wall_s": 1.439296125}
+{"bin": "main", "repo": "shlex", "rep": 3, "wall_s": 2.465541666}
+{"bin": "pad250", "repo": "uuid", "rep": 3, "wall_s": 7.174904375}
+{"bin": "pad500", "repo": "uuid", "rep": 3, "wall_s": 7.717338084}
+{"bin": "main", "repo": "uuid", "rep": 3, "wall_s": 9.721115417}
+{"repo": "glob", "reported": 396, "unknown": 8, "d": 0.7460740740740736, "stable": 388, "hidden": 0, "false": 0, "timeout": 1, "build": 0, "bin": "main"}
+{"repo": "go-humanize", "reported": 258, "unknown": 4, "d": 0.876765625, "stable": 254, "hidden": 0, "false": 0, "timeout": 1, "build": 0, "bin": "main"}
+{"repo": "go-version", "reported": 140, "unknown": 3, "d": 0.8430749999999998, "stable": 137, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "main"}
+{"repo": "semver", "reported": 381, "unknown": 3, "d": 0.8755909090909066, "stable": 378, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "main"}
+{"repo": "shlex", "reported": 65, "unknown": 1, "d": 1, "stable": 64, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "main"}
+{"repo": "uuid", "reported": 256, "unknown": 6, "d": 0.9555270270270251, "stable": 249, "hidden": 0, "false": 1, "timeout": 7, "build": 0, "bin": "main"}
+{"bin": "main", "d": 0.8790481188984743, "f": 0.995578231292517, "t": 32.022153958, "m": 1.571085892094891}
+{"repo": "glob", "reported": 396, "unknown": 8, "d": 0.7460740740740736, "stable": 388, "hidden": 0, "false": 0, "timeout": 1, "build": 0, "bin": "pad500"}
+{"repo": "go-humanize", "reported": 258, "unknown": 4, "d": 0.876765625, "stable": 254, "hidden": 0, "false": 0, "timeout": 1, "build": 0, "bin": "pad500"}
+{"repo": "go-version", "reported": 140, "unknown": 3, "d": 0.8430749999999998, "stable": 137, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "pad500"}
+{"repo": "semver", "reported": 381, "unknown": 3, "d": 0.8755909090909066, "stable": 378, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "pad500"}
+{"repo": "shlex", "reported": 65, "unknown": 1, "d": 1, "stable": 64, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "pad500"}
+{"repo": "uuid", "reported": 256, "unknown": 6, "d": 0.9555270270270251, "stable": 249, "hidden": 0, "false": 1, "timeout": 7, "build": 0, "bin": "pad500"}
+{"bin": "pad500", "d": 0.8790481188984743, "f": 0.995578231292517, "t": 22.450196541, "m": 1.6673479119219237}
+{"repo": "glob", "reported": 396, "unknown": 8, "d": 0.7460740740740736, "stable": 388, "hidden": 0, "false": 0, "timeout": 1, "build": 0, "bin": "pad250"}
+{"repo": "go-humanize", "reported": 258, "unknown": 4, "d": 0.876765625, "stable": 254, "hidden": 0, "false": 0, "timeout": 1, "build": 0, "bin": "pad250"}
+{"repo": "go-version", "reported": 140, "unknown": 3, "d": 0.8430749999999998, "stable": 137, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "pad250"}
+{"repo": "semver", "reported": 381, "unknown": 3, "d": 0.8755909090909066, "stable": 378, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "pad250"}
+{"repo": "shlex", "reported": 65, "unknown": 1, "d": 1, "stable": 64, "hidden": 0, "false": 0, "timeout": 0, "build": 0, "bin": "pad250"}
+{"repo": "uuid", "reported": 256, "unknown": 6, "d": 0.9555270270270251, "stable": 249, "hidden": 0, "false": 1, "timeout": 7, "build": 0, "bin": "pad250"}
+{"bin": "pad250", "d": 0.8790481188984743, "f": 0.995578231292517, "t": 18.131195042, "m": 1.7267144905555831}
