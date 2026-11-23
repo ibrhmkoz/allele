@@ -77,15 +77,7 @@ func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON 
 	if verbose {
 		log = os.Stderr
 	}
-	r := killmatrix.Runner{
-		Workers:      jobs,
-		BaselineRuns: 1,
-		Log:          log,
-		Schemata:     true,
-		Select:       true,
-		FailFast:     true,
-		Choose:       func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
-	}
+	r := runner(o, jobs, log)
 	start := time.Now()
 	m, err := r.Run(ctx, cwd, patterns...)
 	if err != nil {
@@ -103,6 +95,19 @@ func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON 
 		}
 	}
 	return true, nil
+}
+
+func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
+	return killmatrix.Runner{
+		Workers:      jobs,
+		BaselineRuns: 1,
+		Log:          log,
+		Schemata:     true,
+		Select:       true,
+		FailFast:     true,
+		Confirm:      true,
+		Choose:       func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
+	}
 }
 
 func git(ctx context.Context, dir string, args ...string) ([]byte, error) {

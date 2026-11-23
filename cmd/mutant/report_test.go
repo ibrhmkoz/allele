@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go/token"
+	"slices"
 	"strings"
 	"testing"
 
@@ -41,6 +42,15 @@ func TestChoose(t *testing.T) {
 	one := show(choose(options{}, "/src/p.go", ms))
 	if len(strings.Fields(one)) != 3 || !strings.HasSuffix(one, "e g") || one != show(choose(options{}, "/src/p.go", ms)) {
 		t.Errorf("one per line picked %q", one)
+	}
+	// The picks come back in source order. byLine is a map, so with only a
+	// few lines an unsorted result can come out sorted by chance.
+	var many []mutant.Mutant
+	for line := range 20 {
+		many = append(many, at(line+1, "x", ""), at(line+1, "y", ""))
+	}
+	if keep := choose(options{}, "/src/p.go", many); len(keep) != 20 || !slices.IsSorted(keep) {
+		t.Errorf("one per line over 20 lines picked %v, want 20 in source order", keep)
 	}
 	// A diff limits the run to the lines it touches.
 	diff := map[string]map[int]bool{"/src/p.go": {4: true, 9: true}}
