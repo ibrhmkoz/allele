@@ -201,3 +201,37 @@ func TestSimulate(t *testing.T) {
 		mutants 4/12 · tests 1.00 · score 0.50 · random tests 0.35
 	`)
 }
+
+func ExampleMatrix_Coupled() {
+	m := discount()
+	// A fix whose new test is T3 (2): only M7 (> → !=) is killed by T3 and
+	// by no other test, so the fault is coupled to M7. A fix revealed by
+	// T2 (1) alone is coupled to nothing: T3 also kills M1 and M8.
+	fmt.Println(m.Coupled(adequacy.NewSet(2)), m.Coupled(adequacy.NewSet(1)), m.Coupled(adequacy.NewSet(1, 2)))
+	// Output:
+	// [6] [] [0 6 7]
+}
+
+func TestCoupledProperties(t *testing.T) {
+	for seed := range uint64(300) {
+		r := rand.New(rand.NewPCG(seed, 3))
+		m, kills := randomMatrix(r)
+		frt := randomTests(r, m.Tests())
+		for _, i := range m.Coupled(frt) {
+			if !kills[i].Intersects(frt) || !kills[i].SubsetOf(frt) {
+				t.Fatalf("seed %d: M%d %v is not killed by %v alone", seed, i+1, kills[i], frt)
+			}
+		}
+		// Every test revealing the fault means every killable mutant is coupled.
+		all := adequacy.All(m.Tests())
+		killable := 0
+		for _, k := range kills {
+			if !k.Empty() {
+				killable++
+			}
+		}
+		if got := len(m.Coupled(all)); got != killable {
+			t.Fatalf("seed %d: Coupled(all) = %d mutants, want the %d killable", seed, got, killable)
+		}
+	}
+}

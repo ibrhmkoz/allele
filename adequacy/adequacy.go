@@ -168,6 +168,20 @@ func (m *Matrix) Adequate(mutants []int, r *rand.Rand) Set {
 	return tests
 }
 
+// Coupled returns, in order, the mutants that tests in frt kill and no
+// other test does. With frt the tests a fix added, which fail on the code
+// before it, these are the mutants that stood for the fault: the suite
+// before the fix could not kill them either (Just et al., FSE 2014).
+func (m *Matrix) Coupled(frt Set) []int {
+	coupled := []int{}
+	for i, k := range m.kills {
+		if k.Intersects(frt) && k.SubsetOf(frt) {
+			coupled = append(coupled, i)
+		}
+	}
+	return coupled
+}
+
 // Outcome is how well tests written against a subset of mutants do against
 // all of them.
 type Outcome struct {
