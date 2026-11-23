@@ -1241,11 +1241,12 @@ def _(alt, db, mo, title):
     _m = db.sql(f"""
         with r as (select split_part(split_part(filename, '/', -1), '.', 1) run, * from read_json_auto('{_docs}/data-bench/pad-*.ndjson', filename=true, union_by_name=true))
         select run, bin,
-            case bin when 'main' then 1000 when 'pad500' then 500 when 'pad250' then 250 when 'pad100' then 100 else 1 end pad_ms,
+            case bin when 'main' then 1000 when 'pad500' then 500 when 'pad250' then 250 when 'pad100' then 100 when 'pr21' then 100 else 1 end pad_ms,
             max(m) m, max(t) t, sum(hidden) hidden, sum(timeout) timeout
         from r group by all having max(m) is not null order by run, pad_ms
     """).df()
-    _lib = _m[_m.run != "pad-services"]
+    _lib = _m[~_m.run.isin(["pad-services", "pad-final"])]
+    _fin = _m[_m.run == "pad-final"].set_index("bin")
     _chart = (
         alt.Chart(_lib)
         .mark_line(point=True)
@@ -1276,6 +1277,7 @@ def _(alt, db, mo, title):
             - **Mechanism:** a run times out after 3 × its test's baseline plus a fixed pad, 1 s by default. Fast tests' baselines already hold the process start, so the pad is almost all of the limit, and every hanging mutant pays it twice, since Confirm reruns a timeout.
             - **Result:** from 1 s to 100 ms, T falls from {_base.t:.1f} s to {_q.loc['pad100'].t:.1f} s and M rises from {_base.m:.3f} to {_q.loc['pad100'].m:.3f}, with no verdict error added, on a quiet machine or beside 4 busy loops. At 1 ms, {int(_q.loc['pad1'].hidden)} gaps hide behind false timeouts.
             - **Held out:** on cron and retryablehttp, whose timing tests are flaky, a 100 ms pad hides no gap ({int(_svc.loc['pad100'].hidden)} hidden, {int(_svc.loc['pad100'].timeout)} kills read as timeouts against {int(_svc.loc['main'].timeout)} at 1 s); their slow tests make the pad irrelevant to time.
+            - **Guards (Gemini's review):** a small pad leaves no room for what a limit forgot, so a batch is now limited by the sum of its tests' baselines, not the largest, and the run that confirms a timeout gets thrice the limit. Measured side by side with 1 s, the final build scores {_fin.loc['pr21'].m:.3f} against {_fin.loc['main'].m:.3f} (T {_fin.loc['pr21'].t:.1f} s against {_fin.loc['main'].t:.1f} s), no error added: the guards cost {_fin.loc['pr21'].t - _q.loc['pad100'].t:.1f} s of the gain.
             - **Decision:** `cmd/mutant` sets `TimeoutPad` to 100 ms. `killmatrix` keeps 1 s for the reference matrices.
             """),
         ]

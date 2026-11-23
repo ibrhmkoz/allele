@@ -425,3 +425,33 @@ const batchMatrix = `
 		  M19 .  .  .  .  .  .  T   batch.go:27:3 SDL n-- → (deleted)
 		  M20 .  .  .  .  .  .  K   batch.go:28:3 SDL steps++ → (deleted)
 `
+
+// TestBatchLimit: six fast tests of 20 ms run in one process take 120 ms;
+// against n * 2 → n + 2, which they all pass for n = 2, the batch must not
+// time out however small the pad.
+func TestBatchLimit(t *testing.T) {
+	t.Parallel()
+	r := killmatrix.Runner{Workers: 2, BaselineRuns: 1, TimeoutPad: time.Millisecond, Schemata: true, Select: true, FailFast: true}
+	m := run(t, r, "testdata", "./slowbatch")
+	xtesting.EqualText(t, formatVerdicts(m), `
+		M1 survived
+		M2 killed
+		M3 killed
+		M4 killed
+	`)
+}
+
+// TestConfirmStall: a run that stalls past its limit once is checked again
+// with room to finish, so a mutant its test passes survives and the rest
+// are killed, rather than all reading as timeouts.
+func TestConfirmStall(t *testing.T) {
+	t.Parallel()
+	r := killmatrix.Runner{Workers: 2, BaselineRuns: 1, TimeoutPad: 50 * time.Millisecond, Schemata: true, Select: true, FailFast: true, Confirm: true}
+	m := run(t, r, "testdata", "./stall")
+	xtesting.EqualText(t, formatVerdicts(m), `
+		M1 survived
+		M2 killed
+		M3 killed
+		M4 killed
+	`)
+}

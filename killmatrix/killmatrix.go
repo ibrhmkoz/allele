@@ -599,7 +599,7 @@ func (r Runner) recheck(ctx context.Context, dir, bin string, tests []Test, resu
 			top := topOf(t.Name)
 			p, ok := ran[top]
 			if !ok {
-				limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+				limit := r.limit(t.BaselineMS)
 				p.original = run(ctx, dir, bin, top, limit, 0, "")
 				p.mutant = run(ctx, dir, bin, top, limit, mutants[i].ID, "")
 				if ctx.Err() != nil {
@@ -777,7 +777,7 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 			continue
 		}
 		if top := topOf(t.Name); top != ran {
-			limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+			limit := r.limit(t.BaselineMS)
 			rep, ran = r.run(ctx, dir, bin, top, limit, mu.ID, ""), top
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
@@ -786,7 +786,7 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		status := rep.status(t.Name)
 		if status == Killed && r.Confirm {
 			if ranAgain != ran {
-				limit := time.Duration(t.BaselineMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+				limit := r.limit(t.BaselineMS)
 				again, ranAgain = r.run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
 				original = report{ok: true}
 				// Cost-only skip: when again passed, every leaf becomes FlakyKill
@@ -935,15 +935,15 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		batch := queue[0]
 		queue = queue[1:]
 
-		var maxMS float64
+		var sumMS float64
 		names := make([]string, len(batch))
 		for i, g := range batch {
-			maxMS = max(maxMS, g.baseMS)
+			sumMS += g.baseMS
 			names[i] = g.name
 		}
-		// Fast tests' baseline_ms is mostly process startup, paid once per
-		// batch; TimeoutPad (1s) covers the combined test bodies comfortably.
-		limit := time.Duration(maxMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+		// The tests of a batch run one after another; each baseline also
+		// counts a process start the batch pays once, which only loosens it.
+		limit := r.limit(sumMS)
 		rep := r.runBatch(ctx, dir, bin, names, limit, mu.ID)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -1023,7 +1023,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 				if r.Confirm {
 					// Under load a fast test can hit its deadline; recheck alone
 					// before letting an unconfirmed timeout stop FailFast.
-					limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+					limit := r.recheckLimit(g.baseMS)
 					again := r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 					if ctx.Err() != nil {
 						return nil, ctx.Err()
@@ -1075,6 +1075,19 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 	return results, nil
 }
 
+// limit is how long a run of tests whose baselines add up to baseMS may
+// take before it times out.
+func (r Runner) limit(baseMS float64) time.Duration {
+	return time.Duration(baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+}
+
+// recheckLimit is the limit of the run that confirms a timeout. Thrice the
+// first: a run that hit a stall on a busy machine must not time out again
+// and hide a mutant that survives.
+func (r Runner) recheckLimit(baseMS float64) time.Duration {
+	return 3 * r.limit(baseMS)
+}
+
 func makeBatches(groups []topGroup) [][]topGroup {
 	var batches [][]topGroup
 	var cur []topGroup
@@ -1113,7 +1126,7 @@ func topFailed(g topGroup, rep report) bool {
 
 func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g topGroup, rep report, fnID int, stats *killStats, results *[]Result) (bool, error) {
 	if rep.timedOut && r.Confirm {
-		limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+		limit := r.recheckLimit(g.baseMS)
 		again := r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 		if ctx.Err() != nil {
 			return false, ctx.Err()
@@ -1128,7 +1141,7 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 		status := rep.status(t.Name)
 		if status == Killed && r.Confirm {
 			if !confirmed {
-				limit := time.Duration(g.baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
+				limit := r.limit(g.baseMS)
 				again = r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 				original = report{ok: true}
 				// Cost-only skip: when again passed, every leaf becomes FlakyKill
