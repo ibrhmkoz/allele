@@ -415,7 +415,7 @@ func TestApplyOnStdlib(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, m := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
+				for _, m := range append(mutant.Find(pkg.Fset, f, src, pkg.TypesInfo), mutant.Extreme(pkg.Fset, f, src, pkg.TypesInfo)...) {
 					total.Add(1)
 					got := m.Apply(src)
 					if len(got)-len(src) != len(m.Mutated)-len(m.Original) {
@@ -458,4 +458,45 @@ func Max(a, b int) int {
 	// max.go:4:5 COR a > b → false
 	// max.go:4:7 ROR a > b → a < b
 	// 7 mutants
+}
+
+func TestExtreme(t *testing.T) {
+	src := `package p
+
+import "strings"
+
+type Counter struct{ n int }
+
+var ready bool
+
+func Name(s string) string { return strings.ToUpper(s) }
+
+func Pair(n int) (int, error) { if n < 0 { return 0, nil }; return n * 2, nil }
+
+func (c *Counter) Inc() { c.n++ }
+
+func named(x int) (y int) { y = x + 1; return }
+
+func empty() {}
+
+func init() { ready = true }
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
+	conf := types.Config{Importer: importer.Default()}
+	if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
+		t.Fatal(err)
+	}
+	// One mutant per function with a body: an empty body has nothing to
+	// remove, and init runs before any test can see it go.
+	xtesting.EqualText(t, listing(mutant.Extreme(fset, f, []byte(src), info)), `
+		p.go:9:28 EXT { return strings.ToUpper(s) } → { _ = strings.ToUpper; return *new(string) }
+		p.go:11:31 EXT { if n < 0 { return 0, nil }; return n * 2, nil } → { return *new(int), *new(error) }
+		p.go:13:25 EXT { c.n++ } → {}
+		p.go:15:27 EXT { y = x + 1; return } → { return }
+	`)
 }
