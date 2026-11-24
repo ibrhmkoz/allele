@@ -1,0 +1,60 @@
+# Release builds of allele. The release workflow runs this on every tag;
+# `make snapshot` builds the same archives locally without publishing.
+version: 2
+
+project_name: allele
+
+builds:
+  - id: allele
+    main: ./cmd/allele
+    binary: allele
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: allele
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [LICENSE, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge "
+
+homebrew_casks:
+  - name: allele
+    binaries: [allele]
+    homepage: https://github.com/ibrhmkoz/allele
+    description: Mutation testing for Go
+    license: MIT
+    repository:
+      owner: ibrhmkoz
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: Ibrahim Koz
+      email: ibrahimkoz@outlook.com
+    # Without the tap's token, as on a fork or before the secret is set,
+    # the cask is only written to dist/.
+    skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "") "" }}true{{ else }}auto{{ end }}'
+    hooks:
+      post:
+        # The binaries are not notarized; without this macOS refuses to run
+        # one downloaded by Homebrew.
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/allele"]
+          end

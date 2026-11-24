@@ -1,4 +1,4 @@
-.PHONY: ci test lint mutate measurements
+.PHONY: ci test lint mutate measurements next-version snapshot
 
 ci: lint test mutate
 
@@ -18,3 +18,11 @@ mutate:
 
 measurements:
 	uv run marimo run docs/measurements.py
+
+# The tag the next release takes, or nothing; see internal/nextversion.
+next-version:
+	@go run ./internal/nextversion
+
+# The release archives and Homebrew cask, built into dist/, not published.
+snapshot:
+	goreleaser release --snapshot --clean

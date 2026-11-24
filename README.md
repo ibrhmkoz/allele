@@ -7,7 +7,6 @@ a gap in your tests. The output lists those gaps as the line before and
 after, not as a score.
 
 ```
-$ go install github.com/ibrhmkoz/allele/cmd/allele@latest
 $ allele ./...
 survived  xtesting.go:73  SDL
   -	EqualText(t, v.String(), want)
@@ -28,6 +27,25 @@ test checked that `Prints` fails on a mismatch.
 
 The name: each line's mutants are its alleles, variants of the same code,
 and `allele` picks the one most likely to show a gap.
+
+## Install
+
+With Homebrew (macOS, Linux):
+
+```
+brew install ibrhmkoz/tap/allele
+```
+
+With Go 1.27 or later:
+
+```
+go install github.com/ibrhmkoz/allele/cmd/allele@latest
+```
+
+Or download a binary for macOS, Linux or Windows from the
+[releases](https://github.com/ibrhmkoz/allele/releases). Running it needs
+Go 1.27 or later on the machine either way: it builds and runs your tests.
+`allele -version` prints the version.
 
 ## Usage
 

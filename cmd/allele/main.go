@@ -23,6 +23,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -41,7 +42,13 @@ func main() {
 	flag.BoolVar(&o.noCache, "no-cache", false, "ignore and do not update the verdict cache") //allele:ignore
 	verbose := flag.Bool("v", false, "log progress to stderr")
 	asJSON := flag.Bool("json", false, "print one JSON object per mutant, every verdict included, instead of the report")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+	if *showVersion { //allele:ignore flag wiring; versionOf is tested
+		info, ok := debug.ReadBuildInfo()
+		fmt.Println(versionOf(version, info, ok)) //allele:ignore flag wiring
+		return                                    //allele:ignore flag wiring
+	}
 	patterns := flag.Args()
 	if len(patterns) == 0 {
 		patterns = []string{"./..."}
