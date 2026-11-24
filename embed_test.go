@@ -235,6 +235,13 @@ func (f importerFunc) Import(path string) (*types.Package, error) { return f(pat
 // would have changed a value there.
 func TestEmbedInfects(t *testing.T) {
 	t.Parallel()
+	// Ids past the runtime's table of seen ids take another path.
+	for _, base := range []int{0, 70000} {
+		t.Run(fmt.Sprint("ids from ", base+1), func(t *testing.T) { embedInfects(t, base) })
+	}
+}
+
+func embedInfects(t *testing.T, base int) {
 	src := `package main
 
 import (
@@ -300,7 +307,7 @@ func main() {
 		t.Fatal(err)
 	}
 	ms := mutant.Find(fset, f, []byte(src), info)
-	out, _ := mutant.Embed(fset, f, []byte(src), info, sequential(len(ms)))
+	out, _ := mutant.Embed(fset, f, []byte(src), info, offset(sequential(len(ms)), base))
 	dir := t.TempDir()
 	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.21\n"), "main.go": out, "runtime.go": mutant.Runtime("main")} {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
@@ -323,9 +330,9 @@ func main() {
 	for i, m := range ms {
 		state := "not reached"
 		switch {
-		case marks[fmt.Sprint(-(i + 1))]:
+		case marks[fmt.Sprint(-(base + i + 1))]:
 			state = "infected"
-		case marks[fmt.Sprint(i+1)]:
+		case marks[fmt.Sprint(base+i+1)]:
 			state = "reached, not infected"
 		}
 		fmt.Fprintf(&b, "%d %s → %s: %s\n", m.Pos.Line, m.Original, cmp.Or(m.Mutated, "(deleted)"), state)
@@ -382,6 +389,13 @@ func main() {
 		51 false → false: not reached
 		52 never(1) → (deleted): not reached
 	`)
+}
+
+func offset(ids []int, base int) []int {
+	for i := range ids {
+		ids[i] += base
+	}
+	return ids
 }
 
 // TestEmbedPure: which conditions a mutant may skip without changing more
