@@ -219,7 +219,6 @@ func (b bench) emit(row any) {
 	}
 }
 
-// faultR runs bn on every fault tree and returns the mean R_5.
 func (b bench) faultR(ctx context.Context, bn bin) (float64, error) {
 	sum := 0.0
 	for _, f := range b.faults {
@@ -243,12 +242,10 @@ func (b bench) faultR(ctx context.Context, bn bin) (float64, error) {
 	return sum / float64(len(b.faults)), nil
 }
 
-// mutant runs one build on one repository and returns its verdicts.
 func (b bench) mutant(ctx context.Context, bn bin, dir string) ([]verdict, error) {
 	return b.mutantOn(ctx, bn, dir, "./...")
 }
 
-// mutantOn runs one build on the packages pattern matches in dir.
 func (b bench) mutantOn(ctx context.Context, bn bin, dir, pattern string) ([]verdict, error) {
 	cmd := exec.CommandContext(ctx, bn.path, "-no-cache", "-json", "-j", fmt.Sprint(b.jobs), pattern)
 	cmd.Dir = dir
@@ -271,7 +268,6 @@ func (b bench) mutantOn(ctx context.Context, bn bin, dir, pattern string) ([]ver
 	return vs, s.Err()
 }
 
-// modulePath is the module path in dir's go.mod.
 func modulePath(dir string) (string, error) {
 	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
 	if err != nil {

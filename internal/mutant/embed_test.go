@@ -21,7 +21,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// sequential numbers mutants 1, 2, 3, ... like killmatrix does.
 func sequential(n int) []int {
 	ids := make([]int, n)
 	for i := range ids {
@@ -182,9 +181,6 @@ func TestWithGo121(t *testing.T) {
 	`)
 }
 
-// TestEmbedTypeChecks embeds every mutant of a few standard library
-// packages and type-checks the result with the runtime file: one bad
-// rewrite would break the build of a whole package.
 func TestEmbedTypeChecks(t *testing.T) {
 	t.Parallel()
 	roots := []string{"net/url", "encoding/csv", "text/tabwriter", "path", "bufio"}
@@ -246,9 +242,6 @@ type importerFunc func(path string) (*types.Package, error)
 
 func (f importerFunc) Import(path string) (*types.Package, error) { return f(path) }
 
-// TestEmbedInfects runs a program built from Embed once with ReachEnvVar
-// set and prints, for each mutant, whether its site ran and whether it
-// would have changed a value there.
 func TestEmbedInfects(t *testing.T) {
 	t.Parallel()
 	// Ids past the runtime's table of seen ids take another path.
@@ -414,9 +407,6 @@ func offset(ids []int, base int) []int {
 	return ids
 }
 
-// TestEmbedPure: which conditions a mutant may skip without changing more
-// than their value. A call other than len, cap or a conversion, or a
-// receive, might do something else, so its mutants count as infected.
 func TestEmbedPure(t *testing.T) {
 	src := `package p
 
@@ -479,11 +469,9 @@ func g() bool { return true }
 	`)
 }
 
-// TestEmbedClones: a function with a mutant runs as written unless one of
-// its mutants is active, but for a body with a label or one that :=
-// reuses a named result, where the clone's extra block would change what
-// the code means. Every line keeps its number in either copy: a panic in
-// the mutated copy and one in the original name the line in the source.
+// TestEmbedClones checks function cloning exclusions (labels, signature
+// redeclarations) and that //line directives keep panic line numbers unchanged
+// in both copies.
 func TestEmbedClones(t *testing.T) {
 	t.Parallel()
 	src := `package main
@@ -573,7 +561,6 @@ func main() {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
-	// i < len(xs) → i <= len(xs) indexes past the end at line 11.
 	var boundary int
 	for k, m := range ms {
 		if m.Mutated == "i <= len(xs)" {
@@ -622,9 +609,8 @@ func main() {
 	`)
 }
 
-// TestUnformatted: in source gofmt never saw, a condition or result can
-// follow its keyword with no space, as in if(x>0){. Every mutant and the
-// schema must still keep the keyword a token of its own.
+// TestUnformatted checks that unformatted code like if(x>0){ keeps keywords
+// separated from inserted mutant tokens.
 func TestUnformatted(t *testing.T) {
 	src := `package p
 
@@ -682,10 +668,8 @@ func G(x int) error {
 	}
 }
 
-// TestReachConcurrent: a test's goroutines mark sites at once, and every
-// mark must land on a line of its own: two marks run together, such as
-// 12-7, parse as neither, and a lost mark makes a test look as if it never
-// reached or infected a mutant it can kill.
+// TestReachConcurrent checks that concurrent goroutine marks never interleave
+// on the same line, which would lose marks and hide kills.
 func TestReachConcurrent(t *testing.T) {
 	t.Parallel()
 	src := `package main
@@ -738,9 +722,8 @@ func main() {
 	}
 }
 
-// TestOrdClasses: a comparison site skips comparing for operands in a
-// class it has met, so each class must still mark the alternatives it
-// infects. Ids index [<, <=, >, >=, ==, !=] with < the original.
+// TestOrdClasses checks that each operand comparison class marks its infected
+// alternatives before caching; ids index [<, <=, >, >=, ==, !=] with < original.
 func TestOrdClasses(t *testing.T) {
 	t.Parallel()
 	src := `package main

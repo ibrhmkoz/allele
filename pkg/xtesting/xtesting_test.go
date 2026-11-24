@@ -10,7 +10,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// spyTB records failures instead of failing the real test.
 type spyTB struct {
 	testing.TB
 	failures []string

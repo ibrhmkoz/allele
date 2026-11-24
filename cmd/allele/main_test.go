@@ -9,9 +9,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// TestRunnerConfirmsKills: the command's runner must not count a test that
-// fails against a mutant only once, the way a timing test fails under
-// load, as a kill. Such a kill would hide a gap from -strict.
 func TestRunnerConfirmsKills(t *testing.T) {
 	r := runner(options{all: true, noCache: true}, 2, io.Discard)
 	if r.CacheDir != "" {
@@ -56,8 +53,6 @@ func TestStrictOK(t *testing.T) {
 	}
 }
 
-// TestRunnerSettings: what the command runs mutants with. The timeout pad
-// is measured in §18, Infect in §19.
 func TestRunnerSettings(t *testing.T) {
 	r := runner(options{noCache: true}, 8, io.Discard)
 	xtesting.EqualText(t, fmt.Sprintf("workers %d, baseline runs %d, timeout 3× baseline + %v, schemata %v, select %v, infect %v, fail fast %v, confirm %v",

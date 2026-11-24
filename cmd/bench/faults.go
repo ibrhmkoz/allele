@@ -21,7 +21,6 @@ type fault struct {
 	coupled         map[string]bool // mutant keys
 }
 
-// coupledRow is the part of a cmd/faults -detail row R needs.
 type coupledRow struct {
 	Repo     string `json:"repo"`
 	Commit   string `json:"commit"`
@@ -105,7 +104,6 @@ func revealed(survivors, coupled, k int) float64 {
 	return 1 - m
 }
 
-// faultScore is how one build did on one fault.
 type faultScore struct {
 	Bin       string  `json:"bin"`
 	Fault     string  `json:"fault"`

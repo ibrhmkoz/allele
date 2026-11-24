@@ -18,7 +18,6 @@ import (
 	"unicode/utf8"
 )
 
-// Operator names the kind of change a mutant makes.
 type Operator string
 
 const (
@@ -34,7 +33,6 @@ const (
 	ERR Operator = "ERR"
 )
 
-// Mutant is one change to one file.
 type Mutant struct {
 	Pos      token.Position
 	Operator Operator
@@ -108,8 +106,6 @@ func (m Mutant) String() string {
 	return s
 }
 
-// firstLine shortens text that spans lines, such as a function body, to
-// its first line and an ellipsis.
 func firstLine(s string) string {
 	if line, _, more := strings.Cut(s, "\n"); more {
 		return strings.TrimSpace(line) + " …"
@@ -183,8 +179,6 @@ func (f *finder) markArid(file *ast.File) {
 	}
 }
 
-// aridStmt returns why s is arid: a call that only logs, counts or traces,
-// or an if whose branches do only such things.
 func (f *finder) aridStmt(s ast.Stmt) string {
 	switch s := s.(type) {
 	case *ast.ExprStmt:
@@ -213,8 +207,6 @@ func (f *finder) aridStmt(s ast.Stmt) string {
 	return ""
 }
 
-// aridCases returns why a switch is arid: every case does only arid
-// things, such as picking how to log by the logger's type.
 func (f *finder) aridCases(body *ast.BlockStmt) string {
 	n := 0
 	for _, c := range body.List {
@@ -343,9 +335,7 @@ type finder struct {
 	// uses holds where each local variable and each import of the file is
 	// used, in the compiler's sense: x = v is not a use of x, x++ and
 	// x += v are.
-	uses map[types.Object][]use
-	// parents maps an operand that is itself a binary expression to the
-	// expression it is an operand of.
+	uses    map[types.Object][]use
 	parents map[ast.Expr]*ast.BinaryExpr
 }
 
@@ -485,8 +475,6 @@ func (f *finder) orphans(n ast.Node) (exprs []string, ok bool) {
 	return exprs, true
 }
 
-// repair returns text, or when n holds the only use of something, a
-// function literal of type typ that keeps it used and then returns text.
 func (f *finder) repair(n ast.Node, typ, text string) (string, bool) {
 	exprs, ok := f.orphans(n)
 	if !ok || len(exprs) == 0 {
@@ -495,7 +483,6 @@ func (f *finder) repair(n ast.Node, typ, text string) (string, bool) {
 	return "func() " + typ + " { " + blank(exprs) + "; return " + text + " }()", true
 }
 
-// blank returns a statement that uses exprs: _ = a, or _, _ = a, b.
 func blank(exprs []string) string {
 	return strings.Repeat("_, ", len(exprs)-1) + "_ = " + strings.Join(exprs, ", ")
 }
@@ -594,7 +581,6 @@ func (f *finder) swap(o Operator, n *ast.BinaryExpr, alt token.Token) *Mutant {
 
 func (f *finder) source(n ast.Node) string { return string(f.src[f.offset(n.Pos()):f.offset(n.End())]) }
 
-// assign mutates op-assignments such as += the way binary mutates +.
 func (f *finder) assign(n *ast.AssignStmt) {
 	op, ok := assignOps[n.Tok]
 	if !ok {
@@ -641,8 +627,6 @@ func (f *finder) replaceOp(o Operator, n *ast.BinaryExpr, alts []token.Token) {
 	}
 }
 
-// equivalent returns the rule by which replacing op with alt in n cannot
-// change the result, or "".
 func (f *finder) equivalent(n *ast.BinaryExpr, op, alt token.Token) string {
 	var x, min ast.Expr
 	switch {
@@ -665,7 +649,6 @@ func (f *finder) equivalent(n *ast.BinaryExpr, op, alt token.Token) string {
 	return ""
 }
 
-// isSmallest reports whether e is a constant 0 or "".
 func (f *finder) isSmallest(e ast.Expr) bool {
 	v := f.info.Types[e].Value
 	switch {
@@ -689,7 +672,6 @@ func (f *finder) atLeast(x, min ast.Expr) bool {
 	return f.nonnegative(x)
 }
 
-// nonnegative reports whether e is unsigned or a call to len or cap.
 func (f *finder) nonnegative(e ast.Expr) bool {
 	if b, ok := f.basic(e); ok && b.Info()&types.IsUnsigned != 0 {
 		return true
@@ -706,8 +688,6 @@ func (f *finder) nonnegative(e ast.Expr) bool {
 	return ok && (b.Name() == "len" || b.Name() == "cap")
 }
 
-// mirror returns the operator that keeps a comparison's meaning when its
-// operands swap sides: 0 < x is x > 0.
 func mirror(op token.Token) token.Token {
 	switch op {
 	case token.LSS:

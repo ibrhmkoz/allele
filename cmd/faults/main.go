@@ -76,7 +76,6 @@ func main() {
 	}
 }
 
-// fault is one package of one candidate fix.
 type fault struct {
 	Repo    string `json:"repo"`
 	Commit  string `json:"commit"`
@@ -89,12 +88,10 @@ type fault struct {
 	Killable  int      `json:"killable"`
 	// Coupled counts mutants killed by a revealing test and no other;
 	// OnFix and CoupledOnFix count those on lines the fix added or changed.
-	Coupled      int            `json:"coupled"`
-	OnFix        int            `json:"on_fix"`
-	CoupledOnFix int            `json:"coupled_on_fix"`
-	Operators    map[string]int `json:"coupled_operators"`
-	// OnFixOperators counts, by operator, the coupled mutants on the
-	// fix's lines: which operators stand for the fault where it was.
+	Coupled        int            `json:"coupled"`
+	OnFix          int            `json:"on_fix"`
+	CoupledOnFix   int            `json:"coupled_on_fix"`
+	Operators      map[string]int `json:"coupled_operators"`
 	OnFixOperators map[string]int `json:"coupled_on_fix_operators"`
 	// Chance and ChanceOnFix control for the size of the revealing test
 	// set: the share of 200 random sets of as many other tests that would
@@ -105,7 +102,6 @@ type fault struct {
 
 var fixMessage = `(^|[^a-z])(fix|fixes|fixed|bug|bugs)([^a-z]|$)`
 
-// wanted reports whether commit is one of prefixes, or prefixes is empty.
 func wanted(commit string, prefixes []string) bool {
 	if len(prefixes) == 0 {
 		return true
@@ -148,7 +144,6 @@ func run(ctx context.Context, repo, name, out string, jobs int) error {
 	return write(out, rows)
 }
 
-// change is a file a commit changed, with git's status letter.
 type change struct{ status, path string }
 
 func candidate(ctx context.Context, repo, name, commit, module string, jobs int) ([]fault, error) {
@@ -321,9 +316,6 @@ func measure(ctx context.Context, repo, tree, parent, commit, dir string, change
 	return "ok", nil
 }
 
-// chance draws 200 sets of tests, as many as revealed, from the tests not
-// in it, and returns the share that would leave some mutant coupled, and
-// some mutant on the fix's lines coupled.
 func chance(m *adequacy.Matrix, revealed adequacy.Set, index map[int]int, onFix func(int) bool) (share, shareOnFix float64) {
 	var pool []int
 	for _, i := range index {

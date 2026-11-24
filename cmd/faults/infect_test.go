@@ -11,13 +11,10 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// TestInfections: of the tests not skipped, Five and Zero reach x > 0.
-// A test infects a mutant when the mutated condition evaluates otherwise:
-// only Zero, at the boundary, tells x > 0 from x >= 0, only Five tells it
-// from x < 0, neither from x != 0. Skipped would count for >= 0. Of
-// TestCases only "above" runs: Never(5) tells x < 0 from x > 0 and x >= 0
-// and x != 0; "at zero" would have told it from x <= 0 and x == 0. No
-// test reaches Unused.
+// TestInfections checks reach and infection counts from the old suite on
+// testdata/infect: Five and Zero reach x > 0 (Zero infects >= 0, Five infects
+// < 0, neither infects != 0); TestSkipped and TestCases/at_zero are excluded;
+// no test reaches Unused.
 func TestInfections(t *testing.T) {
 	counts, err := infections(context.Background(), "testdata/infect", []string{"TestSkipped", "TestCases/at_zero"})
 	if err != nil {

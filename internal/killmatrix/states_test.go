@@ -9,8 +9,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// out is test2json-style output: one "--- PASS"/"--- FAIL" result line per
-// name, a name prefixed with ! failing.
 func out(names ...string) []byte {
 	var b strings.Builder
 	for _, n := range names {

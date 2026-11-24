@@ -37,11 +37,8 @@ func TestChoose(t *testing.T) {
 		}
 		return strings.Join(s, " ")
 	}
-	// Equivalents never run, nor arid mutants without -arid; pick then
-	// keeps one per line.
 	xtesting.EqualText(t, show(choose(options{}, "/src/p.go", ms)), "a b c e g")
 	xtesting.EqualText(t, show(choose(options{arid: true}, "/src/p.go", ms)), "a b c e g h")
-	// A diff limits the run to the lines it touches.
 	diff := map[string]map[int]bool{"/src/p.go": {4: true, 9: true}}
 	xtesting.EqualText(t, show(choose(options{all: true, diff: diff}, "/src/p.go", ms)), "e g")
 	xtesting.EqualText(t, show(choose(options{all: true, diff: diff}, "/src/q.go", ms)), "")
@@ -107,15 +104,12 @@ func TestReportJSON(t *testing.T) {
 			{MutantID: 2, TestID: 1, Status: killmatrix.Killed},
 		},
 	}
-	// One line per mutant, killed ones too, for tools to filter.
 	xtesting.EqualText(t, reportJSON(m, "/src"), `
 		{"file":"p/version.go","line":4,"col":12,"operator":"ROR","original":"len(v) > 128","mutated":"len(v) >= 128","verdict":"survived"}
 		{"file":"p/version.go","line":4,"col":12,"operator":"ROR","original":"len(v) > 128","mutated":"len(v) < 128","verdict":"killed"}
 	`)
 }
 
-// TestPick tells the story of one line's mutants as the baseline sees
-// more of them.
 func TestPick(t *testing.T) {
 	c := func(op mutant.Operator, original, mutated string, reached, infected int) killmatrix.Candidate {
 		return killmatrix.Candidate{Path: "/src/p.go", Line: 7, Operator: op, Original: original, Mutated: mutated, Reached: reached, Infected: infected}
@@ -150,14 +144,12 @@ func TestPick(t *testing.T) {
 	// The right side of a short circuit that never runs comes first.
 	cs[3].Reached = 0
 	xtesting.EqualText(t, show(cs), "COR p == nil→false")
-	// Without the baseline's counts the hash decides, the same every run.
 	cs[1].Reached = -1
 	if a, b := pick(cs), pick(cs); a != b {
 		t.Errorf("hash picked %d then %d", a, b)
 	}
 }
 
-// TestPickHash: without counts, the hash varies across lines and files.
 func TestPickHash(t *testing.T) {
 	picks := func(path string) []int {
 		var out []int
@@ -176,8 +168,6 @@ func TestPickHash(t *testing.T) {
 	}
 }
 
-// TestReportOrderingAndFallbacks checks verdict/path/line sorting, per-file
-// source caching, read-error fallback, relative-path fallback, and JSON output.
 func TestReportOrderingAndFallbacks(t *testing.T) {
 	src := map[string]string{
 		"/src/a.go": "if a > 0 {\n\treturn 1\n}\nif b > 0 {\n\treturn 2\n}",

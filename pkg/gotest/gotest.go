@@ -49,10 +49,7 @@ func List(ctx context.Context, dir, bin string) ([]string, error) {
 	return names, nil
 }
 
-// Options says what Run runs and how.
 type Options struct {
-	// Dir is the directory the binary runs in, as go test runs it in the
-	// package's.
 	Dir string
 	// Tests are the top-level tests to run, in one process.
 	Tests []string
@@ -61,12 +58,10 @@ type Options struct {
 	// Limit stops the run once it has taken this long; 0 means no limit.
 	Limit time.Duration
 	// Env is added to the process's environment.
-	Env []string
-	// FailFast stops at the first test that fails.
+	Env      []string
 	FailFast bool
 }
 
-// Run runs o.Tests of bin and reports how each test did.
 func Run(ctx context.Context, bin string, o Options) Report {
 	if o.Limit > 0 {
 		var cancel context.CancelFunc
@@ -109,20 +104,16 @@ func runArgs(o Options) []string {
 	return args
 }
 
-// Report is what one run showed.
 type Report struct {
-	// OK: the binary exited 0, every test it ran passed.
 	OK bool
-	// TimedOut: Run stopped it at its limit.
+	// TimedOut reports whether Run stopped the binary at Options.Limit.
 	TimedOut bool
 	Elapsed  time.Duration
 	// passed maps each test the run reported, at any depth, to whether it
 	// passed. A skipped test passed: it did not fail.
-	passed map[string]bool
-	// started records every test name that printed "=== RUN".
+	passed  map[string]bool
 	started map[string]bool
-	// order lists the names in passed as the run reported them.
-	order []string
+	order   []string
 }
 
 // Passed reports whether the run reported name, at any depth, and whether
@@ -132,13 +123,11 @@ func (r Report) Passed(name string) (passed, reported bool) {
 	return passed, reported
 }
 
-// Started reports whether name began to run.
 func (r Report) Started(name string) bool { return r.started[name] }
 
 // Reported returns the names of the tests the run reported, in its order.
 func (r Report) Reported() []string { return slices.Clone(r.order) }
 
-// Outcome is how a test did.
 type Outcome int
 
 const (
@@ -226,7 +215,6 @@ func Leaves(names []string) []string {
 	return leaves
 }
 
-// Top is the top-level test a test name belongs to.
 func Top(name string) string {
 	top, _, _ := strings.Cut(name, "/")
 	return top

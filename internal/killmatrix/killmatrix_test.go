@@ -113,8 +113,6 @@ const fixtureMatrix = `
 		  M29 .  .  K  .    table.go:6:7 ROR x < 0 → x != 0
 `
 
-// TestUnstableNames checks that a leaf whose name changes between runs is
-// flaky, gets no results, and that no parent test becomes a column.
 func TestUnstableNames(t *testing.T) {
 	t.Parallel()
 	r := killmatrix.Runner{Workers: runtime.NumCPU(), TimeoutPad: time.Second}
@@ -142,9 +140,6 @@ func TestUnstableNames(t *testing.T) {
 	}
 }
 
-// TestFailFast runs the fixture the way a developer would: schemata, test
-// selection, failing fast, and one mutant per line. Each mutant kept must
-// get the verdict the full matrix gives it.
 func TestFailFast(t *testing.T) {
 	t.Parallel()
 	firstPerLine := func(_ string, ms []mutant.Mutant) []int {
@@ -163,9 +158,6 @@ func TestFailFast(t *testing.T) {
 	for _, mu := range m.Mutants {
 		fmt.Fprintf(&b, "%s:%d %s %s → %s: %s\n", mu.File, mu.Line, mu.Operator, mu.Original, mu.Mutated, verdicts[mu.ID])
 	}
-	// One mutant per line: the if condition's true, the first COR on each
-	// line, the first statement deleted. Verdicts match fixtureMatrix's
-	// M1, M9, M13, M20, M21, M22 and M23.
 	xtesting.EqualText(t, b.String(), `
 		discount.go:5 COR price > 100 && vip → true: killed
 		discount.go:6 AOR price - 20 → price + 20: killed
@@ -189,11 +181,6 @@ func TestFailFast(t *testing.T) {
 	}
 }
 
-// TestFailFastVerdicts checks that FailFast (with schemata and selection)
-// reproduces every verdict of fixtureMatrix across all 29 fixture mutants:
-// kills, survivors, timeouts, panicking subtests, and build errors.
-// TestChooseNone: a package none of whose mutants is chosen is neither built
-// nor run, so that mutant -diff costs nothing in packages the diff misses.
 func TestChooseNone(t *testing.T) {
 	t.Parallel()
 	onlyLoop := func(file string, _ []mutant.Mutant) []int {
@@ -237,7 +224,6 @@ func TestFailFastVerdicts(t *testing.T) {
 	for _, mu := range fast.Mutants {
 		fmt.Fprintf(&lines, "M%d %s\n", mu.ID, got[mu.ID])
 	}
-	// Matches fixtureMatrix: M5, M18, M25 survive; M14 times out; M22 does not build; the rest are killed.
 	xtesting.EqualText(t, lines.String(), `
 		M1 killed
 		M2 killed
@@ -271,7 +257,6 @@ func TestFailFastVerdicts(t *testing.T) {
 	`)
 }
 
-// TestRunError checks that a package build failure surfaces as an error.
 func TestRunError(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -290,9 +275,6 @@ func TestRunError(t *testing.T) {
 	}
 }
 
-// TestConfirm runs a test that fails against a mutant on the first try
-// only. Without Confirm it reads as a kill; with it, as flaky, which no
-// verdict counts as killed.
 func TestConfirm(t *testing.T) {
 	t.Parallel()
 	// Sequential subtests: testdata/flaky keys its marker files by ppid.
@@ -358,13 +340,9 @@ func TestConfirmUnderLoad(t *testing.T) {
 	}
 }
 
-// TestFailFastBatches: fast tests run several to a process, and against
-// the batch fixture's mutants such a process panics, hangs or has two
-// parallel tests fail at once. Whatever the batch does, each mutant must
-// get the verdict the full matrix, a process per test, gives it, but for
-// one allowed difference: failing fast stops at a mutant's first timeout,
-// so a mutant one test kills and another hangs on may read as a timeout.
-// Both are no gap, and only a mutant some test hangs on may drift.
+// TestFailFastBatches checks that batched runs match the full matrix on
+// panics, hangs, and parallel failures, except that a mutant one test kills
+// and another hangs on may read as a timeout under FailFast.
 func TestFailFastBatches(t *testing.T) {
 	t.Parallel()
 	full := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true}
@@ -427,9 +405,8 @@ const batchMatrix = `
 		  M20 .  .  .  .  .  .  K   batch.go:28:3 SDL steps++ → (deleted)
 `
 
-// TestBatchLimit: six fast tests of 20 ms run in one process take 120 ms;
-// against n * 2 → n + 2, which they all pass for n = 2, the batch must not
-// time out however small the pad.
+// TestBatchLimit checks that six 20 ms tests batched into one process do not
+// time out even with a 1 ms pad, because their baselines sum to cover the batch.
 func TestBatchLimit(t *testing.T) {
 	t.Parallel()
 	r := killmatrix.Runner{Workers: 2, BaselineRuns: 1, TimeoutPad: time.Millisecond, Schemata: true, Select: true, FailFast: true}
@@ -442,9 +419,6 @@ func TestBatchLimit(t *testing.T) {
 	`)
 }
 
-// TestConfirmStall: a run that stalls past its limit once is checked again
-// with room to finish, so a mutant its test passes survives and the rest
-// are killed, rather than all reading as timeouts.
 func TestConfirmStall(t *testing.T) {
 	t.Parallel()
 	r := killmatrix.Runner{Workers: 2, BaselineRuns: 1, TimeoutPad: 50 * time.Millisecond, Schemata: true, Select: true, FailFast: true, Confirm: true}
@@ -457,10 +431,6 @@ func TestConfirmStall(t *testing.T) {
 	`)
 }
 
-// TestInfect: skipping the tests that ran a mutant's site in the baseline
-// but never computed a different value there changes no verdict on the
-// fixtures, and runs fewer tests. price > 100 → price >= 100 meets no
-// price of 100, so it survives without a single run.
 func TestInfect(t *testing.T) {
 	t.Parallel()
 	base := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: true, FailFast: true}
@@ -501,9 +471,9 @@ func TestInfect(t *testing.T) {
 	}
 }
 
-// TestSchemataSideEffects: a schema binary runs a mutant as the mutant's
-// own build would. return t, t.fill(s) → return t, nil skips fill, which
-// the test sees, so the mutant dies either way.
+// TestSchemataSideEffects checks that mutating `return t, t.fill(s)` to
+// `return t, nil` skips fill's side effect in a schema binary just as in an
+// individual build.
 func TestSchemataSideEffects(t *testing.T) {
 	t.Parallel()
 	own := killmatrix.Runner{Workers: 2, BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond}

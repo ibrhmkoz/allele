@@ -57,8 +57,6 @@ func TestNextBadTag(t *testing.T) {
 	}
 }
 
-// TestPlan tells a repository's story: each step commits, then asks for
-// the next tag.
 func TestPlan(t *testing.T) {
 	dir := t.TempDir()
 	git := gitIn(dir)

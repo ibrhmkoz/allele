@@ -172,7 +172,6 @@ func (rp *repo) summary() summary {
 	}
 }
 
-// A strategy picks the mutants a cheaper tool would run.
 type strategy struct {
 	name string
 	pick func(r *rand.Rand) []int
@@ -207,7 +206,6 @@ func (rp *repo) strategies() []strategy {
 	return append(ss, strategy{name: "one per line", pick: rp.onePerLine, random: true})
 }
 
-// onePerLine keeps one random mutant of each line, as Google's tool does.
 func (rp *repo) onePerLine(r *rand.Rand) []int {
 	lines := map[string][]int{}
 	var keys []string

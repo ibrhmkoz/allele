@@ -16,14 +16,10 @@ import (
 	"time"
 )
 
-// A test can hang or leak the processes it starts, and a mutation tool's
-// changes make both likely. Every process a test starts must be gone once
-// its run returns.
 func TestOutputLeavesNoProcess(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
-		limit time.Duration
-		// script prints the pid of a child that would outlive it.
+		name   string
+		limit  time.Duration
 		script string
 	}{
 		{"timed out", 200 * time.Millisecond, `sleep 300 & echo $!; exec sleep 300`},
@@ -59,9 +55,8 @@ func TestOutputLeavesNoProcess(t *testing.T) {
 	}
 }
 
-// TestArgsStopAHangingTest: a test binary must stop by itself even if no
-// one is left to kill it: a mutation tool run on its own tests can break
-// the code that would, and leave a looping fixture running for hours.
+// TestArgsStopAHangingTest checks that a test binary stops itself even without
+// a runner to kill it, so an orphaned looping fixture does not run for hours.
 func TestArgsStopAHangingTest(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -77,11 +72,9 @@ func TestArgsStopAHangingTest(t *testing.T) {
 	if out, err := Build(t.Context(), dir, bin, ""); err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
-	// The binary's own deadline is twice the limit and a second, past Run's.
 	if args := runArgs(Options{Tests: []string{"TestHang"}, Limit: time.Second}); !slices.Contains(args, "-test.timeout=3s") {
 		t.Errorf("runArgs with a 1s limit = %v, want -test.timeout=3s", args)
 	}
-	// No limit uses go test's 10-minute default deadline.
 	if args := runArgs(Options{Tests: []string{"TestHang"}}); !slices.Contains(args, "-test.timeout=10m0s") {
 		t.Errorf("runArgs with no limit = %v, want -test.timeout=10m0s", args)
 	}

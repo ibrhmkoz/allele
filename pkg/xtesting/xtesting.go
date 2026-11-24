@@ -67,7 +67,6 @@ func diff(want, got string, color bool) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// Prints is EqualText on v.String().
 func Prints(t testing.TB, v fmt.Stringer, want string) {
 	t.Helper()
 	EqualText(t, v.String(), want)

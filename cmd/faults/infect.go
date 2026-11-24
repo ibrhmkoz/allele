@@ -169,8 +169,6 @@ func oldSuite(top string, revealing []string) (run bool, skip string) {
 	return true, "^" + regexp.QuoteMeta(top) + "$/" + strings.Join(subs, "|")
 }
 
-// countOf is mu's reach and infection count, -1 each when infections did
-// not measure it.
 func countOf(counts map[string][2]int, mu killmatrix.Mutant) [2]int {
 	if c, ok := counts[mutantKey(mu.File, mu.Line, mu.Col, string(mu.Operator), mu.Original, mu.Mutated)]; ok {
 		return c
@@ -182,8 +180,6 @@ func mutantKey(file string, line, col int, op, original, mutated string) string 
 	return fmt.Sprintf("%s:%d:%d %s %q→%q", file, line, col, op, original, mutated)
 }
 
-// detail is one mutant of one measured fault, for comparing how per-line
-// selection rules pick the mutants coupled to it.
 type detail struct {
 	Repo       string `json:"repo"`
 	Commit     string `json:"commit"`

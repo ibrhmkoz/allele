@@ -36,7 +36,6 @@ const (
 	maxHidden = 0.01
 )
 
-// verdict is a mutant's verdict as the tool reports it, with the mutant.
 type verdict struct {
 	File     string `json:"file"`
 	Line     int    `json:"line"`
@@ -47,8 +46,6 @@ type verdict struct {
 	Verdict  string `json:"verdict"`
 }
 
-// key names a mutant across runs: its package's directory in the module,
-// "/" at the root, its file, position and change.
 func key(dir, file string, line, col int, op, original, mutated string) string {
 	return fmt.Sprintf("%s %s:%d:%d %s %q→%q", path.Join("/", dir), file, line, col, op, original, mutated)
 }
@@ -62,8 +59,6 @@ type reference struct {
 	matrix  *adequacy.Matrix
 }
 
-// newReference reads m, the matrix of the module at path, and its rerun,
-// if any.
 func newReference(module string, m, rerun *killmatrix.Matrix) *reference {
 	ref := &reference{keys: map[string]int{}, stable: map[int]bool{}}
 	refKey := func(mu killmatrix.Mutant) string {
@@ -116,7 +111,6 @@ func toolKey(v verdict) string {
 	return key(path.Dir(v.File), path.Base(v.File), v.Line, v.Col, v.Operator, v.Original, v.Mutated)
 }
 
-// kind sorts verdicts by what they tell a developer.
 type kind int
 
 const (
@@ -137,7 +131,6 @@ func class(v killmatrix.Verdict) kind {
 	}[v]
 }
 
-// score is how one run did on one repository.
 type score struct {
 	Bin      string  `json:"bin"`
 	Repo     string  `json:"repo"`
@@ -162,13 +155,10 @@ func (s *score) counter(want, got kind) *int {
 	}[[2]kind{want, got}]
 }
 
-// worse reports whether s did worse than t: more weighted errors, or as
-// many and a lower D.
 func (s score) worse(t score) bool {
 	return s.errors() > t.errors() || s.errors() == t.errors() && s.D < t.D
 }
 
-// errors is the weighted count of verdict errors.
 func (s score) errors() float64 {
 	return wHidden*float64(s.Hidden) + wFalse*float64(s.False) + wTimeout*float64(s.Timeout) + wBuild*float64(s.Build)
 }
@@ -206,7 +196,6 @@ func (ref *reference) grade(repo string, vs []verdict, seeds int) score {
 	return s
 }
 
-// metric is one tool's value of M over the corpus.
 type metric struct {
 	Bin string  `json:"bin"`
 	D   float64 `json:"d"`

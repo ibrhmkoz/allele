@@ -12,7 +12,6 @@ import (
 	"strings"
 )
 
-// The three tables a matrix is written as, one JSON object per line.
 var tables = [3]string{"mutants.ndjson", "tests.ndjson", "results.ndjson"}
 
 // Write writes m to dir as mutants.ndjson, tests.ndjson and

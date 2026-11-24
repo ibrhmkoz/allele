@@ -19,7 +19,6 @@ import (
 // Set is an immutable set of tests, numbered from 0.
 type Set struct{ words []uint64 }
 
-// NewSet returns the set of the given tests.
 func NewSet(tests ...int) Set {
 	var s Set
 	for _, t := range tests {
@@ -37,7 +36,6 @@ func All(n int) Set {
 	return s
 }
 
-// With returns s plus test t.
 func (s Set) With(t int) Set {
 	words := make([]uint64, max(len(s.words), t/64+1))
 	copy(words, s.words)

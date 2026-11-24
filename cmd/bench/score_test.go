@@ -48,9 +48,6 @@ func reported(line int, file, v string) verdict {
 	return verdict{File: file, Line: line, Col: 1, Operator: "ROR", Original: "a > b", Mutated: "a >= b", Verdict: v}
 }
 
-// TestGrade: each kind of verdict error lands in its own count, mutants
-// the two exhaustive runs disagree on count for none, and a mutant the
-// reference lacks counts as unknown.
 func TestGrade(t *testing.T) {
 	ref := newReference("example.com/m", refMatrix(false), refMatrix(true))
 	grade := func(vs ...verdict) string {
@@ -86,8 +83,6 @@ func TestGrade(t *testing.T) {
 	xtesting.EqualText(t, grade(reported(5, "p.go", "killed")), "reported 1 unknown 0 stable 1 hidden 0 false 0 timeout 0 build 0")
 }
 
-// TestGradeOrder: the order a build reports its mutants in does not move
-// D, on a matrix of 40 mutants with random kill sets over 8 tests.
 func TestGradeOrder(t *testing.T) {
 	r := rand.New(rand.NewPCG(1, 2))
 	m := &killmatrix.Matrix{}
@@ -121,11 +116,11 @@ func TestWorse(t *testing.T) {
 		b    score
 		want bool
 	}{
-		{score{D: 0.9, False: 2}, true},   // more errors
-		{score{D: 0.8, False: 1}, true},   // as many, lower D
-		{score{D: 0.9, False: 1}, false},  // the same
-		{score{D: 0.95, False: 1}, false}, // as many, higher D
-		{score{D: 0.1, False: 0}, false},  // fewer errors, however low D
+		{score{D: 0.9, False: 2}, true},
+		{score{D: 0.8, False: 1}, true},
+		{score{D: 0.9, False: 1}, false},
+		{score{D: 0.95, False: 1}, false},
+		{score{D: 0.1, False: 0}, false},
 	} {
 		if got := c.b.worse(a); got != c.want {
 			t.Errorf("%+v worse than %+v: %v", c.b, a, got)
@@ -133,9 +128,6 @@ func TestWorse(t *testing.T) {
 	}
 }
 
-// TestCombine: the exhaustive anchor scores 1; twice as fast makes up for
-// 1 - 2^-Gamma less quality and no more; giving up a repository, or every
-// verdict, gives up everything.
 func TestCombine(t *testing.T) {
 	perfect := []score{{D: 1, Stable: 10}, {D: 1, Stable: 10}}
 	if m := combine("x", perfect, T0).M; math.Abs(m-1) > 1e-12 {

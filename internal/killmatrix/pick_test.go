@@ -15,12 +15,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// TestPick: after the baseline, Pick sees each line's candidates with how
-// many top-level tests reached and infected them, and only the mutant it
-// keeps runs and lands in the matrix, on a cache hit too. Discount's three
-// tests (200 VIP, 200, 50 VIP) all reach line 4; none sits at the
-// boundary, so none infects price >= 100. Only the VIP over 100 reaches
-// line 5.
 func TestPick(t *testing.T) {
 	t.Parallel()
 	var mu sync.Mutex
@@ -94,7 +88,6 @@ func TestPick(t *testing.T) {
 		t.Errorf("-all after Pick: %d mutants, want 12", n)
 	}
 
-	// Without a schema the baseline records no reach.
 	seen = nil
 	own := r
 	own.Schemata, own.CacheDir = false, ""
@@ -118,8 +111,8 @@ func listMutants(m *killmatrix.Matrix) string {
 	return b.String()
 }
 
-// TestPickPackages: ids stay unique across packages when Pick leaves
-// candidates out; a reused id would mix two mutants' results.
+// TestPickPackages checks that mutant ids stay unique across packages when
+// Pick leaves candidates out.
 func TestPickPackages(t *testing.T) {
 	t.Parallel()
 	r := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: true, FailFast: true, Infect: true}
@@ -128,7 +121,6 @@ func TestPickPackages(t *testing.T) {
 	all.Pick = nil
 	patterns := []string{"./discount", "./loop", "./table"}
 	got, every := run(t, r, "testdata", patterns...), run(t, all, "testdata", patterns...)
-	// Each kept mutant's verdict is the one it gets when every mutant runs.
 	want := map[string]killmatrix.Verdict{}
 	v := every.Verdicts()
 	for _, mu := range every.Mutants {
@@ -142,8 +134,8 @@ func TestPickPackages(t *testing.T) {
 	}
 }
 
-// TestPickCountsPassingTests: a failing test never runs against mutants,
-// so what it reaches and infects must not steer Pick.
+// TestPickCountsPassingTests checks that a failing baseline test does not
+// affect Pick's reach or infection counts.
 func TestPickCountsPassingTests(t *testing.T) {
 	t.Parallel()
 	dir := copyDiscount(t)

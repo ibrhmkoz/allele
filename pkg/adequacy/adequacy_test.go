@@ -81,7 +81,6 @@ func randomTests(r *rand.Rand, n int) adequacy.Set {
 	return s
 }
 
-// kills reports whether tests kill every killable mutant.
 func killsAll(kills []adequacy.Set, tests adequacy.Set) bool {
 	for _, k := range kills {
 		if !k.Empty() && !k.Intersects(tests) {
@@ -109,7 +108,6 @@ func TestProperties(t *testing.T) {
 			t.Fatalf("seed %d: adding a test lowered the score", seed)
 		}
 
-		// A copy of a mutant is redundant and changes nothing.
 		if len(kills) > 0 {
 			withCopy := adequacy.New(n, append(slices.Clip(kills), kills[r.IntN(len(kills))]))
 			if withCopy.Score(tests) != m.Score(tests) || len(withCopy.Dominators()) != len(m.Dominators()) {
@@ -150,7 +148,6 @@ func TestSetMatchesModel(t *testing.T) {
 	}
 }
 
-// model reads a set back through its String form.
 func model(s adequacy.Set) map[int]bool {
 	m := map[int]bool{}
 	for f := range strings.FieldsSeq(strings.Trim(s.String(), "{}")) {
@@ -222,7 +219,6 @@ func TestCoupledProperties(t *testing.T) {
 				t.Fatalf("seed %d: M%d %v is not killed by %v alone", seed, i+1, kills[i], frt)
 			}
 		}
-		// Every test revealing the fault means every killable mutant is coupled.
 		all := adequacy.All(m.Tests())
 		killable := 0
 		for _, k := range kills {
@@ -236,9 +232,6 @@ func TestCoupledProperties(t *testing.T) {
 	}
 }
 
-// TestAdequateShuffleAndBounds checks that Adequate shuffles mutant order
-// rather than visiting in index order, and that Set handles sparse high bit
-// indices without indexing past shorter word slices.
 func TestAdequateShuffleAndBounds(t *testing.T) {
 	// M0 is killed only by {0} and M1 by {0, 1}. Visiting M0 first always picks
 	// {0}; shuffling visits M1 first half the time and sometimes picks {0, 1}.

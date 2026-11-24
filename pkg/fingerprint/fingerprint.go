@@ -122,9 +122,6 @@ func of(variants []*packages.Package, toolchain []byte) Print {
 	return Print{Shared: hex.EncodeToString(shared.Sum(nil)), Tests: tests}
 }
 
-// splitTests hashes each test function of a test file into tests and the
-// rest of the file into shared, so that an edit to one test leaves the
-// others' hashes alone.
 func splitTests(shared hash.Hash, tests map[string]string, label string, src []byte) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", src, 0)

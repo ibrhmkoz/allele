@@ -14,8 +14,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// module is a small module: package p uses dep in its code and helper
-// only in its tests, embeds msg.txt and reads testdata/want.txt.
 var module = map[string]string{
 	"go.mod":     "module example.com/m\n\ngo 1.21\n",
 	"dep/dep.go": "package dep\n\nfunc Two() int { return 2 }\n\n// TestValue is not a test: it is not in a _test.go file.\nfunc TestValue() int { return 0 }\n",
@@ -132,8 +130,6 @@ func load(t *testing.T, edit func(dir string)) fingerprint.Print {
 	return prints["example.com/m/p"]
 }
 
-// changed names what differs between two prints: "shared" and the tests
-// whose own source changed, appeared or went away.
 func changed(a, b fingerprint.Print) string {
 	var out []string
 	if a.Shared != b.Shared {
@@ -154,10 +150,6 @@ func changed(a, b fingerprint.Print) string {
 	return strings.Join(out, " ")
 }
 
-// TestLoad edits one input of package p at a time and checks which part of
-// its print changes: a test's own source changes only that test, anything
-// else its tests could depend on changes the shared part, and the rest
-// changes nothing.
 func TestLoad(t *testing.T) {
 	t.Parallel()
 	ref := load(t, nil)
@@ -200,8 +192,6 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-// TestLoadTarget: the same sources built for another target are another
-// build.
 func TestLoadTarget(t *testing.T) {
 	ref := load(t, nil)
 	t.Setenv("GOARCH", map[string]string{"arm64": "amd64"}[runtime.GOARCH]+map[string]string{"amd64": "arm64"}[runtime.GOARCH])

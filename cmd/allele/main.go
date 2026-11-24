@@ -65,7 +65,6 @@ func main() {
 	}
 }
 
-// run reports and returns whether every mutant run was killed or timed out.
 func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON bool, patterns []string) (bool, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -102,7 +101,6 @@ func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON 
 	return strictOK(m.Verdicts()), nil
 }
 
-// strictOK reports whether -strict passes: no mutant survived or went uncovered.
 func strictOK(verdicts map[int]killmatrix.Verdict) bool {
 	for _, v := range verdicts {
 		if v == killmatrix.VerdictSurvived || v == killmatrix.VerdictNotCovered {
