@@ -55,10 +55,10 @@ def _(mo, totals):
     mo.md(rf"""
     # mutant measurements
 
-    - **Setup:** M1 Pro 16 GiB on AC power · Go 1.27.3 · `killmatrix -j 8`, so 8 mutants build and run at once; section 6 compares against `-j 1`. Measured on 2026-11-23: two full runs of the same code (`data/`, `data-rerun/`), one with schemata (`data-schemata/`, section 8), one with schemata and test selection (`data-select/`, section 9) and one `-j 1` run of two repositories (`data-j1/`).
-    - **Corpus:** six repositories at pinned commits (`corpus.sh`): glob, go-humanize, go-version, semver, shlex, uuid. {totals.mutants:,} mutants ({totals.compiled:,} compile, {totals.repaired} of them repaired), {totals.leaves} leaf tests ({totals.excluded} flaky or failing), {totals.results:,} results.
-    - **Kill matrix:** every mutant built on its own with `go test -c -vet=off -overlay`, every top-level test run against it alone, a column per leaf subtest read from `-test.v=test2json`. A run times out after 3 × its baseline + 1 s; timeouts ({totals.timeouts:,} results) do not count as kills. Mutants that do not compile are left out of every score.
-    - **Score:** the share of dominator mutants killed (Kurtz, Ammann et al., FSE 2016). Strategies are simulated on the matrix, never built: tests are added at random until every mutant the strategy kept is dead, and that test set is scored on all mutants. Each strategy is paired with a control that keeps as many mutants at random. 200 test sets per seed, 30 seeds.
+    - **Setup:** M1 Pro 16 GiB (AC power), Go 1.27.3, `killmatrix -j 8` (8 mutants in parallel; §6 compares `-j 1`). Measured 2026-11-23: two full runs (`data/`, `data-rerun/`), schemata (`data-schemata/`, §8), schemata + selection (`data-select/`, §9), and `-j 1` on two repos (`data-j1/`).
+    - **Corpus:** 6 pinned repos (`corpus.sh`): glob, go-humanize, go-version, semver, shlex, uuid. {totals.mutants:,} mutants ({totals.compiled:,} compile, {totals.repaired} repaired), {totals.leaves} leaf tests ({totals.excluded} flaky/failing), {totals.results:,} results.
+    - **Kill matrix:** Each mutant builds alone (`go test -c -vet=off -overlay`) and runs each top-level test alone. Columns are leaf subtests (`-test.v=test2json`). Timeout = 3× baseline + 1 s ({totals.timeouts:,} timeouts, not counted as kills). Build errors are excluded from scores.
+    - **Score:** Share of dominator mutants killed (Kurtz et al., FSE 2016). Strategies are simulated on the matrix: add random tests until every kept mutant dies, then score on all mutants. Each strategy is paired with a random control of equal size (200 test sets × 30 seeds).
     """)
     return
 
@@ -89,17 +89,17 @@ def _(PART, alt, mo, pd, span, summary, title):
         width=560,
         height=300,
         title=title(
-            f"{span(summary.killable)} killable mutants per repository come down to {span(summary.dominators)} dominators",
-            f"Killing the dominators kills every killable mutant. Log scale. Raw scores {span(summary.raw_score, '{:.2f}')} count the rest again and again.",
+            f"{span(summary.killable)} killable mutants reduce to {span(summary.dominators)} dominators",
+            f"Killing the dominators kills all killable mutants. Log scale. Raw scores ({span(summary.raw_score, '{:.2f}')}) double-count the rest.",
         ),
     )
     mo.vstack(
         [
-            mo.md("## 1. How much of a raw mutation score is redundancy?"),
+            mo.md("## 1. How much of a raw score is redundancy?"),
             _chart,
             mo.md(r"""
-            - **Mechanism:** an `if` with `>` yields 2 COR and 5 ROR mutants; one test usually kills most of them, so they share a kill set and count once.
-            - **Limit:** dominators are relative to these tests. Few dominators make a score coarse: with shlex's 2, any score is 0, 0.5 or 1. Section 2 gives each repository's count next to its result.
+            - **Why:** One `if` with `>` creates 2 COR and 5 ROR mutants. One test usually kills most of them, so they share a kill set and count once.
+            - **Limit:** Dominators depend on the test suite. Few dominators make scores coarse: `shlex` has 2, so scores can only be 0, 0.5, or 1. §2 shows each repo's count.
             """),
         ]
     )
@@ -165,21 +165,21 @@ def _(REPO, alt, mo, pd, strategies, summary, title):
         width=560,
         height=620,
         title=title(
-            f"One mutant per line beats random picks in {_opl_wins} of 6 repos; COR alone in {_cor_wins} of 6",
-            "Dot: mean over 30 seeds; line: 95% of seeds. Right of 0: tests written against the strategy's mutants kill more dominators. Legend: dominators per repo.",
+            f"One per line beats random in {_opl_wins}/6 repos; COR alone in {_cor_wins}/6",
+            "Dot: 30-seed mean; bar: 95% range. Right of 0 beats random. Legend shows dominator count.",
         ),
     )
     _ties = ", ".join(f"{r.repo} ({r.dominators} dominators, {r.lo:+.3f} to {r.hi:+.3f})" for r in _opl[_opl.lo <= 0].itertuples())
     mo.vstack(
         [
-            mo.md("## 2. Which mutant selection beats picking mutants at random?"),
+            mo.md("## 2. Which strategies beat random picks?"),
             _chart,
             mo.md(rf"""
-            - **One per line** ties random in {_ties}. shlex has the fewest dominators: every adequate test set kills both, so no strategy can differ there. glob is not coarse; its interval straddles 0, a real tie.
-            - **COR only:** likely because COR flips whole branches, the faults tests are written to catch (inference, not measured).
-            - **Other single operators** mostly lose: exhaustive ROR piles redundant mutants on a few comparisons; AOR and ERR cover few lines.
-            - **All but repaired** loses to random in most repos: dropping the mutants that needed a repair costs more dominators than dropping as many at random (section 5).
-            - **Seeds** vary only the simulation; a different test suite or corpus could move every dot. Selective vs random mutation in the literature: Zhang et al., ICSE 2010.
+            - **One per line** ties random in {_ties}. `shlex` has only 2 dominators, so all strategies tie there. `glob` is a real tie (interval crosses 0).
+            - **COR only:** Likely wins because it flips whole branches (not measured directly).
+            - **Other single operators** mostly lose. ROR piles redundant mutants on a few lines; AOR and ERR cover too few lines.
+            - **All but repaired** loses to random in most repos. Dropping repaired mutants loses more dominators than dropping random ones (§5).
+            - **Seeds** vary only the simulation; other tests or repos would shift the dots (see Zhang et al., ICSE 2010).
             """),
         ]
     )
@@ -207,8 +207,8 @@ def _(alt, mo, strategies, title):
         width=560,
         height=340,
         title=title(
-            f"One mutant per line keeps {_opl.score:.2f} of the score at {_opl.cost:.0%} of the cost",
-            "Dot: mean over 6 repos; line: lowest to highest repo. Blue: beats random picks (section 2). Cost includes 8-way build contention.",
+            f"One per line keeps {_opl.score:.2f} of the score at {_opl.cost:.0%} of the cost",
+            "Dot: 6-repo mean; bar: min–max. Blue beats random (§2). Cost includes 8-way build contention.",
         ),
     )
     mo.vstack([mo.md("## 3. What does each strategy cost?"), _chart])
@@ -267,8 +267,8 @@ def _(FATE, alt, db, mo, pd, span, title):
         width=560,
         height=240,
         title=title(
-            f"{span(_main.measured * 100)}% of lines die or survive together; {span(_main.expected * 100)}% would by chance",
-            "Lines with ≥ 2 compiled mutants. Expected: pⁿ + (1 − p)ⁿ per line, p the repo's kill rate, if mutants lived or died independently.",
+            f"{span(_main.measured * 100)}% of lines share one fate; {span(_main.expected * 100)}% would by chance",
+            "Lines with ≥ 2 compiled mutants. Expected: pⁿ + (1 − p)ⁿ using each repo's kill rate p.",
         ),
     )
     _table = _fate.pivot(index="repo", columns="def", values="measured")[["all share the fate", "timeouts count as killed", "equivalent-tagged left out"]]
@@ -280,14 +280,14 @@ def _(FATE, alt, db, mo, pd, span, title):
         _md += f"| {_repo} | {_row.lines:.0f} | " + " | ".join(f"{_row[c]:.0%}" for c in _cols) + " |\n"
     mo.vstack(
         [
-            mo.md("## 4. Do the mutants of one line share their fate?"),
+            mo.md("## 4. Do mutants on the same line share their fate?"),
             _chart,
             mo.md(_md),
             mo.md(r"""
-            - **Source:** Petrović et al., *Does mutation testing improve testing practices?*, ICSE 2021, §IV-D (RQ4): "more than 90% of all lines have a mutant majority fate of 100%", i.e. all of a line's mutants are killed or all survive. Their lines are those touched by 1 502 bug fixes at Google, with arid nodes suppressed and Google's operators; how they count non-compiling and timed-out mutants is not stated.
-            - **Same definition here** (first column): killed by the suite or not, non-compiling mutants left out, lines with ≥ 2 mutants. The other columns vary one choice each; *same kill vector* is the strictest (the same tests kill every mutant on the line), *mean majority fate* the most lenient (the share of a line's mutants with its majority's fate).
-            - **Mutants agree more than chance where tests are fine-grained** (glob, uuid: about twice the independent rate) and at about chance in go-version, whose 33 top-level tests barely use subtests.
-            - **Likely causes of the gap to Google** (inference, not measured): exhaustive ROR puts 5 mutants on every comparison and the boundary one (`>` → `>=`) often survives alone; Google's operators make fewer mutants per line and its lines are bug-fix lines.
+            - **Google baseline:** Petrović et al. (ICSE 2021) found >90% of bug-fix lines had all mutants killed or all survive, using Google's operators and arid filtering.
+            - **Definitions:** First column matches Google's (killed vs not, build errors dropped, ≥2 mutants/line). *Same kill vector* is strictest (exact same tests kill all); *mean majority fate* is loosest.
+            - **Test granularity matters:** Fine-grained suites (`glob`, `uuid`) agree ~2× more than chance. `go-version` (33 top-level tests, few subtests) sits near chance.
+            - **Why lower than Google (likely):** Exhaustive ROR puts 5 mutants per comparison, and boundary mutants (`>` → `>=`) often survive alone. Google also makes fewer mutants per line.
             """),
         ]
     )
@@ -320,8 +320,8 @@ def _(RUN, alt, db, mo, pd, summary, title):
         width=560,
         height=240,
         title=title(
-            f"Keeping orphaned names used leaves {_failed_after} of 4 889 mutants that do not compile, down from 249",
-            "_ = x for locals, _ = pkg.Name for imports, in COR, SDL and ERR. Builds also skip vet now.",
+            f"Build repair cuts compile errors from 249 to {_failed_after} (of 4,889 mutants)",
+            "Adds _ = x for unused vars and _ = pkg.Name for imports in COR, SDL, ERR. Builds also skip vet.",
         ),
     )
 
@@ -338,12 +338,12 @@ def _(RUN, alt, db, mo, pd, summary, title):
     _gain_txt = ", ".join(f"{r.repo} {r.dominators_unrepaired}→{r.dominators}" for r in _gain[_gain.gained != 0].itertuples())
     mo.vstack(
         [
-            mo.md("## 5. Do the repair and the equivalence rule pay off?"),
+            mo.md("## 5. Do build repair and equivalence rules pay off?"),
             _op_chart,
             mo.md(rf"""
-            - **Repair vs filter:** {int(summary.repaired.sum())} mutants needed a repair. Dropping them instead would lose dominators: {_gain_txt}. Section 2's *all but repaired* compares dropping them with dropping as many at random.
-            - **Still failing:** AOR in constant expressions (`TByte * 1000` → `TByte - 1000` overflows a constant), ERR returning `nil` as a concrete type, an import used only for a type (repaired since with `(*pkg.T)(nil)`, after these runs) or only through a generic function.
-            - **Equivalence rule** (a value that cannot be negative compared with 0: `!=` is `>`, `==` is `<=`): {_eq[0]} mutants tagged, {_eq[1]} killed or timed out, so no counterexample. It covers {_eq[0]} of {_surv:,} surviving mutants ({_eq[0] / _surv:.0%}): cheap, but small.
+            - **Repair vs drop:** {int(summary.repaired.sum())} mutants needed repair. Dropping them loses dominators ({_gain_txt}) and loses to random (§2).
+            - **Still failing:** Constant-overflow AOR (`TByte * 1000` → `-`), ERR returning `nil` for non-nilable types, and type/generic-only imports (type-only imports were fixed later with `(*pkg.T)(nil)`).
+            - **Equivalence rule** (non-negative value vs 0: `!=` → `>`, `==` → `<=`): {_eq[0]} tagged, {_eq[1]} killed or timed out. Catches {_eq[0]}/{_surv:,} survivors ({_eq[0] / _surv:.0%})—cheap, small win.
             """),
         ]
     )
@@ -385,8 +385,8 @@ def _(PHASE, alt, db, mo, pd, span, title):
         width=560,
         height=200,
         title=title(
-            f"Builds take {span(_j8.build_share * 100)}% of the naive runner's time at -j 8",
-            "One go test -c per mutant; one process per top-level test per mutant, including timeouts.",
+            f"Builds take {span(_j8.build_share * 100)}% of naive runner time at -j 8",
+            "One go test -c per mutant; one process per top-level test per mutant.",
         ),
     )
     _both = _cost[_cost.repo.isin(_cost[_cost.jobs == "j1"].repo)]
@@ -407,7 +407,7 @@ def _(PHASE, alt, db, mo, pd, span, title):
         width=560,
         height=120,
         title=title(
-            f"Without contention builds are {span(_j1.build_share * 100)}% of the time",
+            f"Without contention, builds are {span(_j1.build_share * 100)}% of time",
             "go-version and shlex rerun with -j 1.",
         ),
     )
@@ -417,8 +417,8 @@ def _(PHASE, alt, db, mo, pd, span, title):
             _time_chart,
             _j_chart,
             mo.md(rf"""
-            - **Timeouts** are under 0.5% of runs but {span(_j1.timeout_share * 100)}% of test-run time at `-j 1`: each waits 3 × baseline + 1 s.
-            - **Schemata** (one build per package) would remove the build share; test selection by reach would cut the test runs. Both must reproduce the matrix (section 7 gives the noise floor).
+            - **Timeouts:** Under 0.5% of runs, but {span(_j1.timeout_share * 100)}% of test time at `-j 1` (each waits 3× baseline + 1 s).
+            - **Next cuts:** Schemata removes build time; test selection cuts test runs. Both must match this matrix (§7 sets the noise floor).
             """),
         ]
     )
@@ -452,13 +452,13 @@ def _(db, mo):
         [
             mo.md("## 7. How reproducible is the naive matrix?"),
             mo.md(rf"""
-            Two full runs of the same code at `-j 8` agree on {_cmp[0] - _cmp[1]:,} of {_cmp[0]:,} cells ({1 - _cmp[1] / _cmp[0]:.3%}). Of the {_cmp[1]} that differ, {_cmp[2]} sit on the timeout limit; the rest come from {_cmp[3]} mutants whose kills change from run to run:
+            Two `-j 8` runs agree on {_cmp[0] - _cmp[1]:,} of {_cmp[0]:,} cells ({1 - _cmp[1] / _cmp[0]:.3%}). Of the {_cmp[1]} diffs, {_cmp[2]} hit the timeout boundary. The rest come from {_cmp[3]} flaky mutants:
             """),
             mo.md(_md),
             mo.md(rf"""
-            - `-j 1` and `-j 8` agree on all but {_j[1]} of {_j[0]:,} cells of go-version and shlex, so parallelism does not change kills there.
-            - **For schemata (axis A):** a differential test against this matrix must rerun disagreeing cells before calling them a bug; this many differ between two naive runs alone.
-            - Likely causes (inference, not measured): glob's matcher pools its arena with `sync.Pool`, so mutants of its size check depend on GC timing; uuid's version 6 and 7 code reads the clock.
+            - `-j 1` and `-j 8` agree on all but {_j[1]} of {_j[0]:,} cells (`go-version`, `shlex`). Parallelism does not change kills there.
+            - **Takeaway for schemata:** Rerun disagreeing cells before calling them bugs.
+            - **Likely causes:** `glob` pools arenas with `sync.Pool` (GC timing); `uuid` v6/v7 reads the system clock.
             """),
         ]
     )
@@ -528,8 +528,8 @@ def _(PHASE, alt, db, mo, pd, title):
         width=560,
         height=300,
         title=title(
-            f"Schemata cuts build time {_b.build_s / _s.build_s:.0f}×: {_b.build_s / 60:.0f} to {_s.build_s / 60:.1f} build-minutes",
-            f"Faded: a build per mutant; solid: schemata. {_emb:.1%} of mutants embedded; the rest build on their own. Test runs: {_b.run_s / 60:.0f} vs {_s.run_s / 60:.0f} minutes.",
+            f"Schemata cuts build time {_b.build_s / _s.build_s:.0f}× ({_b.build_s / 60:.0f} → {_s.build_s / 60:.1f} min)",
+            f"Faded: build per mutant; solid: schemata. {_emb:.1%} embedded. Test runs: {_b.run_s / 60:.0f} vs {_s.run_s / 60:.0f} min.",
         ),
     )
     _md = "| repo | where | operator | mutant | build per mutant | schemata | cells |\n|---|---|---|---|---|---|---:|\n" + "".join(
@@ -537,17 +537,17 @@ def _(PHASE, alt, db, mo, pd, title):
     )
     mo.vstack(
         [
-            mo.md("## 8. Does schemata reproduce the matrix, and at what cost?"),
+            mo.md("## 8. Does schemata keep the matrix, and how much faster is it?"),
             mo.md(rf"""
-            Axis A: the schema binary and a build per mutant agree on {_kinds[0] - _kinds[1]:,} of {_kinds[0]:,} cells ({1 - _kinds[1] / _kinds[0]:.3%}); mutant ids match one to one ({_same_ids} differ in text). Of the {_kinds[1]} cells that differ, {_kinds[2]} sit on the timeout limit and {_kinds[3]} also differ between the two runs of a build per mutant. That leaves {_kinds[4]}; two runs of a build per mutant alone differ on {_kinds[5]} cells (section 7).
+            Schemata matches build-per-mutant on {_kinds[0] - _kinds[1]:,} of {_kinds[0]:,} cells ({1 - _kinds[1] / _kinds[0]:.3%}); mutant IDs match 1-to-1 ({_same_ids} text diffs). Of {_kinds[1]} diffs, {_kinds[2]} are timeouts and {_kinds[3]} also flip between naive reruns. That leaves {_kinds[4]} (vs {_kinds[5]} noise between naive reruns, §7).
             """),
             mo.md(_md) if len(_other) else mo.md("No other cell differs."),
             _chart,
             mo.md(r"""
-            - **What the comparison found:** a first schemata run disagreed on semver's `constraints.go:503` and go-humanize's `bytes.go:174`. Find swapped `&&` for `||` as text, which regrouped the tree (`a && b && c` → `a || b && c`, read as `a || (b && c)`); the schema binary, built from the tree, ran the intended mutant. Find now rewrites the node with parentheses, and these runs use it.
-            - **Where cells still differ** they fall on the lines section 7 lists as nondeterministic (uuid's clock, glob's pooled arena, go-humanize's `si.go` loop), where any two runs can disagree.
-            - **Test runs** get shorter too, likely because no build competes with them for the 8 cores (inference, not measured). Their count does not change: selecting the tests that reach a mutant is the next cut (roadmap 1.3).
-            - **Wall clock** of the whole corpus at `-j 8`: about 15 minutes per build to about 6 with schemata (from `corpus.sh`'s `time`).
+            - **Bug caught:** First run disagreed on `semver/constraints.go:503` and `go-humanize/bytes.go:174`. Text swap of `&&` → `||` broke precedence (`a || b && c`). `Find` now adds parentheses.
+            - **Remaining diffs:** All sit on the flaky lines from §7 (`uuid` clock, `glob` pool, `go-humanize/si.go`).
+            - **Faster tests too:** Less CPU contention from builds on 8 cores.
+            - **Wall clock (`-j 8`):** ~15 min → ~6 min across the corpus.
             """),
         ]
     )
@@ -611,19 +611,19 @@ def _(alt, db, mo, pd, title):
         width=520,
         height=130,
         title=title(
-            f"Schemata and test selection run the corpus {_base / _wall['schemata + selection']:.0f}× faster than a build per mutant",
-            f"Test processes: {_proc['build per mutant']:,} → {_proc['schemata + selection']:,}. Wall clock from corpus.sh's time; the matrix is the same (below).",
+            f"Schemata + test selection runs {_base / _wall['schemata + selection']:.0f}× faster",
+            f"Test processes: {_proc['build per mutant']:,} → {_proc['schemata + selection']:,}. Same matrix (below).",
         ),
     )
     mo.vstack(
         [
-            mo.md("## 9. Does running only the tests that reach a mutant keep the matrix?"),
+            mo.md("## 9. Does test selection keep the matrix?"),
             _chart,
             mo.md(rf"""
-            - **Selection** skipped {_k[1]:,} of {_k[0]:,} cells ({_k[1] / _k[0]:.0%}): the top-level test never reached the function that holds the mutant in the baseline. {_k[2]} skipped cell differs from the build per mutant, and {_k[2] - _k[3]} of those also differ between its two runs.
-            - **By function, not by site:** selecting by site skipped 6 cells that every build per mutant killed. uuid's `getV7Time` bumps `lastV7time` only when two calls share a clock tick; that branch ran in no baseline run but did run against the mutants. A function reaches some site whenever it runs.
-            - **Overall** {_k[4]} cells differ from a build per mutant; {_k[5]} are neither on the timeout limit nor among cells its two runs disagree on, all on the nondeterministic lines of section 7 or a mutant built on its own.
-            - Mutants outside any function, and those not embedded, always run every test.
+            - **Skipped:** {_k[1]:,} of {_k[0]:,} cells ({_k[1] / _k[0]:.0%}) where the test never reached the mutant's function in the baseline. {_k[2]} skipped cells differ ({_k[2] - _k[3]} also flip in naive reruns).
+            - **Function-level, not site-level:** Site-level selection missed 6 real kills in `uuid`'s `getV7Time`, where a clock-collision branch never ran in baseline but did run under mutants.
+            - **Overall:** {_k[4]} diffs total; {_k[5]} non-timeout, non-noise diffs—all on §7's flaky lines or non-schema mutants.
+            - **Fallback:** Mutants outside functions or not embedded run all tests.
             """),
         ]
     )
@@ -667,8 +667,8 @@ def _(alt, db, mo, pd, title):
         width=540,
         height=170,
         title=title(
-            f"{_m['the fix' + chr(39) + 's lines', 'fix' + chr(39) + 's revealing tests']:.0%} of real faults are coupled to a mutant on the lines their fix changed; random tests manage {_m['the fix' + chr(39) + 's lines', 'as many random tests']:.0%}",
-            f"{len(_ok)} faults (package × fixing commit) from {_f.commit.nunique()} candidate commits in 6 repos. Random: 200 sets of as many non-revealing tests per fault.",
+            f"{_m['the fix' + chr(39) + 's lines', 'fix' + chr(39) + 's revealing tests']:.0%} of real bugs link to a mutant on fix lines (random tests: {_m['the fix' + chr(39) + 's lines', 'as many random tests']:.0%})",
+            f"{len(_ok)} bugs from {_f.commit.nunique()} commits in 6 repos. Random: 200 equal-sized non-revealing test sets.",
         ),
     )
     _ops = db.sql(f"""
@@ -691,14 +691,14 @@ def _(alt, db, mo, pd, title):
     )
     mo.vstack(
         [
-            mo.md("## 10. Are real faults coupled to mutants?"),
+            mo.md("## 10. Are real bugs linked to mutants?"),
             _chart,
             mo.md(rf"""
-            - **Protocol:** a commit whose message says fix or bug and changes code and tests in one package. Its revealing tests pass on the fix and fail when the changed code files go back to before it. The fault is coupled when a mutant of the fixed code is killed by a revealing test and by no other test (`adequacy.Matrix.Coupled`), as in Just et al. (FSE 2014).
-            - **Candidates:** {_funnel}. A fix that changes an API its tests use cannot run its tests on the code before it.
-            - **On any line** the measure is weak: a test often kills some mutant no other test kills, whatever the fault, so {_m['any line', 'as many random tests']:.0%} of random test sets look coupled too. **On the fix's lines** random tests almost never do, and that gap is the evidence that mutants stand for real faults.
-            - **Limits:** {len(_ok)} faults is a small sample, a few fixes add a broad new test, and a commit touching two packages counts twice. Faults whose revealing tests do not build before the fix are lost.
-            - **The Go-specific ERR operator** (`err != nil` → `err == nil`, `return err` → `return nil`), a hypothesis in the roadmap: {_ops.loc['ERR', 'with']} of {int((_ok.coupled > 0).sum())} coupled faults have an ERR mutant among their coupled ones, and {_ops.loc['ERR', 'only']} are coupled through ERR alone (COR: {_ops.loc['COR', 'with']} and {_ops.loc['COR', 'only']}; ROR: {_ops.loc['ROR', 'with']} and {_ops.loc['ROR', 'only']}). ERR is cheap and reads well, but on this corpus another operator always stands for the same fault; section 2 agrees: dropping it is no worse than dropping as many random mutants.
+            - **Protocol:** Pick fix/bug commits touching code and tests in one package. A revealing test passes on the fix and fails before it. A bug is coupled if a mutant on the fixed code is killed only by revealing tests (`adequacy.Matrix.Coupled`, Just et al. FSE 2014).
+            - **Candidates:** {_funnel}. Fixes that change an API cannot run new tests on old code.
+            - **Why fix lines matter:** On any line, {_m['any line', 'as many random tests']:.0%} of random tests look coupled. On fix lines, random tests almost never do—that gap is the real signal.
+            - **Limits:** Small sample ({len(_ok)} bugs); API-changing fixes are excluded; two-package commits count twice.
+            - **ERR operator** (`err != nil`, `return err`): {_ops.loc['ERR', 'with']} of {int((_ok.coupled > 0).sum())} coupled bugs include ERR, {_ops.loc['ERR', 'only']} by ERR alone (COR: {_ops.loc['COR', 'with']}/{_ops.loc['COR', 'only']}; ROR: {_ops.loc['ROR', 'with']}/{_ops.loc['ROR', 'only']}). Cheap and clear, though other operators cover the same bugs here.
             """),
             mo.accordion({"Every fault": mo.md(_md)}),
         ]
@@ -742,8 +742,8 @@ def _(alt, db, mo, pd, title):
         width=540,
         height=130,
         title=title(
-            f"{_final.get('useful', 0) / _n:.0%} of surviving mutants point at a real test gap, {_final.get('equivalent', 0) / _n:.0%} are equivalent",
-            f"50 survivors, 5 per repo for shlex and 9 for the others. Two blind raters agree on {_po:.0%} (Cohen's κ = {_kappa:.2f}); every disagreement was settled by running the mutant.",
+            f"{_final.get('useful', 0) / _n:.0%} of survivors are real test gaps; {_final.get('equivalent', 0) / _n:.0%} are equivalent",
+            f"50 survivors (5 from shlex, 9 per other repo). Two blind raters agreed on {_po:.0%} (κ = {_kappa:.2f}); diffs settled by running.",
         ),
     )
     _dis = _l[_l.claude != _l.gemini]
@@ -753,13 +753,13 @@ def _(alt, db, mo, pd, title):
     _eq = _l[_l.final == "equivalent"]
     mo.vstack(
         [
-            mo.md("## 11. What are the mutants that survive? (axis D)"),
+            mo.md("## 11. What are the surviving mutants?"),
             _chart,
             mo.md(rf"""
-            - **Raters:** Claude labeled first and wrote its labels down; Gemini 4 Neon (`agy`, high effort) then labeled the same 50 from `labels/prompt.md` without seeing them or the tool's equivalence tags. Labels: *useful* (a maintainer would write a test), *equivalent* (no input changes behavior; performance does not count), *unproductive* (behavior changes, but not worth a test: unreachable or defensive paths, performance hints).
-            - **Disagreements, settled by running** the original and the mutant side by side on random inputs (glob: 160 000 pattern/input pairs; go-humanize: 200 333 values; semver: 150 000 versions). Gemini's label held in all {len(_dis)}. Claude had called performance-only changes unproductive against the definition, and missed that a loop's guard breaks on an empty suffix.
-            - **Cheap rules for the {len(_eq)} equivalents:** the first rule (unsigned, len, cap vs 0) tags 2. Every string is ≥ "", so `!= ""` → `> ""` is equivalent too: 4 more, and in the whole corpus 72 mutants fit that rule and no test kills one. Deleting `_ = a[15]` on an array is the 7th. The other 12 need reasoning about values (an infinite float's sign is never 0, a loop counter stepping by 3 meets its bound exactly).
-            - **Unproductive** is rare here ({_final.get('unproductive', 0)} of {_n}): these libraries log nothing. Arid-node suppression matters more for service code; measuring it needs a corpus with logging, metrics and tracing.
+            - **Raters:** Claude and Gemini 4 Neon labeled 50 survivors blind (`labels/prompt.md`): *useful* (worth a test), *equivalent* (same behavior for all inputs), *unproductive* (behavior changes, not worth testing).
+            - **Disagreements:** All {len(_dis)} were settled by fuzzing original vs mutant (150k–200k inputs each). Gemini was right in all {len(_dis)}.
+            - **Cheap rules for the {len(_eq)} equivalents:** Non-negative vs 0 catches 2. `!= ""` → `> ""` catches 4 (72 across the corpus, 0 killed). Deleting `_ = a[15]` catches 1. The remaining 12 need deeper reasoning.
+            - **Unproductive ({_final.get('unproductive', 0)}/{_n}):** Rare in pure libraries. Service code with logging/metrics needs arid filtering (§13).
             """),
             mo.accordion({"Disagreements and how they were settled": mo.md(_md)}),
         ]
@@ -824,19 +824,19 @@ def _(alt, db, mo, title):
         width=480,
         height=190,
         title=title(
-            f"{_p.loc['body removal fails a test'].share:.0%} of surviving mutants sit in functions whose body removal a test catches",
-            f"{len(_fn)} functions with a body, one extreme mutant each. Pseudo-tested: the tests run the function but pass without its body.",
+            f"{_p.loc['body removal fails a test'].share:.0%} of survivors sit in functions where body removal fails a test",
+            f"{len(_fn)} functions, 1 body-removal mutant each. Pseudo-tested: tests run the function but pass without its body.",
         ),
     )
     mo.vstack(
         [
-            mo.md("## 12. Does removing a whole function's body find the same gaps? (extreme mutation)"),
+            mo.md("## 12. Does extreme mutation find the same gaps?"),
             _chart,
             mo.md(rf"""
-            - **Pseudo-tested functions:** {int((_alive & _fn.covered.fillna(False)).sum())} of {len(_fn)}. Extreme mutation costs one build per function ({len(_fn)} mutants against {_k.mutants.sum():,}); the corpus ran in 83 s at `-j 8`.
-            - **Not a prefilter:** the roadmap's idea was to skip the fine-grained mutants of a pseudo-tested function. {_pt.killed} of its {_pt.mutants} are killed by some test: body removal returns the zero value the tests happen to accept (`constraintGreaterThan` returning false, `minLength` returning 0), while a finer mutant returns a wrong non-zero value or panics. Skipping them would hide those kills to save {_pt.mutants / _k.mutants.sum():.0%} of the mutants.
-            - **Most gaps are elsewhere:** the bulk of the survivors are in functions whose body removal some test does catch, as Maton, Kapfhammer and McMinn (2024) found for Java; extreme mutation cannot point at them.
-            - **Decision:** `mutant` does not prefilter with extreme mutation. The fine-grained run already reports the survivors in pseudo-tested functions.
+            - **Pseudo-tested:** {int((_alive & _fn.covered.fillna(False)).sum())} of {len(_fn)} functions. Ran in 83 s at `-j 8` ({len(_fn)} mutants vs {_k.mutants.sum():,}).
+            - **Not a prefilter:** {_pt.killed} of {_pt.mutants} fine mutants in pseudo-tested functions are still killed (body removal returns zero values tests accept; finer mutants return wrong values or panic). Skipping them saves only {_pt.mutants / _k.mutants.sum():.0%}.
+            - **Most gaps are elsewhere:** Most survivors sit in functions where body removal already fails (matches Maton et al. 2024 for Java).
+            - **Decision:** Dropped. Fine-grained runs already catch pseudo-tested functions.
             """),
         ]
     )
@@ -876,8 +876,8 @@ def _(alt, db, mo, pd, title):
         width=520,
         height=110,
         title=title(
-            f"All {int((_t.final == 'unproductive').sum())} of {len(_t)} arid-tagged survivors are unproductive; {(_u.final == 'useful').mean():.0%} of untagged ones are useful",
-            f"go-retryablehttp and robfig/cron: every arid-tagged survivor and as many untagged. Two blind raters agree on {_po:.0%} (κ = {(_po - _pe) / (1 - _pe):.2f}).",
+            f"All {int((_t.final == 'unproductive').sum())}/{len(_t)} arid-tagged survivors are noise; {(_u.final == 'useful').mean():.0%} of untagged are useful",
+            f"go-retryablehttp and robfig/cron. Two blind raters agreed on {_po:.0%} (κ = {(_po - _pe) / (1 - _pe):.2f}).",
         ),
     )
     _v = db.sql("""
@@ -898,16 +898,16 @@ def _(alt, db, mo, pd, title):
     _miss = _u[_u.final == "unproductive"]
     mo.vstack(
         [
-            mo.md("## 13. Do the arid rules hide only noise?"),
+            mo.md("## 13. Do arid rules hide only noise?"),
             _chart,
             mo.md(_md),
             mo.md(rf"""
-            - **Corpus:** three service libraries that log through a logger type: go-retryablehttp, robfig/cron, hashicorp/yamux. Their tests take 25–40 s, so verdicts come from schemata, selection and failing fast, not a full matrix.
-            - **Rules** (`Mutant.Arid`): a call statement that logs (by package or a logger-named type; never Fatal or Panic), records a metric or touches a trace; an if or switch whose branches do only that; a slice capacity or map size hint; a line marked `//allele:ignore`.
-            - **Precision:** both raters, blind to the tags, call every tagged survivor unproductive. **Recall:** {len(_miss)} of {len(_u)} untagged survivors are unproductive too ({", ".join(_miss.key)}: an error message's quoted text), so the rules catch most, not all, of the noise.
-            - **Some logging is tested:** cron's TestWithVerboseLogger, retryablehttp's ResponseLogHook tests and yamux's captureLogs assert on log lines, and kill those arid mutants. Skipping arid mutants costs nothing there: a killed mutant is never shown.
-            - **Flaky kills:** under 8 parallel workers these timing tests fail now and then, which read as kills and hid real survivors. A kill now counts only if the test fails against the mutant twice and passes against the original; when the original fails too, the cell is checked again alone after the run (`Runner.Confirm`). The last column counts the runs that rule threw out.
-            - **Decision:** `mutant` skips arid mutants unless `-arid` is given.
+            - **Repos:** 3 service libraries with loggers: `go-retryablehttp`, `robfig/cron`, `hashicorp/yamux`. Slow suites (25–40 s), so we used schemata + selection + fail-fast.
+            - **Arid rules (`Mutant.Arid`):** Logging calls (never Fatal/Panic), metrics, tracing, `if`/`switch` blocks doing only those, slice/map capacity hints, and `//allele:ignore`.
+            - **Precision / recall:** 100% precision (both blind raters called every tagged survivor noise). {len(_miss)}/{len(_u)} untagged survivors were noise too ({", ".join(_miss.key)}).
+            - **Tested logs:** Some tests assert on log lines and kill those arid mutants. Skipping them loses nothing—killed mutants are never reported.
+            - **Flake check:** Under `-j 8`, timing tests failed randomly and hid real gaps. Now a kill must fail twice on the mutant and pass on the original (`Runner.Confirm`). Last column counts rejected flaky runs.
+            - **Decision:** Skip arid mutants by default (`-arid` includes them).
             """),
         ]
     )
@@ -959,21 +959,21 @@ def _(alt, db, mo, pd, title):
         width=520,
         height=150,
         title=title(
-            f"Operators inverted from fixes add nothing on held-out faults: {int(_h.old_ops)} of {int(_h.faults)} coupled either way",
-            "Wild-caught operators: LIT (string and regexp literals), CPY (defensive copies), PNC (panic instead of returning the error).",
+            f"Fix-derived operators add 0 held-out bugs ({int(_h.old_ops)}/{int(_h.faults)} either way)",
+            "LIT (string/regexp literals), CPY (defensive copies), PNC (panic instead of returning error).",
         ),
     )
     _md = "| repo | fix | operator that couples it |\n|---|---|---|\n" + "".join(f"| {r.repo} | {r.subject} | `{r.ops}` |\n" for r in _gained.itertuples())
     mo.vstack(
         [
-            mo.md("## 14. Do operators inverted from real fixes help? (wild-caught mutants)"),
+            mo.md("## 14. Do operators inverted from real fixes help?"),
             _chart,
             mo.md(rf"""
-            - **Idea:** invert the corpus' own bug fixes into operators (Beller et al., ICSE SEIP 2021). Of the 12 faults of §10 that no mutant on the fix's lines stood for, 6 were fixes to string or regexp literals, 2 to defensive copies and 1 turned a panic into an error; LIT, CPY and PNC invert them.
-            - **On the faults they came from** they couple {len(_gained)} more (table below): expected, and proof of nothing.
-            - **On held-out faults** mined from blang/semver, spf13/cast, mitchellh/mapstructure, gorilla/mux and iancoleman/strcase, they couple none the old operators miss. govalidator, the most regexp-heavy candidate, was stopped after 71 minutes unfinished.
-            - **Cost:** 770 more mutants on the six libraries, 15% more (counted with the code at the tag).
-            - **Decision:** dropped. The code is at tag `experiment/wild-caught`; this section reads the stored runs (`data-faults-wild/`, `data-faults-heldout/`).
+            - **Idea:** Turn uncoupled §10 fixes into operators (Beller et al., ICSE SEIP 2021): LIT (string/regexp), CPY (copies), PNC (panic vs error).
+            - **Training set:** Coupled {len(_gained)} more bugs they were designed from—proves nothing.
+            - **Held-out set** (`blang/semver`, `cast`, `mapstructure`, `mux`, `strcase`): Coupled 0 new bugs. (`govalidator` timed out at 71 min.)
+            - **Cost:** +770 mutants (+15%) on the 6 libraries.
+            - **Decision:** Dropped (kept at tag `experiment/wild-caught`).
             """),
             mo.accordion({"Faults coupled only by the new operators": mo.md(_md)}),
         ]
@@ -1025,8 +1025,8 @@ def _(alt, db, mo, pd, title):
         width=540,
         height=240,
         title=title(
-            f"Batching fast tests + online p/t ordering cuts FailFast wall time {_tot['before']:.0f} → {_tot['after']:.0f} s ({_tot['before'] / _tot['after']:.2f}×); semver {_sem['before']:.1f} → {_sem['after']:.1f} s ({_sem['before'] / _sem['after']:.1f}×)",
-            "All mutants (killmatrix -schemata -select -failfast -j 8), 3 interleaved rounds; whiskers show min–max. Remaining time in go-version and glob is dominated by repeated timeouts.",
+            f"Batching + p/t ordering cuts FailFast {_tot['before']:.0f} → {_tot['after']:.0f} s ({_tot['before'] / _tot['after']:.2f}×); semver {_sem['before']:.1f} → {_sem['after']:.1f} s ({_sem['before'] / _sem['after']:.1f}×)",
+            "All mutants (-schemata -select -failfast -j 8), 3 rounds (whiskers: min–max). go-version and glob are bound by timeouts.",
         ),
     )
     _v = db.sql(f"""
@@ -1057,13 +1057,13 @@ def _(alt, db, mo, pd, title):
     """).fetchall()[0]
     mo.vstack(
         [
-            mo.md("## 15. Does batching fast tests and online ordering speed up FailFast?"),
+            mo.md("## 15. Does batching fast tests speed up FailFast?"),
             _chart,
             mo.md(rf"""
-            - **Change:** in `FailFast` mode, fast top-level tests (`baseline_ms < 50 ms`) run in batches of up to 32 via `-test.run "^(T1|…|Tk)$" -test.failfast`, with batch timeout `max(baseline_ms) × factor + pad` (amortizing Go binary startup). Tests are ordered site-reached first, then by online hierarchical Bayes `kill_rate / baseline_ms` (Smith's rule / FaMT). Slow tests (`≥ 50 ms`) still run alone.
-            - **Speed (3 interleaved rounds at `-j 8`):** all mutants `{_tot['before']:.1f} → {_tot['after']:.1f} s` (`{_tot['before'] / _tot['after']:.2f}×`); default `mutant ./...` `{_def['before']:.1f} → {_def['after']:.1f} s` (`{_def['before'] / _def['after']:.2f}×`). Where timeouts are absent (`semver`), wall time drops `{_sem['before']:.1f} → {_sem['after']:.1f} s` (`{_sem['before'] / _sem['after']:.1f}×`).
-            - **Why `go-version` and `glob` barely move:** in `go-version`, a single infinite-loop mutant times out on 32 tests in a row (`32.6 s` of the `33.6 s` wall time on one worker); in `glob`, 79 timed-out mutants burn `165.7 CPU-s` (`82.5 CPU-s` on 2nd+ timeouts).
-            - **Fidelity vs `data-select/`:** {_v[0] - _v[1]:,} of {_v[0]:,} mutants match identically; **{_v[2]} false timeouts** (mutants that timed out in a batch yet passed or died when run alone). The {_v[1]} differing verdicts are all in `uuid` (2 on §7's clock-dependent `TestVersion7Monotonicity`, 2 from package-global state shared across tests in one process, matching `go test ./...`).
+            - **Change:** Fast tests (`baseline < 50 ms`) run in batches of up to 32 with `-test.failfast`, saving process startup. Tests are ordered site-reached first, then by `kill_rate / baseline_ms`. Slow tests (`≥ 50 ms`) still run alone.
+            - **Speed (`-j 8`, 3 rounds):** All mutants `{_tot['before']:.1f} → {_tot['after']:.1f} s` (`{_tot['before'] / _tot['after']:.2f}×`); default mode `{_def['before']:.1f} → {_def['after']:.1f} s` (`{_def['before'] / _def['after']:.2f}×`). Without timeouts (`semver`), `{_sem['before']:.1f} → {_sem['after']:.1f} s` (`{_sem['before'] / _sem['after']:.1f}×`).
+            - **Why `go-version` and `glob` barely moved:** One infinite loop in `go-version` timed out 32 times (`32.6 s` of `33.6 s`). `glob` had 79 timed-out mutants (`165.7 CPU-s`).
+            - **Fidelity vs `data-select/`:** {_v[0] - _v[1]:,}/{_v[0]:,} match; **{_v[2]} false timeouts**. All {_v[1]} diffs are in `uuid` (2 clock-dependent, 2 shared package state).
             """),
         ]
     )
@@ -1114,8 +1114,8 @@ def _(alt, db, mo, pd, title):
         width=540,
         height=240,
         title=title(
-            f"Parallel baseline + stopping FailFast on timeout cuts wall time {_tot['before']:.0f} → {_tot['after']:.0f} s ({_tot['before'] / _tot['after']:.2f}×); go-version {_gv['before']:.1f} → {_gv['after']:.1f} s ({_gv['before'] / _gv['after']:.0f}×)",
-            "All mutants (killmatrix -schemata -select -failfast -j 8), 3 interleaved rounds; whiskers show min–max. 18 of 4 889 mutants change killed→timeout; 0 false timeouts; 0 extra flaky baseline tests after solo recheck.",
+            f"Parallel baseline + stop-on-timeout cuts wall time {_tot['before']:.0f} → {_tot['after']:.0f} s ({_tot['before'] / _tot['after']:.2f}×); go-version {_gv['before']:.1f} → {_gv['after']:.1f} s ({_gv['before'] / _gv['after']:.0f}×)",
+            "All mutants (-j 8, 3 rounds). 18/4,889 shift killed→timeout; 0 false timeouts; 0 flaky baseline tests.",
         ),
     )
     _v = db.sql(f"""
@@ -1148,12 +1148,12 @@ def _(alt, db, mo, pd, title):
     _non_ok = db.sql(f"select count(*) from read_json_auto('{_dir}/*/tests.ndjson.gz') where state <> 'ok'").fetchall()[0][0]
     mo.vstack(
         [
-            mo.md("## 16. Does parallel baseline and stopping FailFast on timeout close the gap?"),
+            mo.md("## 16. Do parallel baseline and stop-on-timeout help?"),
             _chart,
             mo.md(rf"""
-            - **Changes:** (1) `baseline` runs top-level tests across `r.Workers` and rechecks any non-OK test alone so latency-sensitive tests (`glob`'s `TestPatternMatch/glob-01`) are not falsely marked flaky under load; (2) `FailFast` stops on the first `Timeout` (confirmed once individually when `Confirm` is set) since a timed-out mutant can never become `survived`; (3) non-schema mutants are dispatched first so individual builds overlap with fast schema runs.
-            - **Speed (3 interleaved rounds at `-j 8`):** all mutants `{_tot['before']:.1f} → {_tot['after']:.1f} s` (`{_tot['before'] / _tot['after']:.2f}×`; `2.5×` faster than before §15); default `mutant ./...` `{_def['before']:.1f} → {_def['after']:.1f} s` (`{_def['before'] / _def['after']:.2f}×`; `2.8×` faster than before §15). `go-version` drops `{_gv['before']:.1f} → {_gv['after']:.1f} s` (`{_gv['before'] / _gv['after']:.1f}×`).
-            - **Fidelity vs §15:** {_v[1]} of {_v[0]:,} mutants that previously timed out on an earlier test and were killed by a later one now stop at `timeout` (both pass `-strict`); **{_v[2]} false timeouts** (`survived → timeout`); {_v[3]} other diff (`uuid` clock/random); **{_non_ok} flaky/failing baseline tests** across all 6 repositories.
+            - **Changes:** (1) Parallel baseline across workers, rechecking any non-OK test alone. (2) `FailFast` stops on the first confirmed timeout (a timed-out mutant cannot survive). (3) Non-schema mutants start first so builds overlap with fast runs.
+            - **Speed (`-j 8`, 3 rounds):** All mutants `{_tot['before']:.1f} → {_tot['after']:.1f} s` (`{_tot['before'] / _tot['after']:.2f}×`, `2.5×` faster than pre-§15). Default mode `{_def['before']:.1f} → {_def['after']:.1f} s` (`{_def['before'] / _def['after']:.2f}×`, `2.8×` faster than pre-§15). `go-version`: `{_gv['before']:.1f} → {_gv['after']:.1f} s`.
+            - **Fidelity vs §15:** {_v[1]}/{_v[0]:,} mutants stop at `timeout` instead of a later `killed` (both pass `-strict`); **{_v[2]} false timeouts**; {_v[3]} other diff (`uuid`); **{_non_ok} flaky baseline tests**.
             """),
         ]
     )
@@ -1214,20 +1214,20 @@ def _(alt, db, mo, pd, title):
             width=520,
             height=220,
             title=title(
-                "Trusting a test after clean confirmations hides gaps long before it saves runs",
-                "Simulated on the three services' confirmed verdicts (§13); mutant ids stand in for run order.",
+                "Skipping confirmation for reliable tests hides gaps before it saves time",
+                "Simulated on 3 services' confirmed verdicts (§13).",
             ),
         )
     )
     _10 = _sim.set_index("n").loc[10]
     mo.vstack(
         [
-            mo.md("## 17. Can confirmation skip tests that have confirmed cleanly before?"),
+            mo.md("## 17. Can we stop confirming reliable tests?"),
             _chart,
             mo.md(rf"""
-            - **Idea:** confirming a kill costs two more runs (the mutant again, then the original). Stop confirming a top-level test once it has confirmed N kills in a row, and confirm only tests seen flaky.
-            - **Result:** flakiness belongs to the load, not to the test. yamux's timing tests confirm dozens of kills cleanly, then invent kills when the machine gets busy. Hiding at most a handful of gaps takes N = 10, which still confirms {_10.confirmed:.0%} of kills and turns {int(_10.wrong)} of {int(_10.flaky_mutants)} flaky-only mutants into kills.
-            - **Decision:** dropped; every kill is confirmed (`cmd/mutant` sets `Confirm`).
+            - **Idea:** Confirming a kill adds 2 runs (mutant again, then original). Stop confirming a test after N clean kills in a row.
+            - **Result:** Flakiness comes from CPU load, not specific tests. `yamux` timing tests confirm cleanly many times, then flake under load. At N = 10, {_10.confirmed:.0%} of kills still get confirmed, yet {int(_10.wrong)}/{int(_10.flaky_mutants)} flaky-only mutants turn into fake kills.
+            - **Decision:** Dropped. Every kill is confirmed.
             """),
         ]
     )
@@ -1260,8 +1260,8 @@ def _(alt, db, mo, title):
             width=520,
             height=240,
             title=title(
-                "A 100 ms timeout pad scores best: half the time, no gap hidden",
-                "Six corpus libraries, -j 8, worst of 3 reps; pad-stress ran beside 4 busy loops. At 1 ms, runs that would finish time out.",
+                "100 ms timeout pad scores best: half the time, 0 hidden gaps",
+                "6 libraries, -j 8, worst of 3 reps. pad-stress ran beside 4 busy loops. 1 ms causes false timeouts.",
             ),
         )
     )
@@ -1270,15 +1270,15 @@ def _(alt, db, mo, title):
     _base = _lib[(_lib.run == "pad-quiet-1") & (_lib.bin == "main")].iloc[0]
     mo.vstack(
         [
-            mo.md("## 18. How long should a mutant run before it times out?"),
+            mo.md("## 18. What timeout pad works best?"),
             _chart,
             mo.md(rf"""
-            - **Metric:** `M = D · F · ((876 + 2) / (T + 2))^0.18` from `cmd/bench` (ROADMAP): detection, verdict fidelity and time in one number.
-            - **Mechanism:** a run times out after 3 × its test's baseline plus a fixed pad, 1 s by default. Fast tests' baselines already hold the process start, so the pad is almost all of the limit, and every hanging mutant pays it twice, since Confirm reruns a timeout.
-            - **Result:** from 1 s to 100 ms, T falls from {_base.t:.1f} s to {_q.loc['pad100'].t:.1f} s and M rises from {_base.m:.3f} to {_q.loc['pad100'].m:.3f}, with no verdict error added, on a quiet machine or beside 4 busy loops. At 1 ms, {int(_q.loc['pad1'].hidden)} gaps hide behind false timeouts.
-            - **Held out:** on cron and retryablehttp, whose timing tests are flaky, a 100 ms pad hides no gap ({int(_svc.loc['pad100'].hidden)} hidden, {int(_svc.loc['pad100'].timeout)} kills read as timeouts against {int(_svc.loc['main'].timeout)} at 1 s); their slow tests make the pad irrelevant to time.
-            - **Guards (Gemini's review):** a small pad leaves no room for what a limit forgot, so a batch is now limited by the sum of its tests' baselines, not the largest, and the run that confirms a timeout gets thrice the limit. Measured side by side with 1 s, the final build scores {_fin.loc['pr21'].m:.3f} against {_fin.loc['main'].m:.3f} (T {_fin.loc['pr21'].t:.1f} s against {_fin.loc['main'].t:.1f} s), no error added: the guards cost {_fin.loc['pr21'].t - _q.loc['pad100'].t:.1f} s of the gain.
-            - **Decision:** `cmd/mutant` sets `TimeoutPad` to 100 ms. `killmatrix` keeps 1 s for the reference matrices.
+            - **Metric:** `M = D · F · ((876 + 2) / (T + 2))^0.18` from `cmd/bench` (combines detection, fidelity, and speed).
+            - **Why pad matters:** Timeout = 3× baseline + pad (was 1 s). Fast tests pay the pad twice on every hang because `Confirm` reruns timeouts.
+            - **Result:** Cutting pad from 1 s to 100 ms drops T `{_base.t:.1f} → {_q.loc['pad100'].t:.1f} s` and lifts M `{_base.m:.3f} → {_q.loc['pad100'].m:.3f}` with 0 extra errors (even under load). At 1 ms, {int(_q.loc['pad1'].hidden)} gaps hide behind false timeouts.
+            - **Held out (`cron`, `retryablehttp`):** 100 ms hides 0 gaps ({int(_svc.loc['pad100'].hidden)} hidden, {int(_svc.loc['pad100'].timeout)} kills→timeouts vs {int(_svc.loc['main'].timeout)} at 1 s).
+            - **Guards:** Batch timeout now sums test baselines (not max), and timeout confirmation gets 3× the limit. Final build: M `{_fin.loc['pr21'].m:.3f}` vs `{_fin.loc['main'].m:.3f}` (T `{_fin.loc['pr21'].t:.1f}` vs `{_fin.loc['main'].t:.1f} s`), 0 extra errors.
+            - **Decision:** `allele` uses 100 ms pad; `killmatrix` keeps 1 s for reference runs.
             """),
         ]
     )
@@ -1307,20 +1307,20 @@ def _(alt, db, mo, title):
             width=520,
             height=220,
             title=title(
-                f"Skipping tests that never infect a mutant: M {_m.loc['main'].m:.3f} → {_m.loc['infect'].m:.3f}",
-                "Six corpus libraries, -j 8, 5 interleaved reps; the time goes down in uuid, whose survivors meet a 1 s test.",
+                f"Skipping non-infecting tests: M {_m.loc['main'].m:.3f} → {_m.loc['infect'].m:.3f}",
+                "6 libraries, -j 8, 5 reps. Main win is uuid, where survivors skip a 1 s test.",
             ),
         )
     )
     mo.vstack(
         [
-            mo.md("## 19. Do tests that never infect a mutant need to run against it?"),
+            mo.md("## 19. Can we skip tests that never infect a mutant?"),
             _chart,
             mo.md(rf"""
-            - **Mechanism:** a mutant changes what a test sees only if, at its site, the mutated expression computes a different value (weak mutation: Howden 1982; Just et al., ISSTA 2014). In the baseline the schema helpers already hold both operands, so they record which mutants would have differed; a test that ran a site and never infected its mutant is not run against it and counts as survived. Statements, op-assignments, a division by zero on either side, and the side of && or || the original never evaluates count as infected; so does a mutant that skips an expression with a call or a receive in it (`if s.Scan()` → `if true`), since skipping it changes more than a value (Gemini's review).
-            - **Result:** T {_m.loc['main'].t:.1f} s → {_m.loc['infect'].t:.1f} s, F unchanged at {_m.loc['infect'].f:.4f}. Four runs agreed (+1.1% to +1.5% in M), the last after the review made the filter sound; the gain is small because most survivors here are infected and fail to propagate, as uuid's state changes the slow test never checks.
-            - **Risk:** a skip is wrong only if a test infects a mutant in its run but not in the baseline, as clock values can; that misses a kill (a false gap), never hides one.
-            - **Decision:** `cmd/mutant` sets `Infect`.
+            - **How it works:** A mutant affects a test only if it computes a different value (weak mutation; Howden 1982, Just et al. ISSTA 2014). Baseline helpers already see both operands and log which mutants differ. Tests that never infect a mutant are skipped. Statements, op-assigns, div-by-zero, short-circuited sides, and skipped calls/receives (`if s.Scan()` → `true`) always count as infected.
+            - **Result:** T `{_m.loc['main'].t:.1f} → {_m.loc['infect'].t:.1f} s`, F unchanged (`{_m.loc['infect'].f:.4f}`). Gain is modest (+1.1–1.5% M) because most survivors do infect state, they just fail to fail an assertion.
+            - **Risk:** A wrong skip (e.g. clock-dependent) can only cause a false gap, never hide a real one.
+            - **Decision:** Enabled by default (`Infect`).
             """),
         ]
     )
@@ -1350,19 +1350,19 @@ def _(alt, db, mo, title):
             height=300,
             title=title(
                 f"Running unmutated functions as written: M v2 {_m.loc['main'].m:.3f} → {_m.loc['clone'].m:.3f}",
-                "Ten corpus libraries (M v2), -j 8, 3 interleaved reps. sjson's fuzz test and decimal's suite spend their time in hot loops.",
+                "10 libraries (M v2), -j 8, 3 reps. Hot loops in sjson and decimal benefit most.",
             ),
         )
     )
     mo.vstack(
         [
-            mo.md("## 20. Does the schema binary need to run every function through its helpers?"),
+            mo.md("## 20. Should unmutated functions run without helpers?"),
             _chart,
             mo.md(rf"""
-            - **Finding:** the schema binary ran sjson's fuzz test 4.5 times slower than the plain binary with no mutant of the package active: every site calls a helper, and a function that calls helpers is no longer inlined, nor are its bounds checks proven. Every survivor runs its tests on that binary.
-            - **Mechanism** (Gemini's design): Embed clones each function that holds a site. `if _mutOff(lo, hi) {{ <body as written> }} else {{ <body with helpers> }}`: only the function holding the active mutant, or a baseline recording reach, takes the mutated copy. The original keeps its lines; `/*line*/` directives give the copy the same positions. Bodies with labels, or whose top level := reuses a receiver, parameter or result, are not cloned: the extra block would change what they mean (Gemini found the parameter case: a closure made before the := saw the old value).
-            - **Result:** T {_m.loc['main'].t:.1f} s → {_m.loc['clone'].t:.1f} s, F unchanged at {_m.loc['clone'].f:.4f}; sjson 45 → 27 s with the same verdicts.
-            - **Decision:** Embed clones.
+            - **Problem:** Even with no mutant active, the schema binary ran `sjson`'s fuzz test 4.5× slower. Helper calls block inlining and bounds-check elimination.
+            - **Fix:** `Embed` clones each mutated function: `if _mutOff(lo, hi) {{ <original> }} else {{ <with helpers> }}`. Only the active mutant's function (or baseline) enters the helper path. Functions with labels or top-level `:=` reusing params/receivers/results are not cloned.
+            - **Result:** T `{_m.loc['main'].t:.1f} → {_m.loc['clone'].t:.1f} s`, F unchanged (`{_m.loc['clone'].f:.4f}`). `sjson`: 45 → 27 s, same verdicts.
+            - **Decision:** Enabled in `Embed`.
             """),
         ]
     )
@@ -1386,24 +1386,24 @@ def _(alt, db, mo, title):
     _chart = (
         (_base.mark_rule().encode(x=alt.X("lo:Q", title="ΔJ against hash, ± 2 SE (paired over faults)"), x2="hi:Q") + _base.mark_point(filled=True).encode(x="dj:Q", tooltip=["split", "rule", alt.Tooltip("dj:Q", format="+.3f"), alt.Tooltip("dj_se:Q", format=".3f")]))
         .properties(width=520, height=260, title=title(
-            "Only R2b gains J on both the tuning and the held-out faults",
-            "79 real faults (44 tuning, 35 held-out), one mutant per line, old suite = tests before the fix.",
+            "Only R2b gains J on both tuning and held-out bugs",
+            "79 real bugs (44 tuning, 35 held-out), one mutant per line, tested with pre-fix suites.",
         ))
     )
     _a = _j[_j.split == "all"].set_index("rule")
     _t = _a[["d", "corpus_survivors", "j", "r5", "reached_line_hit"]].rename(columns={"d": "D (corpus)", "corpus_survivors": "survivors (corpus)", "j": "J", "r5": "R5", "reached_line_hit": "reached-line hit"}).round(3)
     mo.vstack(
         [
-            mo.md("## 21. Which mutant should each line keep? Judging selection by real faults"),
+            mo.md("## 21. Which mutant should each line keep?"),
             _chart,
             mo.ui.table(_t.reset_index(), selection=None),
             mo.md(rf"""
-            - **Question:** mutant keeps one mutant per line. The old suite's reach and infection counts say which of a line's mutants no test touches. Should the pick use them?
-            - **Data:** `cmd/faults -detail` records, for each mutant of 79 real fault fixes, whether only the fix's new tests kill it (coupled to the fault) and how many old tests reach and infect it (`data-faults/detail.ndjson.gz`; `docs/faultsel.py` scores the rules).
-            - **Every one-sided measure picks wrong.** D, simulated with the existing tests, cannot see gaps no test reaches into, where real faults hide: "fewest infected" raises D to {_a.loc['fewest infected (>0)'].d:.3f} but finds fewer coupled lines. R5 (chance that reading 5 survivors finds a coupled one) rewards showing fewer survivors: the control rule "most infected" beats hash. The per-line hit rate ignores noise: "uninfected first" wins it at +56% survivors.
-            - **J** (Youden's index, Gemini's proposal) charges a hit and a noisy line on the same per-line scale, so neither showing nothing nor showing everything gains. Decision theory says any single number fixes some exchange rate λ between them: "bias-free" means stating λ (here 1). The control loses to hash on both splits; at n=79, the smallest difference J can resolve is about 8–10 points.
-            - **R2b** (prefer a mutant whose site no old test reaches, then a non-nil `if` → true/false no old test infects, then the fewest infected above 0) gains J on both splits (+{_a.loc['R2b'].dj:.3f} ± {_a.loc['R2b'].dj_se:.3f} over all), with D {_a.loc['R2b'].d:.3f} against hash's {_a.loc['hash'].d:.3f} and fewer corpus survivors. Caveat: it was designed on these faults; the held-out gain alone is inside the noise.
-            - **Decision:** not adopted as a metric (M stays v2; R5 rejected). R2b is the candidate for selection, to be measured by M v2 and checked with J. D per rule came from a scratch tool that simulated each rule's picks on the reference matrices with the corpus' infection counts.
+            - **Question:** Each line keeps one mutant. Should we pick using baseline reach and infection counts instead of a fixed hash?
+            - **Data:** `cmd/faults -detail` logged per-mutant fault coupling and old-suite reach/infection across 79 real fixes (`data-faults/detail.ndjson.gz`; scored by `docs/faultsel.py`).
+            - **One-sided metrics mislead:** D misses untested code ("fewest infected" raises D to {_a.loc['fewest infected (>0)'].d:.3f} but catches fewer real bugs). R5 rewards hiding survivors ("most infected" beats hash). Hit rate ignores noise ("uninfected first" adds +56% survivors).
+            - **Youden's J** weights hits and noisy lines equally (λ = 1), so neither hiding everything nor showing everything wins. At n=79, J resolves differences of ~8–10 points.
+            - **R2b** (prefer unreached site → uninfected non-nil `if` → fewest infected > 0) gains J on both splits (+{_a.loc['R2b'].dj:.3f} ± {_a.loc['R2b'].dj_se:.3f} overall), with D {_a.loc['R2b'].d:.3f} vs hash {_a.loc['hash'].d:.3f} and fewer survivors. Caveat: held-out gain alone is within noise.
+            - **Decision:** Keep M v2 as the main metric; use R2b as the selection candidate, checked with M v2 and J.
             """),
         ]
     )
@@ -1454,9 +1454,8 @@ def _(mo):
     go run ./cmd/faults -name $d -detail detail.ndjson -o rows.ndjson "$CORPUS_CACHE/$d"
     python3 docs/faultsel.py docs/data-faults/detail.ndjson.gz > docs/data-selection/selection.ndjson
 
-    # Section 17 simulates on data-verdicts/; sections 4-17 query the data
-    # directly; view everything
-    make mutant-measurements
+    # View everything
+    make measurements
     ```
     """)
         }
