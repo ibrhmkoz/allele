@@ -1,13 +1,29 @@
-.PHONY: ci test lint mutate measurements next-version snapshot
+.PHONY: ci check lint vet golangci test mutate measurements next-version snapshot
 
-ci: lint test mutate
+# Make 4 keeps each parallel job's output together; macOS ships 3.81.
+SYNC := $(if $(filter 4.% 5.%,$(MAKE_VERSION)),--output-sync=target)
+PAR := $(MAKE) --no-print-directory -j $(SYNC)
+
+# The checks run side by side; mutate runs after them, alone: a kill
+# counts only if it repeats within time limits, which other jobs' load
+# can break.
+ci:
+	@$(PAR) check
+	@$(MAKE) --no-print-directory mutate
+
+check: vet golangci test
+
+lint:
+	@$(PAR) vet golangci
+
+vet:
+	go vet ./...
+
+golangci:
+	golangci-lint run ./...
 
 test:
 	XTESTING_COLOR=1 go test ./...
-
-lint:
-	go vet ./...
-	golangci-lint run ./...
 
 # allele on itself: the lines changed since BASE; fails when a mutant
 # survives or no test reaches it.
