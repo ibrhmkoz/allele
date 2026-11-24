@@ -1,5 +1,5 @@
 # Release builds of allele. The release workflow runs this on every tag;
-# `make snapshot` builds the same archives locally without publishing.
+# `./shake.sh snapshot` builds the same archives locally without publishing.
 version: 2
 
 project_name: allele
