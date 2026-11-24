@@ -14,7 +14,7 @@ import (
 func TestNext(t *testing.T) {
 	code := commit{files: []string{"killmatrix/killmatrix.go"}}
 	docs := commit{files: []string{"docs/DATA.md", "README.md", "docs/data/glob/mutants.ndjson.gz"}}
-	with := func(c commit, release string) commit { c.release = release; return c }
+	with := func(c commit, releases ...string) commit { c.releases = releases; return c }
 	var b strings.Builder
 	for _, c := range []struct {
 		name    string
@@ -30,6 +30,8 @@ func TestNext(t *testing.T) {
 		{"none skips code", "v0.1.1", []commit{with(code, "none")}},
 		{"none on one, patch on another", "v0.1.1", []commit{with(code, "none"), code}},
 		{"an unknown trailer counts as patch", "v0.1.1", []commit{with(docs, "soon")}},
+		{"a squash: the highest line", "v0.1.1", []commit{with(code, "none", "minor", "none")}},
+		{"a squash of none only", "v0.1.1", []commit{with(code, "none", "none")}},
 		{"no tag yet", "", []commit{code}},
 	} {
 		next, ok := next(c.last, c.commits)
@@ -45,6 +47,8 @@ func TestNext(t *testing.T) {
 		none skips code                      "" false
 		none on one, patch on another        "v0.1.2" true
 		an unknown trailer counts as patch   "v0.1.2" true
+		a squash: the highest line           "v0.2.0" true
+		a squash of none only                "" false
 		no tag yet                           "v0.0.1" true
 	`)
 }
@@ -97,12 +101,17 @@ func TestPlan(t *testing.T) {
 	must("tag", "-a", "v0.2.0", "-m", "v0.2.0")
 	commitFile("c.go", "quiet again\n\nRelease: none")
 	step("none since v0.2.0")
+	// A squash merge leaves each commit's line in the body, then its own
+	// trailers.
+	commitFile("d.go", "squash (#3)\n\n* one\n\nRelease: none\n\n* two\n\nRelease: minor\n\nCo-Authored-By: x <x@example.com>")
+	step("a squashed minor")
 	xtesting.EqualText(t, b.String(), `
 		code, no tag yet             "v0.0.1" true <nil>
 		tagged                       "" false <nil>
 		docs since the tag           "" false <nil>
 		a minor trailer              "v0.2.0" true <nil>
 		none since v0.2.0            "" false <nil>
+		a squashed minor             "v0.3.0" true <nil>
 	`)
 
 	if _, _, err := plan(func(args ...string) (string, error) {

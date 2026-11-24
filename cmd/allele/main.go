@@ -1,9 +1,9 @@
-// Command mutant runs mutation testing on Go packages and lists the
+// Command allele runs mutation testing on Go packages and lists the
 // mutants no test kills, each as the line before and after:
 //
-//	mutant ./...               every package, one mutant per line
-//	mutant -diff main ./...    only lines changed since main
-//	mutant -json ./...         one JSON object per mutant, for tools
+//	allele ./...               every package, one mutant per line
+//	allele -diff main ./...    only lines changed since main
+//	allele -json ./...         one JSON object per mutant, for tools
 //
 // It builds each package once with its mutants embedded (schemata), runs
 // only the tests that reach a mutant's function, and stops at a mutant's
