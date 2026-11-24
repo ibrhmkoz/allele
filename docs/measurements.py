@@ -1328,6 +1328,48 @@ def _(alt, db, mo, title):
 
 
 @app.cell
+def _(alt, db, mo, title):
+    _docs = mo.notebook_dir()
+    _r = db.sql(f"""
+        select bin, repo, median(wall_s) t from read_json_auto('{_docs}/data-bench/v2-clone.ndjson', union_by_name=true)
+        where wall_s is not null group by all
+    """).df()
+    _m = db.sql(f"select bin, m, t, f from read_json_auto('{_docs}/data-bench/v2-clone.ndjson', union_by_name=true) where m is not null").df().set_index("bin")
+    _chart = (
+        alt.Chart(_r)
+        .mark_bar()
+        .encode(
+            x=alt.X("t:Q", title="median wall time over 3 reps (s)"),
+            y=alt.Y("repo:N", title=None, sort="-x"),
+            yOffset=alt.YOffset("bin:N"),
+            color=alt.Color("bin:N", title=None, legend=alt.Legend(orient="top")),
+            tooltip=["bin", "repo", alt.Tooltip("t:Q", format=".2f")],
+        )
+        .properties(
+            width=520,
+            height=300,
+            title=title(
+                f"Running unmutated functions as written: M v2 {_m.loc['main'].m:.3f} → {_m.loc['clone'].m:.3f}",
+                "Ten corpus libraries (M v2), -j 8, 3 interleaved reps. sjson's fuzz test and decimal's suite spend their time in hot loops.",
+            ),
+        )
+    )
+    mo.vstack(
+        [
+            mo.md("## 20. Does the schema binary need to run every function through its helpers?"),
+            _chart,
+            mo.md(rf"""
+            - **Finding:** the schema binary ran sjson's fuzz test 4.5 times slower than the plain binary with no mutant of the package active: every site calls a helper, and a function that calls helpers is no longer inlined, nor are its bounds checks proven. Every survivor runs its tests on that binary.
+            - **Mechanism** (Gemini's design): Embed clones each function that holds a site. `if _mutOff(lo, hi) {{ <body as written> }} else {{ <body with helpers> }}`: only the function holding the active mutant, or a baseline recording reach, takes the mutated copy. The original keeps its lines; `/*line*/` directives give the copy the same positions. Bodies with labels, or whose top level := reuses a receiver, parameter or result, are not cloned: the extra block would change what they mean (Gemini found the parameter case: a closure made before the := saw the old value).
+            - **Result:** T {_m.loc['main'].t:.1f} s → {_m.loc['clone'].t:.1f} s, F unchanged at {_m.loc['clone'].f:.4f}; sjson 45 → 27 s with the same verdicts.
+            - **Decision:** Embed clones.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {

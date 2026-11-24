@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"math"
 	"slices"
 	"strings"
 )
@@ -66,7 +67,94 @@ func Embed(fset *token.FileSet, file *ast.File, src []byte, info *types.Info, id
 		}
 		return b.to - a.to
 	})
-	return []byte(e.inside(span{0, len(src)})), embedded
+	return []byte(e.cloned(file)), embedded
+}
+
+// cloned renders the file with each function that holds a site cloned:
+// its body runs as written while no mutant of the function is active, and
+// as mutated otherwise, so that only the function with the active mutant
+// pays for the helpers, which keep the compiler from inlining and from
+// eliminating bounds checks. The original body stays on its lines; line
+// directives give the mutated copy the same positions, and the rest of
+// the file its own. Not cloned: a body with labels, since a label cannot
+// be declared twice in one function, and one that := assigns a name of
+// its signature at its top level (redeclares).
+func (e *embedder) cloned(file *ast.File) string {
+	var b strings.Builder
+	at := 0
+	for _, d := range file.Decls {
+		fd, ok := d.(*ast.FuncDecl)
+		if !ok || fd.Body == nil || labeled(fd.Body) || redeclares(fd) {
+			continue
+		}
+		lb, rb := e.offset(fd.Body.Lbrace), e.offset(fd.Body.Rbrace)
+		lo, hi := math.MaxInt, 0
+		for _, g := range e.order {
+			if g.from < lb || g.to > rb {
+				continue
+			}
+			for _, s := range e.groups[g] {
+				for _, a := range s.alts {
+					lo, hi = min(lo, a.id), max(hi, a.id)
+				}
+			}
+		}
+		if hi == 0 {
+			continue
+		}
+		open, end := e.fset.Position(fd.Body.Lbrace), e.fset.Position(fd.Body.Rbrace)
+		b.WriteString(e.inside(span{at, lb + 1}))
+		fmt.Fprintf(&b, " if _mutOff(%d, %d) {", lo, hi)
+		b.Write(e.src[lb+1 : rb])
+		fmt.Fprintf(&b, "} else {/*line %s:%d:%d*/", open.Filename, open.Line, open.Column+1)
+		// text, not inside: a body that is one site, {work()}, is that site.
+		b.WriteString(e.text(span{lb + 1, rb}))
+		fmt.Fprintf(&b, "}}/*line %s:%d:%d*/", end.Filename, end.Line, end.Column+1)
+		at = rb + 1
+	}
+	b.WriteString(e.inside(span{at, len(e.src)}))
+	return b.String()
+}
+
+// redeclares reports whether fd's body, at its top level, assigns with :=
+// a name its signature declares: a receiver, parameter or result. Inside
+// the clone's if, that := would declare a new variable instead, which a
+// closure made before it, a deferred function or a bare return would not
+// see.
+func redeclares(fd *ast.FuncDecl) bool {
+	names := map[string]bool{}
+	for _, fields := range []*ast.FieldList{fd.Recv, fd.Type.Params, fd.Type.Results} {
+		if fields == nil {
+			continue
+		}
+		for _, f := range fields.List {
+			for _, n := range f.Names {
+				names[n.Name] = true
+			}
+		}
+	}
+	for _, st := range fd.Body.List {
+		if as, ok := st.(*ast.AssignStmt); ok && as.Tok == token.DEFINE {
+			for _, l := range as.Lhs {
+				if id, ok := l.(*ast.Ident); ok && names[id.Name] {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// labeled reports whether body declares a label.
+func labeled(body *ast.BlockStmt) bool {
+	found := false
+	ast.Inspect(body, func(n ast.Node) bool {
+		if _, ok := n.(*ast.LabeledStmt); ok {
+			found = true
+		}
+		return !found
+	})
+	return found
 }
 
 type span struct{ from, to int }
@@ -553,6 +641,12 @@ func _mutMarkAll(ids []int) {
 }
 
 func _mutIs(id int) bool { return id != 0 && _mutActive == id }
+
+// _mutOff reports whether a function whose mutants are lo to hi may run as
+// written: none of them is active, and no baseline is recording reach.
+func _mutOff(lo, hi int) bool {
+	return _mutReach == nil && (_mutActive < lo || _mutActive > hi)
+}
 
 // _mutOn guards a deletable statement: deleting one that runs infects.
 func _mutOn(id int) bool {

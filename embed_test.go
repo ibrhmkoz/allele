@@ -55,12 +55,17 @@ func Discount(price int, vip bool) int {
 	xtesting.EqualText(t, string(out), `
 		package p
 
-		func Discount(price int, vip bool) int {
+		func Discount(price int, vip bool) int { if _mutOff(1, 12) {
+			if price > 100 && vip {
+				return price - 20
+			}
+			return price
+		} else {/*line discount.go:3:41*/
 			if _mutCond(func() bool { return _mutAnd(_mutOrd(price, 100, _mutGTR, [6]int{3, 4, 0, 5, 6, 7}), func() bool { return vip }, 8, true) }, 1, 2, true) {
 				return _mutArith(price, 20, _mutSUB, [5]int{9, 0, 10, 11, 12})
 			}
 			return price
-		}
+		}}/*line discount.go:8:2*/
 	`)
 	for i, ok := range embedded {
 		if !ok {
@@ -98,7 +103,17 @@ func parse(xs []string) (int, error) {
 
 				import "strconv"
 
-				func parse(xs []string) (int, error) {
+				func parse(xs []string) (int, error) { if _mutOff(1, 9) {
+					total := 0
+					for _, x := range xs {
+						n, err := strconv.Atoi(x)
+						if err != nil {
+							return 0, err
+						}
+						total += n
+					}
+					return total, nil
+				} else {/*line p.go:5:39*/
 					total := 0
 					for _, x := range xs {
 						n, err := strconv.Atoi(x)
@@ -108,7 +123,7 @@ func parse(xs []string) (int, error) {
 						if !_mutOn(5) { switch _mutAt(6, 7, 8, 9) { case 6: total -= n; case 7: total *= n; case 8: total /= n; case 9: total %= n; default: total += n } }
 					}
 					return total, nil
-				}
+				}}/*line p.go:15:2*/
 			`,
 		},
 		{
@@ -128,7 +143,7 @@ func half(n float64) float64 { return n / 2 }
 
 				var sizes = [2 + 1]int{}
 
-				func half(n float64) float64 { return _mutArithF(n, 2, _mutQUO, [5]int{5, 6, 7, 0, 0}) }
+				func half(n float64) float64 { if _mutOff(5, 7) { return n / 2 } else {/*line p.go:7:31*/ return _mutArithF(n, 2, _mutQUO, [5]int{5, 6, 7, 0, 0}) }}/*line p.go:7:46*/
 			`,
 		},
 	}
@@ -460,5 +475,148 @@ func g() bool { return true }
 		false t.ok()
 		false <-ch
 		false _mutOrd(min(x, 1), 0, _mutGTR, [6]int{55, 56, 0, 57, 58, 59})
+	`)
+}
+
+// TestEmbedClones: a function with a mutant runs as written unless one of
+// its mutants is active, but for a body with a label or one that :=
+// reuses a named result, where the clone's extra block would change what
+// the code means. Every line keeps its number in either copy: a panic in
+// the mutated copy and one in the original name the line in the source.
+func TestEmbedClones(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+)
+
+func at(xs []int, i int) int {
+	if i < len(xs) {
+		return xs[i]
+	}
+	return -1
+}
+
+func loop(n int) int {
+outer:
+	for i := 0; i < n; i++ {
+		continue outer
+	}
+	return n - 1
+}
+
+func parse(s string) (n int, err error) {
+	n, err = strconv.Atoi(s)
+	m, err := strconv.Atoi(s + "0")
+	return n + m, err
+}
+
+// shadow reassigns x at its top level, which get sees.
+func shadow(x int) int {
+	get := func() int { return x }
+	y, x := 1, x+1
+	return get()*10 + y + x
+}
+
+var calls int
+
+func tick() {calls++}
+
+func main() {
+	i, _ := strconv.Atoi(os.Args[1])
+	fmt.Println(at([]int{1}, i), loop(2))
+	fmt.Println(parse("1"))
+	tick()
+	fmt.Println(shadow(5), calls)
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "main.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
+	if _, err := (&types.Config{Importer: stdImporter}).Check("main", fset, []*ast.File{f}, info); err != nil {
+		t.Fatal(err)
+	}
+	ms := mutant.Find(fset, f, []byte(src), info)
+	out, _ := mutant.Embed(fset, f, []byte(src), info, sequential(len(ms)))
+	var cloned []string
+	for line := range strings.Lines(string(out)) {
+		if strings.HasPrefix(line, "func ") {
+			name := line[len("func "):strings.Index(line, "(")]
+			cloned = append(cloned, fmt.Sprintf("%s %v", name, strings.Contains(line, "_mutOff(")))
+		}
+	}
+	xtesting.EqualText(t, strings.Join(cloned, "\n"), `
+		at true
+		loop false
+		parse false
+		shadow false
+		tick true
+		main true
+	`)
+
+	dir := t.TempDir()
+	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.21\n"), "main.go": out, "runtime.go": mutant.Runtime("main")} {
+		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bin := filepath.Join(dir, "m")
+	build := exec.CommandContext(t.Context(), "go", "build", "-o", bin, ".")
+	build.Dir = dir
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	// i < len(xs) → i <= len(xs) indexes past the end at line 11.
+	var boundary int
+	for k, m := range ms {
+		if m.Mutated == "i <= len(xs)" {
+			boundary = k + 1
+		}
+	}
+	panics := func(mutantID int, arg string) string {
+		cmd := exec.CommandContext(t.Context(), bin, arg)
+		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, mutantID))
+		out, _ := cmd.CombinedOutput()
+		for line := range strings.Lines(string(out)) {
+			if strings.Contains(line, "main.go:") {
+				return strings.TrimSpace(line[strings.LastIndex(line, "/")+1:])
+			}
+		}
+		return "no panic: " + string(out)
+	}
+	// at(xs, -1) panics in the original copy, i <= len(xs) in the mutated
+	// one: both at line 11.
+	got := strings.Fields(panics(boundary, "1"))[0] + " " + strings.Fields(panics(0, "-1"))[0]
+	xtesting.EqualText(t, got, "main.go:11 main.go:11")
+
+	// tick's body is one site: deleting calls++ must take effect.
+	run := func(mutantID int) string {
+		cmd := exec.CommandContext(t.Context(), bin, "0")
+		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, mutantID))
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
+	deleted := 0
+	for k, m := range ms {
+		if m.Original == "calls++" {
+			deleted = k + 1
+		}
+	}
+	xtesting.EqualText(t, run(0)+run(deleted), `
+		1 1
+		11 <nil>
+		67 1
+		1 1
+		11 <nil>
+		67 0
 	`)
 }
