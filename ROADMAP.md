@@ -150,22 +150,6 @@ Seen along the way:
   Gremlins stops, go-mutesting calls every mutant killed, mutant leaves
   the failing tests out.
 
-### Trivial Compiler Equivalence (TCE)
-Compile each mutant and compare the machine code with the original's and
-with other mutants' (Papadakis et al., ICSE 2015): identical code means an
-equivalent or duplicate mutant, found without running a test. It needs a
-build per mutant, which schemata removed, so the plan is to apply it only
-where it can pay off:
-
-1. Compile per function, not per package: `go build -gcflags=-S` on the
-   package with one mutant, and compare the assembly of the mutant's
-   function only.
-2. Measure first on the 12 equivalents of §11 that no cheap rule catches,
-   and on the 72 string-vs-`""` mutants the rule already tags: how many does
-   TCE prove, at what build cost per mutant?
-3. If it pays, run it as a pass that tags `Mutant.Equivalent`, like the
-   rules, so `-all` runs stay honest.
-
 ### Publish the corpus as a benchmark
 There is no public mutation-testing benchmark for Go. Everything is in
 `docs/`: kill matrices of six libraries (`data/`, plus a rerun, schemata,
@@ -179,16 +163,6 @@ selection, `-j 1` and extreme runs), verdicts of three services
   the data quotes their code in `original`/`mutated` and in the label
   contexts;
 - a place to publish (Zenodo gives a DOI) and a citation.
-
-### Arid rules: what they miss
-§13: every tagged survivor was unproductive, but 1 of 21 untagged ones was
-too: a mutant in an error message's arguments (`spec[eq+1:i]` quoted in
-`fmt.Errorf`). A rule for "arguments of an error message" is the obvious
-next one, but some projects test their error text, so measure before
-adding: how often are such mutants killed in `data/` and `data-verdicts/`?
-None of the three services uses metrics or tracing libraries, so those
-rules are untested by data; a service using Prometheus or OpenTelemetry
-would cover them.
 
 ## Known limits
 
@@ -220,6 +194,14 @@ would cover them.
 
 Kept so they are not retried without new evidence.
 
+- **An arid rule for the arguments of an error message** (§13 found one
+  unproductive survivor there, `spec[eq+1:i]` in cron's `fmt.Errorf`).
+  Over the 13 corpus repositories' 110 `fmt.Errorf` calls, the arguments
+  after the format string hold 4 mutants, all on that one line, none
+  killed: the rule would be safe and would change nothing. Error
+  arguments are almost always plain variables. Not added. The metrics
+  and tracing rules remain untested by data: no corpus service uses
+  Prometheus or OpenTelemetry.
 - **Sharing the cores among test processes** (`GOMAXPROCS` =
   cores / Workers, branch `share-cores`): one sjson mutant's random-data
   test ran 2.5 s instead of 1.1 s, its schedulers and collector fighting
@@ -289,6 +271,14 @@ Kept so they are not retried without new evidence.
   mutant per line still beats random.
 
 ## Not planned
+
+- **Trivial Compiler Equivalence** (compare each mutant's machine code
+  with the original's, Papadakis et al. 2015). The noise left is mostly
+  semantic invariants (`i != -1` → `i > -1` where i is never below -1),
+  whose machine code differs; gc folds less than `gcc -O3`, where TCE's
+  numbers come from; and it needs a build per mutant, which the schema
+  removed. What it could catch, duplicates among a line's mutants, only
+  `-all` shows.
 
 - Higher-order mutants, operators learned by a model (Facebook's Mutation
   Monkey, Google's context-based selection): they need far more data than
