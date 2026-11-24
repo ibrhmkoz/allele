@@ -11,6 +11,7 @@ import (
 
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/internal/mutant"
+	"github.com/ibrhmkoz/allele/pkg/unidiff"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
@@ -39,9 +40,9 @@ func TestChoose(t *testing.T) {
 	}
 	xtesting.EqualText(t, show(choose(options{}, "/src/p.go", ms)), "a b c e g")
 	xtesting.EqualText(t, show(choose(options{arid: true}, "/src/p.go", ms)), "a b c e g h")
-	diff := map[string]map[int]bool{"/src/p.go": {4: true, 9: true}}
-	xtesting.EqualText(t, show(choose(options{all: true, diff: diff}, "/src/p.go", ms)), "e g")
-	xtesting.EqualText(t, show(choose(options{all: true, diff: diff}, "/src/q.go", ms)), "")
+	diff := unidiff.Parse([]byte("+++ b/p.go\n@@ -4 +4 @@\n@@ -9 +9 @@\n"))
+	xtesting.EqualText(t, show(choose(options{all: true, diff: &diff, diffRoot: "/src"}, "/src/p.go", ms)), "e g")
+	xtesting.EqualText(t, show(choose(options{all: true, diff: &diff, diffRoot: "/src"}, "/src/q.go", ms)), "")
 }
 
 func TestReport(t *testing.T) {
@@ -74,23 +75,6 @@ func TestReport(t *testing.T) {
 
 		4 mutants: 1 killed, 1 survived, 1 not covered, 0 timed out, 1 did not build
 	`)
-}
-
-func TestParseDiff(t *testing.T) {
-	out := []byte(`diff --git a/p/version.go b/p/version.go
---- a/p/version.go
-+++ b/p/version.go
-@@ -4 +4 @@ func tooLong(v string) bool {
--	if len(v) > 128 {
-+	if len(v) > 256 {
-@@ -9,2 +9,0 @@ func short() {
-diff --git a/gone.go b/gone.go
---- a/gone.go
-+++ /dev/null
-@@ -1,3 +0,0 @@
-`)
-	got := parseDiff(out, "/src")
-	xtesting.EqualText(t, fmt.Sprint(got), "map[/src/p/version.go:map[4:true 9:true 10:true]]")
 }
 
 func TestReportJSON(t *testing.T) {
@@ -308,13 +292,5 @@ func TestLineChange(t *testing.T) {
 				t.Errorf("got (%q, %q), want (%q, %q)", bef, aft, tc.wantBef, tc.wantAfter)
 			}
 		})
-	}
-}
-
-func TestParseDiffLongLine(t *testing.T) {
-	diff := fmt.Sprintf("diff --git a/p.go b/p.go\n--- a/p.go\n+++ b/p.go\n@@ -1 +1 @@\n+%s\n@@ -10 +10 @@\n+x\n", strings.Repeat("x", 70*1024))
-	got := parseDiff([]byte(diff), "/src")
-	if !got["/src/p.go"][1] || !got["/src/p.go"][10] {
-		t.Fatalf("long diff line truncated parseDiff: %v", got)
 	}
 }

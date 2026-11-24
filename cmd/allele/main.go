@@ -29,6 +29,7 @@ import (
 
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/internal/mutant"
+	"github.com/ibrhmkoz/allele/pkg/unidiff"
 )
 
 func main() {
@@ -80,7 +81,9 @@ func run(ctx context.Context, o options, base string, jobs int, verbose, asJSON 
 		if err != nil {
 			return false, err
 		}
-		o.diff = parseDiff(diff, root)
+		d := unidiff.Parse(diff)
+		o.diff = &d       //allele:ignore CLI driver wiring; choose and unidiff.Parse are tested
+		o.diffRoot = root //allele:ignore CLI driver wiring; choose is tested
 	}
 	var log io.Writer
 	if verbose {

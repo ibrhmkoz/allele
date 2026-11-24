@@ -9,28 +9,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-func TestChangedLines(t *testing.T) {
-	diff := []byte(`diff --git a/version.go b/version.go
-@@ -10 +10 @@ func Parse
--	if n > 0 {
-+	if n >= 0 {
-@@ -20,0 +21,2 @@ func Parse
-+	a := 1
-+	b := 2
-@@ -40,3 +42,0 @@ func Compare
--	x
--	y
--	z
-`)
-	lines := changedLines(diff)
-	var got []int
-	for l := range lines {
-		got = append(got, l)
-	}
-	slices.Sort(got)
-	xtesting.EqualText(t, fmt.Sprint(got), "[10 21 22 42 43]")
-}
-
 func TestRevealing(t *testing.T) {
 	fixed := parseTestJSON([]byte(`{"Action":"pass","Test":"TestParse/empty"}
 {"Action":"pass","Test":"TestParse/zero"}

@@ -32,6 +32,7 @@ import (
 
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/pkg/adequacy"
+	"github.com/ibrhmkoz/allele/pkg/unidiff"
 )
 
 var (
@@ -278,7 +279,7 @@ func measure(ctx context.Context, repo, tree, parent, commit, dir string, change
 		if err != nil {
 			return "", err
 		}
-		onFix[path.Base(c.path)] = changedLines(d)
+		onFix[path.Base(c.path)] = unidiff.Lines(d) //allele:ignore the driver runs only on the corpus; unidiff.Lines is tested
 	}
 	f.Mutants = len(compiled)
 	for _, k := range kills {
