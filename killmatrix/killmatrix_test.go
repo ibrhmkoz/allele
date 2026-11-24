@@ -500,3 +500,18 @@ func TestInfect(t *testing.T) {
 		t.Errorf("price >= 100 (M%d): %d runs, %s; want none, survived", boundary, n, got.Verdicts()[boundary])
 	}
 }
+
+// TestSchemataSideEffects: a schema binary runs a mutant as the mutant's
+// own build would. return t, t.fill(s) → return t, nil skips fill, which
+// the test sees, so the mutant dies either way.
+func TestSchemataSideEffects(t *testing.T) {
+	t.Parallel()
+	own := killmatrix.Runner{Workers: 2, BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond}
+	schema := own
+	schema.Schemata, schema.Select, schema.Infect, schema.FailFast = true, true, true, true
+	want := formatVerdicts(run(t, own, "testdata", "./sideeffect"))
+	xtesting.EqualText(t, formatVerdicts(run(t, schema, "testdata", "./sideeffect")), want)
+	if !strings.Contains(want, "killed") {
+		t.Errorf("no mutant killed by its own build:\n%s", want)
+	}
+}

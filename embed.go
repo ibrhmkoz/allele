@@ -273,7 +273,10 @@ func (e *embedder) wrap(sp span, g []*site) string {
 		case isNode[*ast.IfStmt](site.node):
 			s = fmt.Sprintf("_mutCond(func() bool { return %s }, %d, %d, %v)", s, site.id("true"), site.id("false"), e.pure(site.node.(*ast.IfStmt).Cond))
 		case isNode[*ast.ReturnStmt](site.node):
-			s = fmt.Sprintf("_mutErr(%s, %d)", s, site.alts[0].id)
+			// The mutant returns nil without evaluating the result, which
+			// may do more than make an error: return t, t.fill(s).
+			ret := site.node.(*ast.ReturnStmt)
+			s = fmt.Sprintf("_mutErr(func() error { return %s }, %d, %v)", s, site.alts[0].id, e.pure(ret.Results[len(ret.Results)-1]))
 		}
 	}
 	return s
@@ -841,12 +844,16 @@ func _mutCond(c func() bool, t, f int, pure bool) bool {
 	return v
 }
 
-func _mutErr(err error, id int) error {
+// _mutErr is the error f returns, or nil without calling f for mutant id.
+// The mutant infects where the error is not nil, or where f is not pure:
+// skipping it skips whatever else it does.
+func _mutErr(f func() error, id int, pure bool) error {
 	_mutMark(id)
 	if _mutIs(id) {
 		return nil
 	}
-	if err != nil {
+	err := f()
+	if err != nil || !pure {
 		_mutInfect(id)
 	}
 	return err

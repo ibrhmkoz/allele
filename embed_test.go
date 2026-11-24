@@ -118,7 +118,7 @@ func parse(xs []string) (int, error) {
 					for _, x := range xs {
 						n, err := strconv.Atoi(x)
 						if _mutCond(func() bool { return _mutNot(err != nil, 3) }, 1, 2, true) {
-							return 0, _mutErr(err, 4)
+							return 0, _mutErr(func() error { return err }, 4, true)
 						}
 						if !_mutOn(5) { switch _mutAt(6, 7, 8, 9) { case 6: total -= n; case 7: total *= n; case 8: total /= n; case 9: total %= n; default: total += n } }
 					}
