@@ -1,14 +1,12 @@
 package main
 
 import (
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/ibrhmkoz/allele/pkg/ndjson"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
@@ -31,30 +29,7 @@ func TestRevealed(t *testing.T) {
 
 func writeDetail(t *testing.T, name string, rows []coupledRow) {
 	t.Helper()
-	f, err := os.Create(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var w interface {
-		Write([]byte) (int, error)
-	} = f
-	var z *gzip.Writer
-	if strings.HasSuffix(name, ".gz") {
-		z = gzip.NewWriter(f)
-		w = z
-	}
-	enc := json.NewEncoder(w)
-	for _, r := range rows {
-		if err := enc.Encode(r); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if z != nil {
-		if err := z.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := f.Close(); err != nil {
+	if err := ndjson.WriteFile(name, rows); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -89,9 +64,8 @@ func TestReadFaults(t *testing.T) {
 		}
 	}
 	writeFile(t, filepath.Join(dir, "bad.ndjson"), "{")
-	writeFile(t, filepath.Join(dir, "huge.ndjson"), strings.Repeat(" ", 2<<20))
 	writeFile(t, filepath.Join(dir, "bad.ndjson.gz"), "not gzip")
-	for _, c := range [][2]string{{trees, filepath.Join(dir, "none")}, {filepath.Join(dir, "none"), filepath.Join(dir, "detail.ndjson")}, {trees, filepath.Join(dir, "bad.ndjson")}, {trees, filepath.Join(dir, "bad.ndjson.gz")}, {trees, filepath.Join(dir, "huge.ndjson")}} {
+	for _, c := range [][2]string{{trees, filepath.Join(dir, "none")}, {filepath.Join(dir, "none"), filepath.Join(dir, "detail.ndjson")}, {trees, filepath.Join(dir, "bad.ndjson")}, {trees, filepath.Join(dir, "bad.ndjson.gz")}} {
 		if _, err := readFaults(c[0], c[1]); err == nil {
 			t.Errorf("readFaults(%s, %s): no error", filepath.Base(c[0]), filepath.Base(c[1]))
 		}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"cmp"
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/internal/mutant"
+	"github.com/ibrhmkoz/allele/pkg/ndjson"
 	"github.com/ibrhmkoz/allele/pkg/unidiff"
 )
 
@@ -145,16 +145,16 @@ type jsonMutant struct {
 
 func reportJSON(m *killmatrix.Matrix, root string) string {
 	verdicts := m.Verdicts()
-	var b strings.Builder
-	enc := json.NewEncoder(&b)
-	enc.SetEscapeHTML(false) // keep < and > readable in operators
-	for _, mu := range m.Mutants {
+	rows := make([]jsonMutant, len(m.Mutants))
+	for i, mu := range m.Mutants {
 		rel, err := filepath.Rel(root, mu.Path)
 		if err != nil {
 			rel = mu.Path
 		}
-		_ = enc.Encode(jsonMutant{rel, mu.Line, mu.Col, mu.Operator, mu.Original, mu.Mutated, verdicts[mu.ID]}) // a Builder never fails to write
+		rows[i] = jsonMutant{rel, mu.Line, mu.Col, mu.Operator, mu.Original, mu.Mutated, verdicts[mu.ID]}
 	}
+	var b strings.Builder
+	_ = ndjson.Encode(&b, rows) // a Builder never fails to write
 	return b.String()
 }
 

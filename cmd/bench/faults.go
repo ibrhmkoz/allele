@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bufio"
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/ibrhmkoz/allele/pkg/ndjson"
 )
 
 // A fault is a real bug fix's package, prepared by docs/faulttrees.sh as
@@ -37,25 +35,12 @@ type coupledRow struct {
 // readFaults pairs the trees listed in trees ("name pkg tree" lines, the
 // tree named name-commit) with their coupled mutants from detail.
 func readFaults(trees, detail string) ([]fault, error) {
-	coupled := map[string]map[string]bool{} // name-commit12/pkg → keys
-	f, err := os.Open(detail)
+	rows, err := ndjson.ReadFile[coupledRow](detail)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = f.Close() }() //allele:ignore a leaked descriptor changes no result
-	var src io.Reader = f
-	if strings.HasSuffix(detail, ".gz") {
-		if src, err = gzip.NewReader(f); err != nil {
-			return nil, err
-		}
-	}
-	s := bufio.NewScanner(src)
-	s.Buffer(nil, 1<<20)
-	for s.Scan() {
-		var r coupledRow
-		if err := json.Unmarshal(s.Bytes(), &r); err != nil {
-			return nil, err
-		}
+	coupled := map[string]map[string]bool{} // name-commit12/pkg → keys
+	for _, r := range rows {
 		if !r.Coupled {
 			continue
 		}
@@ -64,9 +49,6 @@ func readFaults(trees, detail string) ([]fault, error) {
 			coupled[id] = map[string]bool{}
 		}
 		coupled[id][key(r.Pkg, r.File, r.Line, r.Col, r.Operator, r.Original, r.Mutated)] = true
-	}
-	if err := s.Err(); err != nil {
-		return nil, err
 	}
 	data, err := os.ReadFile(trees)
 	if err != nil {
