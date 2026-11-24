@@ -13,9 +13,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: the release job's mutate, with -v and -json
+      - run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+      - name: make ci exactly, twice
         run: |
-          go run ./cmd/allele -v -strict -json -diff 4bf5dc9 ./... > /tmp/out.json 2> /tmp/log.txt || true
-          grep '"line":27' /tmp/out.json | grep gotest
-          grep -E 'pkg/gotest' /tmp/log.txt | head
-          grep -iE 'flaky|recheck|confirm|TestBuildOverlay' /tmp/log.txt | head -20
+          make ci BASE=4bf5dc9 2>&1 | tail -5 || true
+          echo "== again"
+          make ci BASE=4bf5dc9 2>&1 | tail -5 || true
+          echo "== with -no-cache"
+          go run ./cmd/allele -no-cache -strict -diff 4bf5dc9 ./... 2>&1 | tail -4 || true
