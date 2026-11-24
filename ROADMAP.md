@@ -13,12 +13,12 @@ Changes to `cmd/mutant` and what it runs are judged by one number,
 - **D**, detection: the dominator score (Kurtz, Ammann et al., FSE 2016)
   of tests written until every mutant the build reports is dead,
   simulated on the exhaustive matrices of `docs/data`; geometric mean
-  over the six libraries, so giving up on one gives up everything.
+  over the ten libraries, so giving up on one gives up everything.
 - **F**, verdict fidelity: one minus weighted errors per mutant the two
   exhaustive runs (`data`, `data-rerun`) agree on. A hidden gap costs 5,
   a false gap or a mutant that no longer builds 2, a kill reported as a
   timeout 0.5.
-- **T**, cost: summed wall seconds on the six libraries, `-j 8`, cold
+- **T**, cost: summed wall seconds on the ten libraries, `-j 8`, cold
   verdict cache, the median of 3 reps, builds run in turns.
 - **0.18** prices speed: twice as fast makes up for 11.7% less `D · F`
   and no more. T0 = 876 s, the naive exhaustive runner, scores M = 1.
@@ -28,7 +28,12 @@ quiet machine; keep the constants, the corpus commits and the reference
 matrices frozen, or the numbers stop being comparable. Held out, never
 tuned on: `data-faults-heldout/` (checked when operators or filters
 change) and `data-verdicts/` (flaky services: dropping Confirm would look
-free on the six libraries).
+free on the ten libraries).
+
+**M v2** (from 2026-11-24) adds bloom, sjson, decimal and xstrings to the
+six of v1, so that no one library's slow test sets the time: in v1 a
+single 1 s test in uuid was a third of T. T0 stays 876 s, so v2 values
+are comparable with each other, not with v1's; v1's log is in §18-19.
 
 ## Where M stands
 

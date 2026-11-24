@@ -6,7 +6,7 @@
 // M = D·F·((T0+Floor)/(T+Floor))^Gamma. D is the dominator score of tests
 // written against the mutants a build reports, F one minus its weighted
 // verdict errors against the exhaustive matrices in docs/data, and T its
-// summed wall time on the six corpus libraries, cold verdict cache, -j 8.
+// summed wall time on the ten corpus libraries, cold verdict cache, -j 8.
 // The naive exhaustive runner scores 1. Builds run in turns, rep by rep,
 // so that load drifts on all of them alike; T takes each repository's
 // median rep.
@@ -38,7 +38,8 @@ import (
 	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
 )
 
-var repos = []string{"glob", "go-humanize", "go-version", "semver", "shlex", "uuid"}
+// repos is the corpus of M v2. M v1 (to 2026-11-24) ran the first six.
+var repos = []string{"glob", "go-humanize", "go-version", "semver", "shlex", "uuid", "bloom", "sjson", "decimal", "xstrings"}
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

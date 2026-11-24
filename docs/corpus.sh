@@ -9,9 +9,9 @@
 #   SCHEMATA=1 SELECT=1 OUT=mutant/docs/data-select mutant/docs/corpus.sh
 #   SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh
 #
-# The first six were picked for fast, hermetic tests (no network, database
+# The first ten were picked for fast, hermetic tests (no network, database
 # or Docker) and pure logic: parsers, formatters, encoders. Each takes 1-5
-# minutes with -j 8. The last three are service code that logs, with slow
+# minutes with -j 8, but decimal: 75, from 3360 mutants and 171 tests. The last three are service code that logs, with slow
 # tests (25-40 s): run them with SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1,
 # which records each mutant's verdict but not the full matrix, and counts a
 # kill only if the test fails twice: their timing tests fail under load.
@@ -24,6 +24,10 @@ go-humanize https://github.com/dustin/go-humanize     f5b54ae1392365a578bb43ab72
 uuid        https://github.com/google/uuid            2d3c2a9cc518326daf99a383f07c4d3c44317e4d
 glob        https://github.com/gobwas/glob            ff0540d668f8280e0be2afab426e9c9598c80aaf
 shlex       https://github.com/google/shlex           e7afc7fbc51079733e9468cdfd1efcd7d196cd1d
+bloom       https://github.com/bits-and-blooms/bloom  c4c57f87f860e2451b2fc3ce3f53c6ba8fa62f6a
+sjson       https://github.com/tidwall/sjson          752368dfbbb11bc8ff0e777a6e1073c3ddd3c622
+decimal     https://github.com/shopspring/decimal     a5eee101f66d97f2d1bde1b6d1ebea3a93897354
+xstrings    https://github.com/huandu/xstrings        01bf78f574429e544c3e334a0574936edef70f25
 retryablehttp https://github.com/hashicorp/go-retryablehttp 7e8e6f42169e7dc20bf5af008698a6a06997b6e4
 cron        https://github.com/robfig/cron            bc59245fe10efaed9d51b56900192527ed733435
 yamux       https://github.com/hashicorp/yamux        98ba9c9ac60f4c45b2331377b50305798b41f611
