@@ -54,6 +54,20 @@ survivors) and decimal 26 s. What is left:
   survives in the reference: it slows a test past 9x its baseline.
   TimeoutFactor 2: +0.6%, inside the noise (`v2-factor2.ndjson`).
 
+- **What T is now**: with functions cloned, the schema binary runs
+  sjson's fuzz test 1.2x as long as the plain one, and 1.1-1.2x with a
+  mutant of its hottest function active: the overhead is gone, and T is
+  the tests' own time. sjson's 1 s fuzz test and decimal's 3 s
+  TestDecimal_ExtremeValues run for every mutant they reach that faster
+  tests do not kill. The baseline, which no mutant can start before, is
+  the one serial step: 6-7 s in sjson, where reach recording makes the
+  fuzz test 5x slower.
+- Checked again under M v2: Infect still pays (off: -1.4%,
+  `v2-infect-off.ndjson`); marking a site with one load instead of six
+  saves sjson 1.2 s but moves M by +0.1%, inside the noise
+  (`v2-mark-fast.ndjson`). decimal.go:300's timeout moves F by about
+  0.002 from run to run.
+
 ### M v1 (six libraries)
 
 M went from 1.567 to 1.733 on 2026-11-23 (timeout pad §18, weak mutation
