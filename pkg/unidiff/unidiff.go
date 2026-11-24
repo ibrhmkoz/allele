@@ -15,7 +15,6 @@ import (
 
 var hunk = regexp.MustCompile(`^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@`)
 
-// Diff holds the new-file lines touched by a unified diff, keyed by path.
 type Diff struct {
 	files map[string]map[int]bool
 }
@@ -77,7 +76,6 @@ func addHunk(dst map[int]bool, line string) {
 	}
 }
 
-// Has reports whether file has line touched by d.
 func (d Diff) Has(file string, line int) bool {
 	return d.files[file][line]
 }
@@ -92,7 +90,6 @@ func (d Diff) Lines(file string) []int {
 	return slices.Sorted(maps.Keys(d.files[file]))
 }
 
-// String formats d as one "file: line1, line2, ..." line per file, sorted.
 func (d Diff) String() string {
 	var b strings.Builder
 	for _, file := range d.Files() {
