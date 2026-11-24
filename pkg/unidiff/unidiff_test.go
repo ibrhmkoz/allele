@@ -49,7 +49,6 @@ diff --git a/a/init.go b/a/init.go
 }
 
 func TestParseEdgeCases(t *testing.T) {
-	// Empty input and hunk before any +++ header produce an empty diff.
 	xtesting.Prints(t, unidiff.Parse(nil), "")
 	xtesting.Prints(t, unidiff.Parse([]byte("@@ -1 +1 @@\n+x\n")), "")
 

@@ -17,7 +17,7 @@ import (
 // escaping.
 func Encode[T any](w io.Writer, rows []T) error {
 	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false) // keep < and > readable in operators
+	enc.SetEscapeHTML(false)
 	for _, row := range rows {
 		if err := enc.Encode(row); err != nil {
 			return err
@@ -26,7 +26,6 @@ func Encode[T any](w io.Writer, rows []T) error {
 	return nil
 }
 
-// Decode reads JSON values from r until EOF.
 func Decode[T any](r io.Reader) ([]T, error) {
 	dec := json.NewDecoder(bufio.NewReader(r))
 	var rows []T

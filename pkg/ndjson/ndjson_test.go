@@ -103,7 +103,6 @@ func TestWriteReadFile(t *testing.T) {
 	if err != nil || len(gzRaw) < 2 || gzRaw[0] != 0x1f || gzRaw[1] != 0x8b {
 		t.Fatalf("compressed file lacks gzip magic: %x, %v", gzRaw[:min(len(gzRaw), 4)], err)
 	}
-	// ReadFile reads .gz directly and also falls back from the plain path to path+".gz".
 	for _, p := range []string{gz, strings.TrimSuffix(gz, ".gz")} {
 		got, err := ndjson.ReadFile[row](p)
 		if err != nil {
