@@ -12,7 +12,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"math/rand/v2"
@@ -24,6 +23,7 @@ import (
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/adequacy"
+	"github.com/ibrhmkoz/allele/pkg/ndjson"
 )
 
 func main() {
@@ -77,10 +77,10 @@ func run(out string, seeds int, dirs []string) error {
 			outs = append(outs, repo.simulate(seed+1)...)
 		}
 	}
-	if err := write(filepath.Join(out, "summary.ndjson"), sums); err != nil {
+	if err := ndjson.WriteFile(filepath.Join(out, "summary.ndjson"), sums); err != nil {
 		return err
 	}
-	return write(filepath.Join(out, "strategies.ndjson"), outs)
+	return ndjson.WriteFile(filepath.Join(out, "strategies.ndjson"), outs)
 }
 
 // repo is one repository's kill matrix with the mutants that did not
@@ -278,19 +278,4 @@ func (rp *repo) measure(seed uint64, name string, control bool, picks [][]int, r
 	o.Random /= n
 	o.Cost /= n
 	return o
-}
-
-func write[T any](name string, rows []T) error {
-	f, err := os.Create(name)
-	if err != nil {
-		return err
-	}
-	enc := json.NewEncoder(f)
-	for _, row := range rows {
-		if err := enc.Encode(row); err != nil {
-			_ = f.Close()
-			return err
-		}
-	}
-	return f.Close()
 }

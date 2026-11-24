@@ -32,6 +32,8 @@ import (
 
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/pkg/adequacy"
+	"github.com/ibrhmkoz/allele/pkg/ndjson"
+	"github.com/ibrhmkoz/allele/pkg/unidiff"
 )
 
 var (
@@ -141,7 +143,7 @@ func run(ctx context.Context, repo, name, out string, jobs int) error {
 		}
 		rows = append(rows, fs...)
 	}
-	return write(out, rows)
+	return ndjson.WriteFile(out, rows) //allele:ignore the driver runs only on the corpus; ndjson.WriteFile is tested
 }
 
 type change struct{ status, path string }
@@ -278,7 +280,7 @@ func measure(ctx context.Context, repo, tree, parent, commit, dir string, change
 		if err != nil {
 			return "", err
 		}
-		onFix[path.Base(c.path)] = changedLines(d)
+		onFix[path.Base(c.path)] = unidiff.Lines(d) //allele:ignore the driver runs only on the corpus; unidiff.Lines is tested
 	}
 	f.Mutants = len(compiled)
 	for _, k := range kills {
@@ -405,19 +407,4 @@ func git(ctx context.Context, repo string, args ...string) ([]byte, error) {
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(s, "\n")
 	return line
-}
-
-func write(name string, rows []fault) error {
-	f, err := os.Create(name)
-	if err != nil {
-		return err
-	}
-	enc := json.NewEncoder(f)
-	for _, row := range rows {
-		if err := enc.Encode(row); err != nil {
-			_ = f.Close()
-			return err
-		}
-	}
-	return f.Close()
 }

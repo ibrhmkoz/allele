@@ -1,42 +1,39 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"cmp"
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"path/filepath"
-	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/internal/mutant"
+	"github.com/ibrhmkoz/allele/pkg/ndjson"
+	"github.com/ibrhmkoz/allele/pkg/unidiff"
 )
 
 type options struct {
 	all  bool
 	arid bool
-	// diff, if set, maps absolute paths to the lines a diff touched; only
-	// mutants on those lines run.
-	diff    map[string]map[int]bool
-	noCache bool
+	// diff, if set, limits mutation to lines touched under diffRoot.
+	diff     *unidiff.Diff
+	diffRoot string
+	noCache  bool
 }
 
 func choose(o options, path string, ms []mutant.Mutant) []int {
-	var lines map[int]bool
 	if o.diff != nil {
-		var ok bool
-		if lines, ok = o.diff[path]; !ok {
+		r, err := filepath.Rel(o.diffRoot, path)
+		if err != nil { //allele:ignore diffRoot and path are both absolute paths in the repo
 			return nil
 		}
+		path = filepath.ToSlash(r)
 	}
 	var keep []int
 	for i, m := range ms {
-		if m.Equivalent != "" || m.Arid != "" && !o.arid || lines != nil && !lines[m.Pos.Line] {
+		if m.Equivalent != "" || m.Arid != "" && !o.arid || o.diff != nil && !o.diff.Has(path, m.Pos.Line) {
 			continue
 		}
 		keep = append(keep, i)
@@ -89,45 +86,6 @@ func pick(cs []killmatrix.Candidate) int {
 func untakenBranch(mu killmatrix.Mutant) bool {
 	forced := mu.Mutated == "true" || mu.Mutated == "false" || strings.HasSuffix(mu.Mutated, "return true }()") || strings.HasSuffix(mu.Mutated, "return false }()")
 	return mu.Operator == mutant.COR && forced && !strings.Contains(mu.Original, "nil")
-}
-
-var hunk = regexp.MustCompile(`^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@`)
-
-// parseDiff reads git diff -U0 output into the lines it adds or changes,
-// by absolute path under root. A hunk that only deletes marks the lines
-// around the gap.
-func parseDiff(out []byte, root string) map[string]map[int]bool {
-	files := map[string]map[int]bool{}
-	var cur map[int]bool
-	sc := bufio.NewScanner(bytes.NewReader(out))
-	sc.Buffer(nil, 1<<20)
-	for sc.Scan() {
-		line := sc.Text()
-		if strings.HasPrefix(line, "+++ ") {
-			cur = nil // +++ /dev/null: the file was deleted
-			if name, ok := strings.CutPrefix(line, "+++ b/"); ok {
-				cur = map[int]bool{}
-				files[filepath.Join(root, name)] = cur
-			}
-			continue
-		}
-		m := hunk.FindStringSubmatch(line)
-		if m == nil || cur == nil {
-			continue
-		}
-		start, _ := strconv.Atoi(m[1])
-		n := 1
-		if m[2] != "" {
-			n, _ = strconv.Atoi(m[2])
-		}
-		if n == 0 {
-			cur[start], cur[start+1] = true, true
-		}
-		for l := start; l < start+n; l++ {
-			cur[l] = true
-		}
-	}
-	return files
 }
 
 func report(m *killmatrix.Matrix, root string, read func(path string) ([]byte, error)) string {
@@ -187,16 +145,16 @@ type jsonMutant struct {
 
 func reportJSON(m *killmatrix.Matrix, root string) string {
 	verdicts := m.Verdicts()
-	var b strings.Builder
-	enc := json.NewEncoder(&b)
-	enc.SetEscapeHTML(false) // keep < and > readable in operators
-	for _, mu := range m.Mutants {
+	rows := make([]jsonMutant, len(m.Mutants))
+	for i, mu := range m.Mutants {
 		rel, err := filepath.Rel(root, mu.Path)
 		if err != nil {
 			rel = mu.Path
 		}
-		_ = enc.Encode(jsonMutant{rel, mu.Line, mu.Col, mu.Operator, mu.Original, mu.Mutated, verdicts[mu.ID]}) // a Builder never fails to write
+		rows[i] = jsonMutant{rel, mu.Line, mu.Col, mu.Operator, mu.Original, mu.Mutated, verdicts[mu.ID]}
 	}
+	var b strings.Builder
+	_ = ndjson.Encode(&b, rows) // a Builder never fails to write
 	return b.String()
 }
 

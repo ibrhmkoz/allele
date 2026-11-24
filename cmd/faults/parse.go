@@ -4,34 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"regexp"
-	"strconv"
 	"strings"
 )
-
-var hunk = regexp.MustCompile(`(?m)^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@`)
-
-// changedLines returns the lines of the new file that a unified diff with
-// no context (git diff -U0) adds or changes. A hunk that only deletes marks
-// the lines on both sides of the gap it leaves.
-func changedLines(diff []byte) map[int]bool {
-	lines := map[int]bool{}
-	for _, m := range hunk.FindAllSubmatch(diff, -1) {
-		start, _ := strconv.Atoi(string(m[1]))
-		n := 1
-		if len(m[2]) > 0 {
-			n, _ = strconv.Atoi(string(m[2]))
-		}
-		if n == 0 {
-			lines[start], lines[start+1] = true, true
-			continue
-		}
-		for l := start; l < start+n; l++ {
-			lines[l] = true
-		}
-	}
-	return lines
-}
 
 type testRun struct {
 	built  bool

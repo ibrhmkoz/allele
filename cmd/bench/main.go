@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"cmp"
 	"context"
@@ -36,6 +35,7 @@ import (
 	"golang.org/x/mod/modfile"
 
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/ndjson"
 )
 
 // repos is the corpus of M v2. M v1 (to 2026-11-24) ran the first six.
@@ -255,17 +255,7 @@ func (b bench) mutantOn(ctx context.Context, bn bin, dir, pattern string) ([]ver
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", err, stderr.Bytes())
 	}
-	var vs []verdict
-	s := bufio.NewScanner(bytes.NewReader(out))
-	s.Buffer(nil, 1<<20)
-	for s.Scan() {
-		var v verdict
-		if err := json.Unmarshal(s.Bytes(), &v); err != nil {
-			return nil, err
-		}
-		vs = append(vs, v)
-	}
-	return vs, s.Err()
+	return ndjson.Decode[verdict](bytes.NewReader(out))
 }
 
 func modulePath(dir string) (string, error) {

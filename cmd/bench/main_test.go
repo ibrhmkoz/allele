@@ -167,11 +167,9 @@ func TestCLI(t *testing.T) {
 		"no reps":              {[]string{"-reps", "0", "good=" + fakeMutant(t, "good")}, 2, "at least 1"},
 		"no seeds":             {[]string{"-seeds", "0", "good=" + fakeMutant(t, "good")}, 2, "at least 1"},
 		"broken rerun":         {[]string{"-rerun", brokenRerun, "good=" + fakeMutant(t, "good")}, 1, "unexpected EOF"},
-		"line too long":        {[]string{"huge=" + fakeMutant(t, "huge")}, 1, "token too long"},
 		"rows cannot be saved": {[]string{"-o", t.TempDir(), "good=" + fakeMutant(t, "good")}, 1, "is a directory"},
 	} {
 		writeFile(t, filepath.Join(corpus, "m", "notjson.json"), "not json\n")
-		writeFile(t, filepath.Join(corpus, "m", "huge.json"), line(verdict{Original: strings.Repeat("x", 2<<20)}))
 		code, out := cli(c.args...)
 		if code != c.code || !strings.Contains(out, c.says) {
 			t.Errorf("%s: exit %d, want %d saying %q: %s", name, code, c.code, c.says, out)
