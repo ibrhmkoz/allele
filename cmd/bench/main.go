@@ -35,7 +35,7 @@ import (
 
 	"golang.org/x/mod/modfile"
 
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
 )
 
 // repos is the corpus of M v2. M v1 (to 2026-11-24) ran the first six.

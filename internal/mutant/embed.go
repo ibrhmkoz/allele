@@ -1,4 +1,4 @@
-package allele
+package mutant
 
 import (
 	"bytes"

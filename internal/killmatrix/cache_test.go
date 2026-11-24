@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
@@ -276,7 +276,7 @@ func TestCacheChoosesMore(t *testing.T) {
 	fresh := run(t, r, dir, ".")
 	r.CacheDir = t.TempDir()
 	few := r
-	few.Choose = func(_ string, _ []allele.Mutant) []int { return []int{0} }
+	few.Choose = func(_ string, _ []mutant.Mutant) []int { return []int{0} }
 	run(t, few, dir, ".")
 	all := run(t, r, dir, ".")
 	xtesting.EqualText(t, formatVerdicts(all), formatVerdicts(fresh))

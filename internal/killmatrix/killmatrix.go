@@ -28,7 +28,7 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/fingerprint"
 	"github.com/ibrhmkoz/allele/pkg/gotest"
 )
@@ -49,11 +49,11 @@ type Mutant struct {
 	File     string          `json:"file"`
 	Line     int             `json:"line"`
 	Col      int             `json:"col"`
-	Operator allele.Operator `json:"operator"`
+	Operator mutant.Operator `json:"operator"`
 	Node     string          `json:"node"`
 	Original string          `json:"original"`
 	Mutated  string          `json:"mutated"`
-	// Equivalent, Repaired and Arid are as in allele.Mutant.
+	// Equivalent, Repaired and Arid are as in mutant.Mutant.
 	Equivalent string `json:"equivalent"`
 	Repaired   bool   `json:"repaired"`
 	Arid       string `json:"arid"`
@@ -67,7 +67,7 @@ type Mutant struct {
 	// are meant to be shared.
 	Path string `json:"-"`
 
-	m allele.Mutant
+	m mutant.Mutant
 }
 
 // TestState says whether a test is in the matrix. Flaky and failing tests
@@ -184,7 +184,7 @@ type Runner struct {
 	// Log, if set, receives a line per package and per mutant.
 	Log io.Writer
 	// Schemata builds each package once with every mutant it can embed
-	// (allele.Embed) and picks one per run; the rest build on their own.
+	// (mutant.Embed) and picks one per run; the rest build on their own.
 	Schemata bool
 	// Select, with Schemata, runs a top-level test against a mutant only
 	// if, in the baseline, the test reached a site in the function that
@@ -195,7 +195,7 @@ type Runner struct {
 	Select bool
 	// Choose, if set, picks by index which of a file's mutants to run;
 	// path is the file's absolute path. The rest are left out entirely.
-	Choose func(path string, ms []allele.Mutant) []int
+	Choose func(path string, ms []mutant.Mutant) []int
 	// Pick, if set, keeps one mutant of each line among those Choose
 	// returned, once the baseline has run: it is given the line's
 	// candidates, in source order, and returns the index of the one to
@@ -378,7 +378,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 			return err
 		}
 		s := source{name: name, src: src, file: f}
-		found := allele.Find(pkg.Fset, f, src, pkg.TypesInfo)
+		found := mutant.Find(pkg.Fset, f, src, pkg.TypesInfo)
 		s.find = make([]int, len(found))
 		chosen := make([]bool, len(found))
 		if r.Choose == nil {
@@ -740,7 +740,7 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 					ids[j] = mutants[k].ID
 				}
 			}
-			out, in := allele.Embed(pkg.Fset, s.file, s.src, pkg.TypesInfo, ids)
+			out, in := mutant.Embed(pkg.Fset, s.file, s.src, pkg.TypesInfo, ids)
 			changed := false
 			for j, k := range s.find {
 				if k >= 0 {
@@ -752,7 +752,7 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 				continue
 			}
 			if old {
-				out = allele.WithGo121(out, s.name)
+				out = mutant.WithGo121(out, s.name)
 			}
 			path := filepath.Join(work, filepath.Base(s.name))
 			if err := os.WriteFile(path, out, 0o600); err != nil {
@@ -761,7 +761,7 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 			replace[s.name] = path
 		}
 		rt := filepath.Join(work, "zz_mutant_runtime.go")
-		if err := os.WriteFile(rt, allele.Runtime(pkg.Name), 0o600); err != nil {
+		if err := os.WriteFile(rt, mutant.Runtime(pkg.Name), 0o600); err != nil { //allele:ignore the OS refusing a temp file
 			return "", err
 		}
 		replace[filepath.Join(dir, "zz_mutant_runtime.go")] = rt
@@ -1334,17 +1334,19 @@ func (r Runner) run(ctx context.Context, dir, bin, top string, limit time.Durati
 func (r Runner) runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Duration, id int) gotest.Report {
 	r.acquire()
 	defer r.release()
-	env := []string{fmt.Sprintf("%s=%d", allele.EnvVar, id)}
-	return gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: tops, Limit: limit, Env: env, FailFast: len(tops) > 1})
+	env := []string{fmt.Sprintf("%s=%d", mutant.EnvVar, id)}
+	// With one test, failfast would only skip the subtests after a failure,
+	// once the mutant is killed.
+	return gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: tops, Limit: limit, Env: env, FailFast: len(tops) > 1}) //allele:ignore as above
 }
 
 // run runs one top-level test of bin in dir with mutant id switched on, if
 // bin is a schema binary, recording the sites it reaches into reach if
 // set. A limit of 0 means no limit.
 func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int, reach string) gotest.Report {
-	env := []string{fmt.Sprintf("%s=%d", allele.EnvVar, id)}
+	env := []string{fmt.Sprintf("%s=%d", mutant.EnvVar, id)}
 	if reach != "" {
-		env = append(env, allele.ReachEnvVar+"="+reach)
+		env = append(env, mutant.ReachEnvVar+"="+reach)
 	}
 	return gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{top}, Limit: limit, Env: env})
 }

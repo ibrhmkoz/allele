@@ -1,10 +1,10 @@
-// Package allele finds the mutants of a Go source file: small, deliberate
+// Package mutant finds the mutants of a Go source file: small, deliberate
 // changes such as > to >= that a good test suite should notice.
 //
 // Find is exhaustive on purpose. It is the reference that cheaper strategies,
 // such as one mutant per line or a subset of operators, are measured against,
 // so it does not filter for usefulness.
-package allele
+package mutant
 
 import (
 	"fmt"

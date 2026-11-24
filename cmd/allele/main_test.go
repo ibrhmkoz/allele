@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
@@ -23,7 +23,7 @@ func TestRunnerConfirmsKills(t *testing.T) {
 	if r.Pick != nil {
 		t.Fatal("-all picks no mutant per line")
 	}
-	m, err := r.Run(t.Context(), "../../killmatrix/testdata", "./flaky")
+	m, err := r.Run(t.Context(), "../../internal/killmatrix/testdata", "./flaky")
 	if err != nil {
 		t.Fatal(err)
 	}

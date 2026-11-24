@@ -16,15 +16,15 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/gotest"
 )
 
 // infections returns, for each mutant of the package in dir, keyed by
 // mutantKey, how many top-level tests of the old suite reach its site and how
 // many infect it, from a schema binary run once per test with
-// allele.ReachEnvVar set.
+// mutant.ReachEnvVar set.
 func infections(ctx context.Context, dir string, revealing []string) (map[string][2]int, error) {
 	// go's -overlay matches absolute paths only.
 	dir, err := filepath.Abs(dir)
@@ -53,13 +53,13 @@ func infections(ctx context.Context, dir string, revealing []string) (map[string
 	for i, f := range p.Syntax {
 		name := p.CompiledGoFiles[i]
 		src, _ := os.ReadFile(name)
-		ms := allele.Find(p.Fset, f, src, p.TypesInfo)
+		ms := mutant.Find(p.Fset, f, src, p.TypesInfo)
 		ids := make([]int, len(ms))
 		for k := range ms {
 			ids[k] = id
 			id++
 		}
-		emb, embedded := allele.Embed(p.Fset, f, src, p.TypesInfo, ids)
+		emb, embedded := mutant.Embed(p.Fset, f, src, p.TypesInfo, ids)
 		for k, m := range ms {
 			if embedded[k] { //allele:ignore a site Embed leaves out would only add a count of zero
 				key := mutantKey(filepath.Base(name), m.Pos.Line, m.Pos.Column, string(m.Operator), m.Original, m.Mutated)
@@ -76,7 +76,7 @@ func infections(ctx context.Context, dir string, revealing []string) (map[string
 		for _, f := range files {
 			src := srcs[f[0]]
 			if go121 { //allele:ignore the Go 1.21 shim matters only for modules older than the toolchain
-				src = allele.WithGo121(src, f[0]) //allele:ignore the Go 1.21 shim matters only for modules older than the toolchain
+				src = mutant.WithGo121(src, f[0]) //allele:ignore the Go 1.21 shim matters only for modules older than the toolchain
 			}
 			if err := os.WriteFile(f[1], src, 0o600); err != nil {
 				return err //allele:ignore the OS refusing a temp file
@@ -84,7 +84,7 @@ func infections(ctx context.Context, dir string, revealing []string) (map[string
 			replace[f[0]] = f[1]
 		}
 		rt := filepath.Join(tmp, "zz_mutant_runtime.go")
-		if err := os.WriteFile(rt, allele.Runtime(p.Name), 0o600); err != nil { //allele:ignore the OS refusing a temp file
+		if err := os.WriteFile(rt, mutant.Runtime(p.Name), 0o600); err != nil { //allele:ignore the OS refusing a temp file
 			return err //allele:ignore the OS refusing a temp file
 		}
 		replace[filepath.Join(dir, "zz_mutant_runtime.go")] = rt
@@ -114,7 +114,7 @@ func infections(ctx context.Context, dir string, revealing []string) (map[string
 		}
 		reach := filepath.Join(tmp, "reach")
 		_ = os.Remove(reach)
-		gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{test}, Skip: skip, Limit: 2 * time.Minute, Env: []string{allele.ReachEnvVar + "=" + reach}}) //allele:ignore the limit only stops a test that hangs
+		gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{test}, Skip: skip, Limit: 2 * time.Minute, Env: []string{mutant.ReachEnvVar + "=" + reach}}) //allele:ignore the limit only stops a test that hangs
 		data, _ := os.ReadFile(reach)
 		s := bufio.NewScanner(bytes.NewReader(data))
 		for s.Scan() {

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
@@ -123,7 +123,7 @@ func TestF(t *testing.T) { if !F(1) { t.Fatal() } }
 			Workers:      1,
 			BaselineRuns: 1,
 			Schemata:     true,
-			Choose: func(_ string, _ []allele.Mutant) []int {
+			Choose: func(_ string, _ []mutant.Mutant) []int {
 				cancel()
 				return []int{0}
 			},
@@ -144,7 +144,7 @@ func TestF(t *testing.T) { if !F(1) { t.Fatal() } }
 			Workers:      1,
 			BaselineRuns: 1,
 			Schemata:     false,
-			Choose:       func(_ string, _ []allele.Mutant) []int { return []int{0} },
+			Choose:       func(_ string, _ []mutant.Mutant) []int { return []int{0} },
 			Log:          &cancelOnMatch{substr: "top-level tests", cancel: cancel},
 		}
 		if _, err := r.Run(ctx, "testdata", "./discount"); err == nil {
@@ -180,7 +180,7 @@ func TestA(t *testing.T) { %s; _ = F(1) }
 			})
 			ctx, cancel := cancelOnFile(t, filepath.Join(dir, "hit"))
 			defer cancel()
-			r := killmatrix.Runner{Workers: tc.workers, BaselineRuns: 1, Schemata: false, Choose: func(_ string, _ []allele.Mutant) []int { return []int{0} }}
+			r := killmatrix.Runner{Workers: tc.workers, BaselineRuns: 1, Schemata: false, Choose: func(_ string, _ []mutant.Mutant) []int { return []int{0} }}
 			if _, err := r.Run(ctx, dir, "."); err == nil {
 				t.Fatalf("expected cancellation error in %s", tc.name)
 			}
@@ -241,7 +241,7 @@ func BadErr(n int) code { return code(strconv.Itoa(n)) }
 `,
 			"fallback/f_test.go": "package fallback\nimport \"testing\"\nfunc TestF(t *testing.T) { if !F(1) || F(0) { t.Fatal() }; _ = BadErr(1) }\n",
 		})
-		choose := func(file string, ms []allele.Mutant) []int {
+		choose := func(file string, ms []mutant.Mutant) []int {
 			var keep []int
 			switch filepath.Base(filepath.Dir(file)) {
 			case "apkg":
@@ -249,21 +249,21 @@ func BadErr(n int) code { return code(strconv.Itoa(n)) }
 					// Line 3 (Closure, outside any func): x >= 0 survives TestB so TestA must also run (kills L848).
 					// Line 4 (Live, inside func): all 5 ROR mutants so apkg has 6 schema mutants (kills L687, L690).
 					if (m.Pos.Line == 3 && m.Mutated == "x >= 0") ||
-						(m.Pos.Line == 4 && m.Operator == allele.ROR) {
+						(m.Pos.Line == 4 && m.Operator == mutant.ROR) {
 						keep = append(keep, i)
 					}
 				}
 				return keep
 			case "retry":
 				for i, m := range ms {
-					if m.Operator == allele.ROR && m.Mutated == "x < 0" {
+					if m.Operator == mutant.ROR && m.Mutated == "x < 0" {
 						return []int{i}
 					}
 				}
 				return nil
 			case "fallback":
 				for i, m := range ms {
-					if (m.Pos.Line == 6 && m.Mutated == "x < _mutActive") || m.Operator == allele.ERR {
+					if (m.Pos.Line == 6 && m.Mutated == "x < _mutActive") || m.Operator == mutant.ERR {
 						keep = append(keep, i)
 					}
 				}
@@ -399,7 +399,7 @@ func TestA(t *testing.T) {}
 			Schemata:     true,
 			Select:       true,
 			FailFast:     false,
-			Choose: func(_ string, ms []allele.Mutant) []int {
+			Choose: func(_ string, ms []mutant.Mutant) []int {
 				for i, m := range ms {
 					if m.Pos.Line == 3 && m.Mutated == "x < 0" {
 						return []int{i}

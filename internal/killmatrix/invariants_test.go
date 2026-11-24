@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
 )
 
 // checkMatrix fails t where m breaks a rule every matrix keeps, however
@@ -132,7 +132,7 @@ func verdictOf(s killmatrix.Status) killmatrix.Verdict {
 // runs of earlier versions, under every option measured there.
 func TestStoredMatrices(t *testing.T) {
 	t.Parallel()
-	dirs, err := filepath.Glob("../docs/data*/*/mutants.ndjson.gz")
+	dirs, err := filepath.Glob("../../docs/data*/*/mutants.ndjson.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestStoredMatrices(t *testing.T) {
 	}
 	for _, f := range dirs {
 		dir := filepath.Dir(f)
-		t.Run(filepath.ToSlash(dir[len("../docs/"):]), func(t *testing.T) {
+		t.Run(filepath.ToSlash(dir[len("../../docs/"):]), func(t *testing.T) {
 			t.Parallel()
 			m, err := killmatrix.Read(dir)
 			if err != nil {

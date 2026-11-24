@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 

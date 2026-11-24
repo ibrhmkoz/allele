@@ -12,7 +12,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
 )
 
 func main() {

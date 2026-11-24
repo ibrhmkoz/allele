@@ -1,4 +1,4 @@
-package allele_test
+package mutant_test
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
@@ -46,12 +46,12 @@ func (c *cachedImporter) Import(path string) (*types.Package, error) {
 }
 
 // find type-checks src as a file of its own package and returns its mutants.
-func find(t testing.TB, name, src string) []allele.Mutant {
+func find(t testing.TB, name, src string) []mutant.Mutant {
 	t.Helper()
 	return findInPkg(t, "p", name, src)
 }
 
-func findInPkg(t testing.TB, pkg, name, src string) []allele.Mutant {
+func findInPkg(t testing.TB, pkg, name, src string) []mutant.Mutant {
 	t.Helper()
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, parser.ParseComments)
@@ -63,10 +63,10 @@ func findInPkg(t testing.TB, pkg, name, src string) []allele.Mutant {
 	if _, err := conf.Check(pkg, fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	return allele.Find(fset, f, []byte(src), info)
+	return mutant.Find(fset, f, []byte(src), info)
 }
 
-func listing(ms []allele.Mutant) string {
+func listing(ms []mutant.Mutant) string {
 	var b strings.Builder
 	for _, m := range ms {
 		fmt.Fprintln(&b, m)
@@ -440,7 +440,7 @@ func TestApplyOnStdlib(t *testing.T) {
 	want := map[string]bool{"strconv": true, "sort": true, "strings": true}
 	type job struct {
 		src []byte
-		m   allele.Mutant
+		m   mutant.Mutant
 	}
 	var jobs []job
 	for _, pkg := range pkgs {
@@ -453,7 +453,7 @@ func TestApplyOnStdlib(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, m := range allele.Find(pkg.Fset, f, src, pkg.TypesInfo) {
+			for _, m := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
 				jobs = append(jobs, job{src, m})
 			}
 		}
@@ -505,7 +505,7 @@ func Max(a, b int) int {
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
 	_, _ = new(types.Config).Check("p", fset, []*ast.File{f}, info)
 
-	ms := allele.Find(fset, f, []byte(src), info)
+	ms := mutant.Find(fset, f, []byte(src), info)
 	for _, m := range ms[:3] {
 		fmt.Println(m)
 	}
@@ -547,7 +547,7 @@ func check(xs []int, n int) bool {
 	// bytes is used only for a type: a nil pointer to it keeps it used.
 	// slices.Contains is generic: no expression names it without type
 	// arguments, so an import used only for it is not repaired.
-	xtesting.EqualText(t, listing(allele.Find(fset, f, []byte(src), info)), `
+	xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
 		p.go:11:2 SDL consume(new(bytes.Buffer)) → _ = (*bytes.Buffer)(nil)
 		p.go:12:5 COR slices.Contains(xs, n) → true
 		p.go:12:5 COR slices.Contains(xs, n) → false
@@ -584,7 +584,7 @@ func report(logger any, n int) int {
 	}
 	// A switch whose every case only logs is arid, and so is the if that
 	// guards it: its condition only decides whether to log.
-	xtesting.EqualText(t, listing(allele.Find(fset, f, []byte(src), info)), `
+	xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
 		p.go:8:5 COR logger != nil → true [arid: only arid statements]
 		p.go:8:5 COR logger != nil → false [arid: only arid statements]
 		p.go:8:12 ROR logger != nil → logger == nil [arid: only arid statements]
@@ -630,12 +630,12 @@ func work(l Logger, w io.Writer, n int, debug bool) []int {
 	}
 	type key struct {
 		line int
-		op   allele.Operator
+		op   mutant.Operator
 		arid string
 	}
 	var order []key
 	count := map[key]int{}
-	for _, m := range allele.Find(fset, f, []byte(src), info) {
+	for _, m := range mutant.Find(fset, f, []byte(src), info) {
 		k := key{m.Pos.Line, m.Operator, cmp.Or(m.Arid, "-")}
 		if count[k] == 0 {
 			order = append(order, k)
@@ -835,7 +835,7 @@ func consume(...float64) {}
 		t.Fatal(err)
 	}
 	for range 20 {
-		xtesting.EqualText(t, listing(allele.Find(fset, f, []byte(src), info)), `
+		xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
 			p.go:6:2 SDL consume(math.Abs(x), math.Floor(x), math.Ceil(x), math.Sqrt(x), math.Trunc(x)) → _ = math.Abs
 		`)
 	}

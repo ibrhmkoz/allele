@@ -21,8 +21,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/adequacy"
 )
 
@@ -181,7 +181,7 @@ type strategy struct {
 }
 
 func (rp *repo) strategies() []strategy {
-	ops := []allele.Operator{allele.ROR, allele.COR, allele.AOR, allele.SDL, allele.ERR}
+	ops := []mutant.Operator{mutant.ROR, mutant.COR, mutant.AOR, mutant.SDL, mutant.ERR}
 	where := func(keep func(killmatrix.Mutant) bool) func(*rand.Rand) []int {
 		return func(*rand.Rand) []int {
 			var picked []int

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
@@ -147,7 +147,7 @@ func TestUnstableNames(t *testing.T) {
 // get the verdict the full matrix gives it.
 func TestFailFast(t *testing.T) {
 	t.Parallel()
-	firstPerLine := func(_ string, ms []allele.Mutant) []int {
+	firstPerLine := func(_ string, ms []mutant.Mutant) []int {
 		var keep []int
 		for i, m := range ms {
 			if i == 0 || m.Pos.Line != ms[i-1].Pos.Line {
@@ -196,7 +196,7 @@ func TestFailFast(t *testing.T) {
 // nor run, so that mutant -diff costs nothing in packages the diff misses.
 func TestChooseNone(t *testing.T) {
 	t.Parallel()
-	onlyLoop := func(file string, _ []allele.Mutant) []int {
+	onlyLoop := func(file string, _ []mutant.Mutant) []int {
 		if filepath.Base(file) != "loop.go" {
 			return nil
 		}

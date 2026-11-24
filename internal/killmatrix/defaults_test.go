@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
@@ -43,7 +43,7 @@ func TestTransient(t *testing.T) {
 	// Pick x >= 0 on F (skipping index 0, which would kill TestF if s.find[0] != -1).
 	r := killmatrix.Runner{
 		Schemata: true,
-		Choose: func(_ string, ms []allele.Mutant) []int {
+		Choose: func(_ string, ms []mutant.Mutant) []int {
 			for i, m := range ms {
 				if m.Pos.Line == 2 && m.Mutated == "x >= 0" {
 					return []int{i}
@@ -163,7 +163,7 @@ func TestRecheck3x(t *testing.T) {
 }
 `,
 	})
-	choose := func(_ string, ms []allele.Mutant) []int {
+	choose := func(_ string, ms []mutant.Mutant) []int {
 		var keep []int
 		for i, m := range ms {
 			if m.Mutated == "x >= 0" {
@@ -270,7 +270,7 @@ func TestB(t *testing.T) { if !F(2) { t.Fatal() } }
 		Schemata:     true,
 		FailFast:     true,
 		Confirm:      false,
-		Choose: func(_ string, ms []allele.Mutant) []int {
+		Choose: func(_ string, ms []mutant.Mutant) []int {
 			for i, m := range ms {
 				if m.Mutated == "x >= 0" {
 					return []int{i}

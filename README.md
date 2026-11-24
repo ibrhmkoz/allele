@@ -128,12 +128,16 @@ ROADMAP.md tells how each change moved it.
 
 ## Packages
 
+`pkg/` holds what makes sense without allele; `internal/` is allele itself.
+
 | Package | Provides |
 |---|---|
-| `allele` | `Find`: the mutants of a type-checked file, with equivalence and arid tags. `Embed`: all of them in one program (schemata) |
-| `allele/killmatrix` | Runs tests against mutants and records which test kills which: the full kill matrix, or verdicts only |
-| `allele/fingerprint` | A hash of what a package's test results depend on (its files, dependencies, embeds, testdata), with each test hashed apart: the key of the verdict cache |
-| `allele/adequacy` | Dominator mutants, the dominator score of a test set, the selective mutation protocol, and the mutants coupled to a real fault |
+| `pkg/gotest` | Builds Go test binaries and runs their tests: every test's outcome, subtests included, a time limit, and no process left behind |
+| `pkg/adequacy` | Dominator mutants, the dominator score of a test set, the selective mutation protocol, and the mutants coupled to a real fault, over any kill matrix |
+| `pkg/fingerprint` | A hash of what a package's test results depend on (its files, dependencies, embeds, testdata), with each test hashed apart: a test cache's key |
+| `pkg/xtesting` | Test helpers that compare text and print a readable diff |
+| `internal/mutant` | `Find`: the mutants of a type-checked file, with equivalence and arid tags. `Embed`: all of them in one program (schemata) |
+| `internal/killmatrix` | Runs tests against mutants and records which test kills which: the full kill matrix, or verdicts only |
 | `cmd/allele` | The command above |
 | `cmd/bench` | Scores builds of `allele` with M (see ROADMAP) |
 | `cmd/killmatrix`, `cmd/simulate`, `cmd/faults` | The measurement tools behind `docs/` |

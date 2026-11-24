@@ -27,8 +27,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/killmatrix"
+	"github.com/ibrhmkoz/allele/internal/mutant"
 )
 
 func main() {
@@ -134,7 +134,7 @@ func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
 		Infect:     true, // §19
 		Confirm:    true,
 		CacheDir:   cacheDir,
-		Choose:     func(path string, ms []allele.Mutant) []int { return choose(o, path, ms) },
+		Choose:     func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
 	}
 	if !o.all {
 		r.Pick = pick
