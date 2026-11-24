@@ -69,3 +69,24 @@ func TestRevealing(t *testing.T) {
 		t.Errorf("long line truncated parseTestJSON: built=%v passed=%v", r.built, r.passed)
 	}
 }
+
+func TestWanted(t *testing.T) {
+	var b strings.Builder
+	for _, c := range []struct {
+		commit   string
+		prefixes []string
+	}{
+		{"198ca931c72a4aae", nil},
+		{"198ca931c72a4aae", []string{"198ca931c72a"}},
+		{"198ca931c72a4aae", []string{"fa4ea64dd518", "198ca9"}},
+		{"198ca931c72a4aae", []string{"fa4ea64dd518"}},
+	} {
+		fmt.Fprintf(&b, "%s %v: %v\n", c.commit, c.prefixes, wanted(c.commit, c.prefixes))
+	}
+	xtesting.EqualText(t, b.String(), `
+		198ca931c72a4aae []: true
+		198ca931c72a4aae [198ca931c72a]: true
+		198ca931c72a4aae [fa4ea64dd518 198ca9]: true
+		198ca931c72a4aae [fa4ea64dd518]: false
+	`)
+}

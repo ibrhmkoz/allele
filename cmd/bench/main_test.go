@@ -122,6 +122,44 @@ func TestCLI(t *testing.T) {
 			t.Errorf("exit %d, no %q: %s", code, says, out)
 		}
 	}
+	// With real faults, R_5 is reported beside M: the build on the fault's tree reports six
+	// survivors, one coupled to the fault, so R_5 is 1 - C(5,5)/C(6,5).
+	tree := filepath.Join(t.TempDir(), "m-aaaaaaaaaaaa")
+	coupled := verdict{File: "p.go", Line: 3, Col: 5, Operator: "ROR", Original: "a > b", Mutated: "a >= b", Verdict: "survived"}
+	other := verdict{File: "p.go", Line: 4, Col: 5, Operator: "ROR", Original: "a > b", Mutated: "a < b", Verdict: "not covered"}
+	killed := verdict{File: "p.go", Line: 5, Col: 5, Operator: "ROR", Original: "a > b", Mutated: "a < b", Verdict: "killed"}
+	others := ""
+	for i := range 5 {
+		o := other
+		o.Line += i
+		others += line(o)
+	}
+	writeFile(t, filepath.Join(tree, "good.json"), line(coupled)+others+line(killed))
+	trees := filepath.Join(t.TempDir(), "trees.txt")
+	writeFile(t, trees, "m . "+tree+"\n")
+	detail := filepath.Join(t.TempDir(), "detail.ndjson")
+	writeDetail(t, detail, []coupledRow{{Repo: "m", Commit: "aaaaaaaaaaaaaaaa", Pkg: ".", File: "p.go", Line: 3, Col: 5, Operator: "ROR", Original: "a > b", Mutated: "a >= b", Coupled: true}})
+	faultRows := filepath.Join(t.TempDir(), "rows.ndjson")
+	code, out = cli("-faults", trees, "-fault-detail", detail, "-o", faultRows, "good="+fakeMutant(t, "good"))
+	if code != 0 || !strings.Contains(out, "R 0.8333") {
+		t.Errorf("exit %d, want R 0.8333: %s", code, out)
+	}
+	if data, _ := os.ReadFile(faultRows); !strings.Contains(string(data), `{"bin":"good","fault":"m-aaaaaaaaaaaa/.","survivors":6,"coupled":1,"r":0.8333333333333334}`) {
+		t.Errorf("no fault row: %s", data)
+	}
+	if code, out := cli("-faults", trees, "-fault-detail", detail, "bad="+fakeMutant(t, "bad")); code != 1 || !strings.Contains(out, "oops") {
+		t.Errorf("a build failing on the corpus: exit %d: %s", code, out)
+	}
+	// A build that runs on the corpus but fails on a fault's tree.
+	emptyTrees := filepath.Join(t.TempDir(), "trees.txt")
+	writeFile(t, emptyTrees, "m . "+filepath.Join(t.TempDir(), "m-aaaaaaaaaaaa")+"\n")
+	if code, out := cli("-faults", emptyTrees, "-fault-detail", detail, "good="+fakeMutant(t, "good")); code != 1 || !strings.Contains(out, "on fault m-aaaaaaaaaaaa/.") {
+		t.Errorf("a build failing on a fault: exit %d: %s", code, out)
+	}
+	if code, out := cli("-faults", trees, "-fault-detail", filepath.Join(t.TempDir(), "none"), "good="+fakeMutant(t, "good")); code != 1 || !strings.Contains(out, "no such file") {
+		t.Errorf("no fault detail: exit %d: %s", code, out)
+	}
+
 	brokenRerun := t.TempDir()
 	writeFile(t, filepath.Join(brokenRerun, "m", "mutants.ndjson"), "{")
 	for name, c := range map[string]struct {

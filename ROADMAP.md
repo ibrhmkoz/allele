@@ -98,6 +98,18 @@ so the cheap levers are spent. What is left, by measured upper bound:
 
 ## Open
 
+### R2b: pick each line's mutant by the old suite's reach and infection
+Measurements §21. Prefer a mutant whose site no test reaches, then a
+non-nil `if` → true/false no test infects (fewest reaching tests first),
+then the one infected by the fewest tests above 0. On 79 real faults it
+gains Youden's J on both the tuning and the held-out faults (+0.085 ±
+0.036 over all; held-out alone +0.032 ± 0.057, inside the noise), and,
+simulated offline on the corpus, D 0.887 → 0.920 with 850 survivors
+against hash's 865. The pick needs the baseline's reach and infection
+marks before choosing, so selection moves after the baseline. Judge it by
+M v2 (D should show the gain); J stays as measured here, since the rule
+only reorders what the fault data already records.
+
 ### Compare with other Go tools
 Run [Gremlins](https://github.com/go-gremlins/gremlins) and
 [go-mutesting](https://pkg.go.dev/github.com/jonbaldie/go-mutesting/v2) on
@@ -183,6 +195,19 @@ would cover them.
 ## Measured and dropped
 
 Kept so they are not retried without new evidence.
+
+- **M v3, D^0.7·R5^0.3·F·S(T)** (§21), with R5 the chance that reading 5
+  random reported survivors of a real fault's tree finds one coupled to the
+  fault. R5 rewards reporting fewer survivors whatever they are: the
+  control rule "most infected" scored 0.432 against hash's 0.412. A
+  single number must fix an exchange rate between faults found and noise
+  read; Youden's J states it (1) and passed the control, but at 79 faults
+  it resolves only 8–10 points, too coarse to gate PRs. M stays v2;
+  `cmd/bench -faults` reports R5 on `docs/faulttrees.sh`'s trees beside M
+  as a diagnostic.
+- **Per-line selection by "fewest infected", "uninfected first" or
+  "tiered"** (§21): each wins one one-sided measure (D, per-line hit) and
+  loses J against hash on the held-out faults (−0.068, −0.118, −0.186).
 
 - **Ordering FailFast's tests by online kill rates, and tests that reach
   the mutant's site first** (§15): by `cmd/bench`, with the 100 ms pad and

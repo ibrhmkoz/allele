@@ -1,0 +1,5 @@
+{"rule": "hash", "d": 0.8866, "corpus_survivors": 865}
+{"rule": "R2b", "d": 0.9200, "corpus_survivors": 850}
+{"rule": "fewest infected (>0)", "d": 0.9218, "corpus_survivors": 786}
+{"rule": "tiered", "d": 0.8500, "corpus_survivors": 1253}
+{"rule": "most infected", "d": 0.8576, "corpus_survivors": 725}

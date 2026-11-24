@@ -34,11 +34,32 @@ import (
 	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
 )
 
+var (
+	only    []string // commit hash prefixes to measure; all when empty
+	details *json.Encoder
+)
+
 func main() {
 	name := flag.String("name", "", "repository name for the rows")
 	out := flag.String("o", "faults.ndjson", "file to write the rows to")
 	jobs := flag.Int("j", runtime.NumCPU(), "mutants to run at once")
+	commits := flag.String("commits", "", "if set, measure only these commits (comma-separated hashes or prefixes)")
+	detailPath := flag.String("detail", "", "if set, a file to append one JSON row per mutant of each measured fault to, with its old tests' reach and infection")
 	flag.Parse()
+	for c := range strings.SplitSeq(*commits, ",") {
+		if c != "" { //mut:ignore flag wiring
+			only = append(only, c) //mut:ignore flag wiring
+		}
+	}
+	if *detailPath != "" { //mut:ignore flag wiring
+		f, err := os.OpenFile(*detailPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil { //mut:ignore flag wiring
+			fmt.Fprintln(os.Stderr, "faults:", err)
+			os.Exit(1) //mut:ignore flag wiring
+		}
+		defer func() { _ = f.Close() }() //mut:ignore flag wiring
+		details = json.NewEncoder(f)     //mut:ignore flag wiring
+	}
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: faults -name NAME -o FILE REPO")
 		os.Exit(2)
@@ -84,6 +105,19 @@ type fault struct {
 
 var fixMessage = `(^|[^a-z])(fix|fixes|fixed|bug|bugs)([^a-z]|$)`
 
+// wanted reports whether commit is one of prefixes, or prefixes is empty.
+func wanted(commit string, prefixes []string) bool {
+	if len(prefixes) == 0 {
+		return true
+	}
+	for _, p := range prefixes {
+		if strings.HasPrefix(commit, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func run(ctx context.Context, repo, name, out string, jobs int) error {
 	modfile, err := git(ctx, repo, "show", "HEAD:go.mod")
 	if err != nil {
@@ -99,6 +133,9 @@ func run(ctx context.Context, repo, name, out string, jobs int) error {
 	}
 	var rows []fault
 	for c := range strings.FieldsSeq(string(commits)) {
+		if !wanted(c, only) { //mut:ignore the driver runs only on the corpus; wanted is tested
+			continue
+		}
 		fs, err := candidate(ctx, repo, name, c, string(module[1]), jobs)
 		if err != nil {
 			return fmt.Errorf("%s: %w", c[:12], err)
@@ -261,7 +298,18 @@ func measure(ctx context.Context, repo, tree, parent, commit, dir string, change
 	}
 	f.Chance, f.ChanceOnFix = chance(matrix, revealed, index, func(i int) bool { return onFix[compiled[i].File][compiled[i].Line] })
 	f.Operators, f.OnFixOperators = map[string]int{}, map[string]int{}
-	for _, i := range matrix.Coupled(revealed) {
+	coupled := matrix.Coupled(revealed)
+	if details != nil { //mut:ignore the driver runs only on the corpus; infections and countOf are tested
+		counts, err := infections(ctx, filepath.Join(tree, dir), f.Revealing)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s %s: infections: %v\n", f.Repo, commit[:12], err)
+		}
+		for i, mu := range compiled {
+			c := countOf(counts, mu)
+			_ = details.Encode(detail{Repo: f.Repo, Commit: commit, Pkg: f.Pkg, File: mu.File, Line: mu.Line, Col: mu.Col, Operator: string(mu.Operator), Original: mu.Original, Mutated: mu.Mutated, Equivalent: mu.Equivalent, Arid: mu.Arid, Killable: !kills[i].Empty(), Coupled: slices.Contains(coupled, i), OnFix: onFix[mu.File][mu.Line], Reached: c[0], Infected: c[1]}) //mut:ignore the driver runs only on the corpus
+		}
+	}
+	for _, i := range coupled {
 		mu := compiled[i]
 		f.Coupled++
 		f.Operators[string(mu.Operator)]++

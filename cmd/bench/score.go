@@ -210,9 +210,13 @@ func (ref *reference) grade(repo string, vs []verdict, seeds int) score {
 type metric struct {
 	Bin string  `json:"bin"`
 	D   float64 `json:"d"`
-	F   float64 `json:"f"`
-	T   float64 `json:"t"`
-	M   float64 `json:"m"`
+	// R is R_5 over the real faults, or -1 when none were run. A
+	// diagnostic: it rewards reporting fewer survivors whatever they are
+	// (measurements §21), so M does not use it.
+	R float64 `json:"r"`
+	F float64 `json:"f"`
+	T float64 `json:"t"`
+	M float64 `json:"m"`
 }
 
 // combine is M = D·F·S(T): D the geometric mean of the repositories' D, so
@@ -234,6 +238,7 @@ func combine(bin string, scores []score, seconds float64) metric {
 	if stable > 0 && float64(hidden) <= maxHidden*float64(stable) {
 		m.F = max(0, 1-errs/float64(stable))
 	}
+	m.R = -1
 	m.M = m.D * m.F * math.Pow((T0+Floor)/(seconds+Floor), Gamma)
 	return m
 }

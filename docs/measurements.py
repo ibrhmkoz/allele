@@ -1370,6 +1370,47 @@ def _(alt, db, mo, title):
 
 
 @app.cell
+def _(alt, db, mo, title):
+    _docs = mo.notebook_dir()
+    _j = db.sql(f"""
+        select s.split, s.rule, s.j, s.dj, s.dj_se, s.r5, s.reached_line_hit, d.d, d.corpus_survivors
+        from read_json_auto('{_docs}/data-selection/selection.ndjson') s
+        left join read_json_auto('{_docs}/data-selection/selection-d.ndjson') d using (rule)
+    """).df()
+    _sp = _j[_j.split != "all"].assign(lo=lambda x: x.dj - 2 * x.dj_se, hi=lambda x: x.dj + 2 * x.dj_se)
+    _base = alt.Chart(_sp).encode(
+        y=alt.Y("rule:N", title=None, sort=["R2b", "hash", "uninfected first", "fewest infected (>0)", "tiered", "most infected"]),
+        yOffset=alt.YOffset("split:N"),
+        color=alt.Color("split:N", title=None, legend=alt.Legend(orient="top")),
+    )
+    _chart = (
+        (_base.mark_rule().encode(x=alt.X("lo:Q", title="ΔJ against hash, ± 2 SE (paired over faults)"), x2="hi:Q") + _base.mark_point(filled=True).encode(x="dj:Q", tooltip=["split", "rule", alt.Tooltip("dj:Q", format="+.3f"), alt.Tooltip("dj_se:Q", format=".3f")]))
+        .properties(width=520, height=260, title=title(
+            "Only R2b gains J on both the tuning and the held-out faults",
+            "79 real faults (44 tuning, 35 held-out), one mutant per line, old suite = tests before the fix.",
+        ))
+    )
+    _a = _j[_j.split == "all"].set_index("rule")
+    _t = _a[["d", "corpus_survivors", "j", "r5", "reached_line_hit"]].rename(columns={"d": "D (corpus)", "corpus_survivors": "survivors (corpus)", "j": "J", "r5": "R5", "reached_line_hit": "reached-line hit"}).round(3)
+    mo.vstack(
+        [
+            mo.md("## 21. Which mutant should each line keep? Judging selection by real faults"),
+            _chart,
+            mo.ui.table(_t.reset_index(), selection=None),
+            mo.md(rf"""
+            - **Question:** mutant keeps one mutant per line. The old suite's reach and infection counts say which of a line's mutants no test touches. Should the pick use them?
+            - **Data:** `cmd/faults -detail` records, for each mutant of 79 real fault fixes, whether only the fix's new tests kill it (coupled to the fault) and how many old tests reach and infect it (`data-faults/detail.ndjson.gz`; `docs/faultsel.py` scores the rules).
+            - **Every one-sided measure picks wrong.** D, simulated with the existing tests, cannot see gaps no test reaches into, where real faults hide: "fewest infected" raises D to {_a.loc['fewest infected (>0)'].d:.3f} but finds fewer coupled lines. R5 (chance that reading 5 survivors finds a coupled one) rewards showing fewer survivors: the control rule "most infected" beats hash. The per-line hit rate ignores noise: "uninfected first" wins it at +56% survivors.
+            - **J** (Youden's index, Gemini's proposal) charges a hit and a noisy line on the same per-line scale, so neither showing nothing nor showing everything gains. Decision theory says any single number fixes some exchange rate λ between them: "bias-free" means stating λ (here 1). The control loses to hash on both splits; at n=79, the smallest difference J can resolve is about 8–10 points.
+            - **R2b** (prefer a mutant whose site no old test reaches, then a non-nil `if` → true/false no old test infects, then the fewest infected above 0) gains J on both splits (+{_a.loc['R2b'].dj:.3f} ± {_a.loc['R2b'].dj_se:.3f} over all), with D {_a.loc['R2b'].d:.3f} against hash's {_a.loc['hash'].d:.3f} and fewer corpus survivors. Caveat: it was designed on these faults; the held-out gain alone is inside the noise.
+            - **Decision:** not adopted as a metric (M stays v2; R5 rejected). R2b is the candidate for selection, to be measured by M v2 and checked with J. D per rule came from a scratch tool that simulated each rule's picks on the reference matrices with the corpus' infection counts.
+            """),
+        ]
+    )
+    return
+
+
+@app.cell
 def _(mo):
     mo.accordion(
         {
@@ -1407,6 +1448,11 @@ def _(mo):
     # Section 14: with the code at tag experiment/wild-caught, cmd/faults
     # over the corpus (data-faults-wild/) and over held-out repositories
     # (data-faults-heldout/)
+
+    # Section 21: per-mutant fault detail (about 6 hours over corpus and
+    # held-out history), then score the selection rules
+    go run ./mutant/cmd/faults -name $d -detail detail.ndjson -o rows.ndjson "$CORPUS_CACHE/$d"
+    python3 mutant/docs/faultsel.py mutant/docs/data-faults/detail.ndjson.gz > mutant/docs/data-selection/selection.ndjson
 
     # Section 17 simulates on data-verdicts/; sections 4-17 query the data
     # directly; view everything

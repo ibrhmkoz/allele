@@ -62,6 +62,8 @@ func cli(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	seeds := fs.Int("seeds", 10, "simulations per repository for D")
 	out := fs.String("o", "", "if set, a file to append one JSON row per run and per build to")
 	only := fs.String("repos", strings.Join(repos, ","), "repositories to run")
+	trees := fs.String("faults", "", "if set, real-fault trees (docs/faulttrees.sh output) to report R_5 on, a diagnostic M does not use")
+	faultDetail := fs.String("fault-detail", "mutant/docs/data-faults/detail.ndjson.gz", "the coupled mutants of each fault (cmd/faults -detail)")
 	if fs.Parse(args) != nil {
 		return 2
 	}
@@ -75,6 +77,12 @@ func cli(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	b := bench{corpus: *corpus, ref: *ref, rerun: *rerun, reps: *reps, jobs: *jobs, seeds: *seeds, repos: strings.Split(*only, ","), stdout: stdout, stderr: stderr}
+	if *trees != "" {
+		if b.faults, err = readFaults(*trees, *faultDetail); err != nil {
+			_, _ = fmt.Fprintln(stderr, "bench:", err)
+			return 1
+		}
+	}
 	if *out != "" {
 		f, err := os.OpenFile(*out, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
@@ -113,6 +121,7 @@ type bench struct {
 	corpus, ref, rerun string
 	reps, jobs, seeds  int
 	repos              []string
+	faults             []fault
 	rows               *json.Encoder
 	stdout, stderr     io.Writer
 }
@@ -191,8 +200,15 @@ func (b bench) run(ctx context.Context, bins []bin) error {
 			_, _ = fmt.Fprintf(b.stdout, "%-6s %-12s %5d %5d %6.3f %6d %5d %5d %5d %5d %6.2fs\n", bn.name, repo, s.Reported, s.Unknown, s.D, s.Stable, s.Hidden, s.False, s.Timeout, s.Build, med)
 		}
 		m := combine(bn.name, scores, total)
+		if len(b.faults) > 0 {
+			r, err := b.faultR(ctx, bn)
+			if err != nil {
+				return err
+			}
+			m.R = r
+		}
 		b.emit(m)
-		_, _ = fmt.Fprintf(b.stdout, "%-6s M = %.4f  (D %.4f, F %.4f, T %.2fs)\n", bn.name, m.M, m.D, m.F, m.T)
+		_, _ = fmt.Fprintf(b.stdout, "%-6s M = %.4f  (D %.4f, R %.4f, F %.4f, T %.2fs)\n", bn.name, m.M, m.D, m.R, m.F, m.T)
 	}
 	return nil
 }
@@ -203,9 +219,38 @@ func (b bench) emit(row any) {
 	}
 }
 
+// faultR runs bn on every fault tree and returns the mean R_5.
+func (b bench) faultR(ctx context.Context, bn bin) (float64, error) {
+	sum := 0.0
+	for _, f := range b.faults {
+		vs, err := b.mutantOn(ctx, bn, f.tree, "./"+f.pkg)
+		if err != nil {
+			return 0, fmt.Errorf("%s on fault %s: %w", bn.name, f, err)
+		}
+		fs := faultScore{Bin: bn.name, Fault: f.String()}
+		for _, v := range vs {
+			if v.Verdict == "survived" || v.Verdict == "not covered" {
+				fs.Survivors++
+				if f.coupled[toolKey(v)] {
+					fs.Coupled++
+				}
+			}
+		}
+		fs.R = revealed(fs.Survivors, fs.Coupled, 5)
+		b.emit(fs)
+		sum += fs.R
+	}
+	return sum / float64(len(b.faults)), nil
+}
+
 // mutant runs one build on one repository and returns its verdicts.
 func (b bench) mutant(ctx context.Context, bn bin, dir string) ([]verdict, error) {
-	cmd := exec.CommandContext(ctx, bn.path, "-no-cache", "-json", "-j", fmt.Sprint(b.jobs), "./...")
+	return b.mutantOn(ctx, bn, dir, "./...")
+}
+
+// mutantOn runs one build on the packages pattern matches in dir.
+func (b bench) mutantOn(ctx context.Context, bn bin, dir, pattern string) ([]verdict, error) {
+	cmd := exec.CommandContext(ctx, bn.path, "-no-cache", "-json", "-j", fmt.Sprint(b.jobs), pattern)
 	cmd.Dir = dir
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
