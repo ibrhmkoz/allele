@@ -88,7 +88,7 @@ details and what was not measured are in [ROADMAP.md](ROADMAP.md).
 ## What it does, and why
 
 Every default below was measured before it was chosen; the numbers come from
-[`docs/measurements.py`](docs/measurements.py) (`./shake.sh measurements`), on ten
+[`docs/measurements.py`](docs/measurements.py) (`make measurements`), on ten
 libraries and three services at pinned commits. One number, M, weighs the
 gaps a build finds against the time it takes; `cmd/bench` computes it, and
 ROADMAP.md tells how each change moved it.
@@ -165,7 +165,7 @@ public mutation-testing dataset for Go that we know of.
   and transitive non-stdlib dependencies (including test-only
   dependencies). It does not track environment variables, external services
   (such as a database), or files read outside the package's `testdata/`;
-  pass `-no-cache` when those matter (e.g. `FLAGS=-no-cache ./shake.sh ci`).
+  pass `-no-cache` when those matter (e.g. `FLAGS=-no-cache make ci`).
 
 ## License
 

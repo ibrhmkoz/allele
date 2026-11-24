@@ -63,12 +63,6 @@ main = shakeArgs opts $ do
   phony "next-version" $
     cmd_ "go" ["run", "./internal/nextversion"]
 
-  phony "measurements" $
-    cmd_ "uv" ["run", "marimo", "run", "docs/measurements.py"]
-
-  phony "snapshot" $
-    cmd_ "goreleaser" ["release", "--snapshot", "--clean"]
-
   phony "sim" $
     need [simDir </> "summary.ndjson", simDir </> "strategies.ndjson"]
 
