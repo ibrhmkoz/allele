@@ -737,3 +737,49 @@ func main() {
 		t.Errorf("%d marks of %d, %d lines that are no mark", len(seen), want, bad)
 	}
 }
+
+// TestOrdClasses: a comparison site skips comparing for operands in a
+// class it has met, so each class must still mark the alternatives it
+// infects. Ids index [<, <=, >, >=, ==, !=] with < the original.
+func TestOrdClasses(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+import "math"
+
+func main() {
+	for range 3 {
+		_ = _mutOrd(1, 2, _mutLSS, [6]int{0, 1, 2, 3, 4, 5}) // less
+	}
+	_ = _mutOrd(2, 2, _mutLSS, [6]int{0, 1, 2, 3, 4, 5}) // equal: <=, >=, ==
+	// A site whose first ids are zero keys by its first mutant.
+	_ = _mutOrd(3, 2, _mutLSS, [6]int{0, 0, 6, 0, 0, 7}) // greater: >, !=
+	_ = _mutOrd(math.NaN(), 1.0, _mutLSS, [6]int{0, 8, 9, 10, 11, 12}) // neither: only !=
+}
+`
+	dir := t.TempDir()
+	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.25\n"), "main.go": []byte(src), "runtime.go": mutant.Runtime("main")} {
+		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reach := filepath.Join(dir, "reach")
+	cmd := exec.CommandContext(t.Context(), "go", "run", ".")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), mutant.ReachEnvVar+"="+reach)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	data, err := os.ReadFile(reach)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var infected []int
+	for line := range strings.Lines(string(data)) {
+		if n, _ := strconv.Atoi(strings.TrimSpace(line)); n < 0 {
+			infected = append(infected, -n)
+		}
+	}
+	slices.Sort(infected)
+	xtesting.EqualText(t, fmt.Sprint(infected), "[1 2 3 4 6 7 12]")
+}

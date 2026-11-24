@@ -728,9 +728,43 @@ func _mutPick(op int, ids []int) int {
 	return op
 }
 
+// _mutOrdSeen holds, per comparison site keyed by its first mutant's id,
+// which classes of operands (_mutOrdClass) the site has met. Whether an
+// alternative operator differs from the original depends on the class
+// alone, so a class met before can infect nothing new: a hot loop's
+// comparison then costs one load, not six. A class's bit is set only
+// after its infections are marked. Sites keyed past the table always
+// compare.
+var _mutOrdSeen [1 << 16]atomic.Uint32
+
+// _mutOrdClass is how x and y compare: less, equal, greater, or neither,
+// as a NaN does.
+func _mutOrdClass[T cmp.Ordered](x, y T) uint32 {
+	switch {
+	case x < y:
+		return 1
+	case x == y:
+		return 2
+	case x > y:
+		return 4
+	}
+	return 8
+}
+
 func _mutOrd[T cmp.Ordered](x, y T, op int, ids [6]int) bool {
 	_mutMarkAll(ids[:])
 	if _mutReach != nil {
+		key := 0
+		for _, id := range ids {
+			if id != 0 {
+				key = id
+				break
+			}
+		}
+		class := _mutOrdClass(x, y)
+		if key != 0 && uint(key) < uint(len(_mutOrdSeen)) && _mutOrdSeen[key].Load()&class != 0 {
+			return _mutOrdOp(x, y, _mutPick(op, ids[:]))
+		}
 		want := _mutOrdOp(x, y, op)
 		for alt, id := range ids {
 			if id != 0 && !_mutInfected(id) && _mutOrdOp(x, y, alt) != want {
@@ -738,6 +772,9 @@ func _mutOrd[T cmp.Ordered](x, y T, op int, ids [6]int) bool {
 					_mutInfectSlow(id)
 				}
 			}
+		}
+		if key != 0 && uint(key) < uint(len(_mutOrdSeen)) {
+			_mutOrdSeen[key].Or(class)
 		}
 	}
 	return _mutOrdOp(x, y, _mutPick(op, ids[:]))

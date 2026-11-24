@@ -37,7 +37,13 @@ are comparable with each other, not with v1's; v1's log is in §18-19.
 
 ## Where M stands
 
-**M v2** (ten libraries) is about 1.35-1.36 since R2b (2026-11-24): each
+**M v2** (ten libraries) is 1.374 since a comparison site skips the
+operand classes it has met in the baseline (`data-bench/v2-ord-classes.ndjson`,
+1.358 → 1.374, T 87 → 80 s; sjson's baseline 8.2 → 4.7 s with the same
+marks). Baselines are now 3-5 s; the rest of T is the mutant runs, mostly
+the tests' own time (sjson 24 s, decimal 21 s).
+
+It was about 1.35-1.36 after R2b (2026-11-24): each
 line's mutant is picked after the baseline, by what the old tests reach
 and infect (§21), D 0.876 → 0.906. Checking reach marks inline (#40,
 +0.75%) paid for recording every candidate. Against main with #40, R2b
