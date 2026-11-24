@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode/utf8"
 )
 
 // Operator names the kind of change a mutant makes.
@@ -69,10 +70,27 @@ type Mutant struct {
 // Apply returns a copy of src with the mutant applied. src must be the
 // source Find was given.
 func (m Mutant) Apply(src []byte) []byte {
-	out := make([]byte, 0, len(src)-(m.end-m.start)+len(m.text))
+	text := fit(src, m.start, m.text)
+	out := make([]byte, 0, len(src)-(m.end-m.start)+len(text))
 	out = append(out, src[:m.start]...)
-	out = append(out, m.text...)
+	out = append(out, text...)
 	return append(out, src[m.end:]...)
+}
+
+// fit is text to put in place of the source from src[from], with a space in front
+// where it would otherwise run into the word before: unformatted source can
+// write if(x>0){, and putting true in place of (x>0) must not make iftrue.
+// Only a keyword can touch a span's start that way; nothing in Go's syntax
+// follows an expression without a separator, so its end needs no check.
+func fit(src []byte, from int, text string) string {
+	if text != "" && from > 0 && word(src[from-1]) && word(text[0]) { //mut:ignore only a deleted statement is empty, and none follows a word
+		return " " + text
+	}
+	return text
+}
+
+func word(c byte) bool {
+	return c == '_' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c >= utf8.RuneSelf
 }
 
 func (m Mutant) String() string {

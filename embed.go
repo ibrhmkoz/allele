@@ -227,7 +227,7 @@ func (e *embedder) span(s *site) span {
 // text renders sp, built in if a group of sites spans exactly it.
 func (e *embedder) text(sp span) string {
 	if g, ok := e.groups[sp]; ok {
-		return e.wrap(sp, g)
+		return fit(e.src, sp.from, e.wrap(sp, g))
 	}
 	return e.inside(sp)
 }
@@ -241,7 +241,7 @@ func (e *embedder) inside(sp span) string {
 			continue
 		}
 		b.Write(e.src[at:g.from])
-		b.WriteString(e.wrap(g, e.groups[g]))
+		b.WriteString(fit(e.src, g.from, e.wrap(g, e.groups[g])))
 		at = g.to
 	}
 	b.Write(e.src[at:sp.to])

@@ -620,3 +620,63 @@ func main() {
 		67 0
 	`)
 }
+
+// TestUnformatted: in source gofmt never saw, a condition or result can
+// follow its keyword with no space, as in if(x>0){. Every mutant and the
+// schema must still keep the keyword a token of its own.
+func TestUnformatted(t *testing.T) {
+	src := `package p
+
+import "errors"
+
+func F(a, b int, ok bool) int {
+	if(a>0&&ok){
+		return(a+b)
+	}
+	for(a<b){
+		a++
+	}
+	switch{
+	case(a==b):
+		return(0)
+	}
+	return(a-b)
+}
+
+func G(x int) error {
+	if(x>0){
+		return(errors.New("x"))
+	}
+	return nil
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
+	conf := types.Config{Importer: stdImporter}
+	if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
+		t.Fatal(err)
+	}
+	ms := mutant.Find(fset, f, []byte(src), info)
+	for _, m := range ms {
+		if _, err := parser.ParseFile(token.NewFileSet(), "p.go", m.Apply([]byte(src)), 0); err != nil {
+			t.Errorf("%v: %v", m, err)
+		}
+	}
+	out, _ := mutant.Embed(fset, f, []byte(src), info, sequential(len(ms)))
+	g := token.NewFileSet()
+	files := []*ast.File{}
+	for name, s := range map[string][]byte{"p.go": out, "zz_mutant.go": mutant.Runtime("p")} {
+		h, err := parser.ParseFile(g, name, s, 0)
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", name, err, s)
+		}
+		files = append(files, h)
+	}
+	if _, err := conf.Check("p", g, files, nil); err != nil {
+		t.Errorf("schema: %v\n%s", err, out)
+	}
+}
