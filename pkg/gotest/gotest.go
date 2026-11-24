@@ -22,13 +22,20 @@ import (
 // if given. Vet is off: it rejects code that compiles, such as
 // c != 'a' || c != 'b'. The output is go's, for a failed build.
 func Build(ctx context.Context, dir, bin, overlay string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "go", buildArgs(bin, overlay)...)
+	cmd.Dir = dir
+	return cmd.CombinedOutput()
+}
+
+// buildArgs is Build's go command line. It is a function of its own so
+// that a test can check it without a build: TestBuildOverlay checks the
+// same through two builds, too slow to kill a mutant reliably under load.
+func buildArgs(bin, overlay string) []string {
 	args := []string{"test", "-c", "-vet=off", "-ldflags=-s -w", "-o", bin}
 	if overlay != "" {
 		args = append(args, "-overlay", overlay)
 	}
-	cmd := exec.CommandContext(ctx, "go", args...)
-	cmd.Dir = dir
-	return cmd.CombinedOutput()
+	return args
 }
 
 // List returns the tests, examples and fuzz targets of a test binary run

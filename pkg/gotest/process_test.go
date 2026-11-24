@@ -128,3 +128,12 @@ func TestCommandCancelKillsGroup(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+func TestBuildArgs(t *testing.T) {
+	if got, want := strings.Join(buildArgs("p.test", ""), " "), "test -c -vet=off -ldflags=-s -w -o p.test"; got != want {
+		t.Errorf("without an overlay: %s, want %s", got, want)
+	}
+	if got, want := strings.Join(buildArgs("p.test", "o.json"), " "), "test -c -vet=off -ldflags=-s -w -o p.test -overlay o.json"; got != want {
+		t.Errorf("with an overlay: %s, want %s", got, want)
+	}
+}
