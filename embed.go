@@ -596,9 +596,11 @@ func _mutFirst(key int) bool {
 	return !seen
 }
 
+// _mutWrite writes key's line in one write: the file is opened to append,
+// so one write lands whole even when goroutines mark at once, and two
+// would let another mark land between a number and its newline.
 func _mutWrite(key int) {
-	_, _ = _mutReach.Write(strconv.AppendInt(nil, int64(key), 10))
-	_, _ = _mutReach.Write([]byte("\n"))
+	_, _ = _mutReach.Write(append(strconv.AppendInt(make([]byte, 0, 21), int64(key), 10), '\n'))
 }
 
 func _mutMark(id int) {

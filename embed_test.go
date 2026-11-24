@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -678,5 +679,61 @@ func G(x int) error {
 	}
 	if _, err := conf.Check("p", g, files, nil); err != nil {
 		t.Errorf("schema: %v\n%s", err, out)
+	}
+}
+
+// TestReachConcurrent: a test's goroutines mark sites at once, and every
+// mark must land on a line of its own: two marks run together, such as
+// 12-7, parse as neither, and a lost mark makes a test look as if it never
+// reached or infected a mutant it can kill.
+func TestReachConcurrent(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+import "sync"
+
+func main() {
+	var wg sync.WaitGroup
+	for g := range 64 {
+		wg.Go(func() {
+			for i := 1; i <= 2000; i++ {
+				id := g*2000 + i
+				_mutMark(id)
+				_mutInfect(id)
+			}
+		})
+	}
+	wg.Wait()
+}
+`
+	dir := t.TempDir()
+	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.25\n"), "main.go": []byte(src), "runtime.go": mutant.Runtime("main")} {
+		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reach := filepath.Join(dir, "reach")
+	cmd := exec.CommandContext(t.Context(), "go", "run", ".")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), mutant.ReachEnvVar+"="+reach)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	data, err := os.ReadFile(reach)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[int]bool{}
+	bad := 0
+	for line := range strings.Lines(string(data)) {
+		n, err := strconv.Atoi(strings.TrimSuffix(line, "\n"))
+		if err != nil {
+			bad++
+			continue
+		}
+		seen[n] = true
+	}
+	if want := 2 * 64 * 2000; bad > 0 || len(seen) != want {
+		t.Errorf("%d marks of %d, %d lines that are no mark", len(seen), want, bad)
 	}
 }
