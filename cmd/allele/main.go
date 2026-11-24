@@ -50,7 +50,7 @@ func main() {
 	defer stop()
 	ok, err := run(ctx, o, *base, *jobs, *verbose, *asJSON, patterns)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "mutant:", err)
+		fmt.Fprintln(os.Stderr, "allele:", err)
 		os.Exit(2)
 	}
 	if *strict && !ok {
