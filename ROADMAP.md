@@ -37,6 +37,25 @@ are comparable with each other, not with v1's; v1's log is in §18-19.
 
 ## Where M stands
 
+**M v2** (ten libraries) went from 1.258 to 1.333 on 2026-11-24: reach
+marks in an atomic table (#31, +1.3%), cloning each mutated function so
+the rest run as written (#32, §20, +4.4%), and an ERR fidelity fix (#33).
+T is now 80 s: sjson 26 s (a 2-million-iteration fuzz test reaches most
+survivors) and decimal 26 s. What is left:
+
+- **Overhead inside the active function**: the clone only spares the
+  functions without the active mutant; the one with it still runs its
+  helpers. Closure-free conditions did nothing (+0.08%,
+  `data-bench/v2-closure-free.ndjson`), so it is not the closures; the
+  next suspects are the generic helpers and `_mutPick`'s loop.
+- **Timeouts**: decimal has ~20 mutants that one test kills fast and
+  another hangs on; FailFast stops at the hang (0.5 each in F, ~0.26% of
+  M). One mutant (decimal.go:300, + 9 → / 9) times out in some runs and
+  survives in the reference: it slows a test past 9x its baseline.
+  TimeoutFactor 2: +0.6%, inside the noise (`v2-factor2.ndjson`).
+
+### M v1 (six libraries)
+
 M went from 1.567 to 1.733 on 2026-11-23 (timeout pad §18, weak mutation
 §19, online ordering dropped). The last ideas each measure at or under 2%,
 so the cheap levers are spent. What is left, by measured upper bound:
@@ -157,6 +176,10 @@ Kept so they are not retried without new evidence.
   inside the noise (`data-bench/ablate.ndjson`; batching off: -1.3%, so it
   stays). Tests now run fastest first. Restore from the commit before the
   one that removed `killStats`.
+- **Closure-free conditions in the schema** (`(_mutIs(t) || !_mutIs(f) &&
+  _mutCond(cond, ...))`, De Morgan for && and ||): +0.08% in M v2, noise.
+  Not merged; the closures cost nothing measurable once functions are
+  cloned.
 - **Selecting tests by the site, not the function, with the 100 ms pad**:
   +0.7% in M, inside the noise; uuid's slow test reaches the sites of the
   survivors it costs. Not merged.
