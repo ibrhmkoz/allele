@@ -5,8 +5,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // TestRunnerConfirmsKills: the command's runner must not count a test that

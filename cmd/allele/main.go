@@ -9,7 +9,7 @@
 // only the tests that reach a mutant's function, and stops at a mutant's
 // first kill. Equivalent mutants it can recognize never run, nor, without
 // -arid, mutants in code no one writes a test for: logging, metrics,
-// capacity hints, and lines marked //mut:ignore.
+// capacity hints, and lines marked //allele:ignore.
 package main
 
 import (
@@ -26,19 +26,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 func main() {
 	var o options
 	flag.BoolVar(&o.all, "all", false, "run every mutant on a line, not one")
-	flag.BoolVar(&o.arid, "arid", false, "also run mutants in logging, metrics, capacity hints and lines marked mut:ignore")
+	flag.BoolVar(&o.arid, "arid", false, "also run mutants in logging, metrics, capacity hints and lines marked allele:ignore")
 	base := flag.String("diff", "", "only mutate lines changed since this git revision, working tree included")
 	jobs := flag.Int("j", runtime.NumCPU(), "mutants to run at once")
 	strict := flag.Bool("strict", false, "exit 1 when a mutant survives or is not covered")
 	// CLI flag wiring in main() is not exercised by package unit tests.
-	flag.BoolVar(&o.noCache, "no-cache", false, "ignore and do not update the verdict cache") //mut:ignore
+	flag.BoolVar(&o.noCache, "no-cache", false, "ignore and do not update the verdict cache") //allele:ignore
 	verbose := flag.Bool("v", false, "log progress to stderr")
 	asJSON := flag.Bool("json", false, "print one JSON object per mutant, every verdict included, instead of the report")
 	flag.Parse()
@@ -109,8 +109,8 @@ func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
 	cacheDir := ""
 	if !o.noCache {
 		// os.UserCacheDir fails only when the environment lacks a cache dir.
-		if dir, err := os.UserCacheDir(); err == nil { //mut:ignore
-			cacheDir = filepath.Join(dir, "mutant")
+		if dir, err := os.UserCacheDir(); err == nil { //allele:ignore
+			cacheDir = filepath.Join(dir, "allele")
 		}
 	}
 	r := killmatrix.Runner{
@@ -127,7 +127,7 @@ func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
 		Infect:     true, // §19
 		Confirm:    true,
 		CacheDir:   cacheDir,
-		Choose:     func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
+		Choose:     func(path string, ms []allele.Mutant) []int { return choose(o, path, ms) },
 	}
 	if !o.all {
 		r.Pick = pick

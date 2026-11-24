@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // options picks the mutants of a run.
@@ -22,7 +22,7 @@ type options struct {
 	// all runs every mutant on a line rather than one.
 	all bool
 	// arid runs mutants in code no one writes a test for: logging,
-	// metrics, capacity hints, lines marked mut:ignore.
+	// metrics, capacity hints, lines marked allele:ignore.
 	arid bool
 	// diff, if set, maps absolute paths to the lines a diff touched; only
 	// mutants on those lines run.
@@ -35,7 +35,7 @@ type options struct {
 // that may run: equivalent mutants never do, nor arid ones without o.arid,
 // nor, with a diff, those off its lines. Without o.all, pick then keeps
 // one per line.
-func choose(o options, path string, ms []mutant.Mutant) []int {
+func choose(o options, path string, ms []allele.Mutant) []int {
 	var lines map[int]bool
 	if o.diff != nil {
 		var ok bool
@@ -99,7 +99,7 @@ func pick(cs []killmatrix.Candidate) int {
 // other than a nil check.
 func untakenBranch(mu killmatrix.Mutant) bool {
 	forced := mu.Mutated == "true" || mu.Mutated == "false" || strings.HasSuffix(mu.Mutated, "return true }()") || strings.HasSuffix(mu.Mutated, "return false }()")
-	return mu.Operator == mutant.COR && forced && !strings.Contains(mu.Original, "nil")
+	return mu.Operator == allele.COR && forced && !strings.Contains(mu.Original, "nil")
 }
 
 var hunk = regexp.MustCompile(`^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@`)
@@ -193,7 +193,7 @@ type jsonMutant struct {
 	File     string             `json:"file"`
 	Line     int                `json:"line"`
 	Col      int                `json:"col"`
-	Operator mutant.Operator    `json:"operator"`
+	Operator allele.Operator    `json:"operator"`
 	Original string             `json:"original"`
 	Mutated  string             `json:"mutated"`
 	Verdict  killmatrix.Verdict `json:"verdict"`

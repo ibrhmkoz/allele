@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // checkMatrix fails t where m breaks a rule every matrix keeps, however

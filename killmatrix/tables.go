@@ -60,7 +60,7 @@ func readRows[T any](dir, table string, rows *[]T) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f.Close() }() //mut:ignore a leaked descriptor changes no result
+	defer func() { _ = f.Close() }() //allele:ignore a leaked descriptor changes no result
 	var src io.Reader = f
 	if strings.HasSuffix(name, ".gz") {
 		z, err := gzip.NewReader(f)

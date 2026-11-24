@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // refMatrix: module m, package p (at the root) and p/sub. T1 kills M1, T2

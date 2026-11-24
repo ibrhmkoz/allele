@@ -1,4 +1,4 @@
-package mutant_test
+package allele_test
 
 import (
 	"fmt"
@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
 )
 
-func findWithImporter(t testing.TB, name, src string, imp types.Importer) []mutant.Mutant {
+func findWithImporter(t testing.TB, name, src string, imp types.Importer) []allele.Mutant {
 	t.Helper()
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, parser.ParseComments)
@@ -28,7 +28,7 @@ func findWithImporter(t testing.TB, name, src string, imp types.Importer) []muta
 	if _, err := (&types.Config{Importer: imp}).Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	return mutant.Find(fset, f, []byte(src), info)
+	return allele.Find(fset, f, []byte(src), info)
 }
 
 func TestFindMultilineAndPrecedence(t *testing.T) {
@@ -47,7 +47,7 @@ func f(a, b, c int, p *int) bool {
 	ms := find(t, "prec.go", src)
 	var lines []string
 	for _, m := range ms {
-		if m.Operator == mutant.ERR || m.Original == "a + b + c" && m.Mutated == "(a + b) * c" ||
+		if m.Operator == allele.ERR || m.Original == "a + b + c" && m.Mutated == "(a + b) * c" ||
 			m.Node == "IfStmt" && m.Mutated == "true" || m.Original == "nil == p" {
 			lines = append(lines, m.String())
 		}
@@ -109,7 +109,7 @@ func f(x int, c foo.Client, m map[int]int) {
 	ms := findWithImporter(t, "arid_gaps.go", src, imp)
 	var lines []string
 	for _, m := range ms {
-		if m.Operator == mutant.SDL || m.Mutated == "x - 1" || m.Mutated == "x-1" {
+		if m.Operator == allele.SDL || m.Mutated == "x - 1" || m.Mutated == "x-1" {
 			lines = append(lines, fmt.Sprintf("%d %s %q", m.Pos.Line, m.Operator, m.Arid))
 		}
 	}
@@ -163,9 +163,9 @@ func repairs(n int, use func(int), mkErr func() error) error {
 		switch {
 		case m.Node == "IfStmt" && strings.HasSuffix(m.Mutated, "true") || strings.HasSuffix(m.Mutated, "true }()"):
 			lines = append(lines, fmt.Sprintf("L%d %s repaired=%v %s", m.Pos.Line, m.Operator, m.Repaired, m.Mutated))
-		case m.Pos.Line == 27 && m.Operator == mutant.SDL:
+		case m.Pos.Line == 27 && m.Operator == allele.SDL:
 			lines = append(lines, fmt.Sprintf("L%d %s repaired=%v %s", m.Pos.Line, m.Operator, m.Repaired, m.Mutated))
-		case m.Pos.Line == 29 && m.Operator == mutant.ERR:
+		case m.Pos.Line == 29 && m.Operator == allele.ERR:
 			lines = append(lines, fmt.Sprintf("L%d %s repaired=%v %s", m.Pos.Line, m.Operator, m.Repaired, m.Mutated))
 		}
 	}
@@ -196,7 +196,7 @@ func f(x int, s string, xs []int, y int) {
 	ms := find(t, "equiv_gaps.go", src)
 	var lines []string
 	for _, m := range ms {
-		if m.Operator == mutant.SDL && m.Pos.Line <= 6 ||
+		if m.Operator == allele.SDL && m.Pos.Line <= 6 ||
 			m.Mutated == "x > 0" || m.Mutated == `s > "a"` ||
 			m.Mutated == "len(xs) > -1" || m.Mutated == "min(x, y) > 0" {
 			lines = append(lines, fmt.Sprintf("L%d %s eq=%q", m.Pos.Line, m.Mutated, m.Equivalent))

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 func copyDiscount(t *testing.T) string {
@@ -276,7 +276,7 @@ func TestCacheChoosesMore(t *testing.T) {
 	fresh := run(t, r, dir, ".")
 	r.CacheDir = t.TempDir()
 	few := r
-	few.Choose = func(_ string, _ []mutant.Mutant) []int { return []int{0} }
+	few.Choose = func(_ string, _ []allele.Mutant) []int { return []int{0} }
 	run(t, few, dir, ".")
 	all := run(t, r, dir, ".")
 	xtesting.EqualText(t, formatVerdicts(all), formatVerdicts(fresh))

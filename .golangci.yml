@@ -1,0 +1,30 @@
+# Modeled on golangci-lint's own config: goimports groups standard library, other modules, then
+# this module, the same grouping GoLand uses.
+version: "2"
+linters:
+  enable:
+    - errorlint
+    - misspell
+    - modernize
+    - unconvert
+  settings:
+    staticcheck:
+      # staticcheck's defaults plus ST1000 and ST1020-ST1022: every package has a "Package x ..." comment,
+      # and a doc comment, where there is one, starts with the name it documents.
+      checks: ["all", "-ST1003", "-ST1016"]
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: 'interface{}'
+          replacement: 'any'
+    goimports:
+      local-prefixes:
+        - github.com/ibrhmkoz/allele
+issues:
+  # the default of 3 hid repeats of the same check
+  max-same-issues: 0
+  max-issues-per-linter: 0

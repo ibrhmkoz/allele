@@ -35,7 +35,7 @@ import (
 
 	"golang.org/x/mod/modfile"
 
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // repos is the corpus of M v2. M v1 (to 2026-11-24) ran the first six.
@@ -44,8 +44,8 @@ var repos = []string{"glob", "go-humanize", "go-version", "semver", "shlex", "uu
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	code := cli(ctx, os.Args[1:], os.Stdout, os.Stderr)
-	stop()        //mut:ignore releasing the signal handler changes no result
-	os.Exit(code) //mut:ignore the exit code is cli's, which the tests check
+	stop()        //allele:ignore releasing the signal handler changes no result
+	os.Exit(code) //allele:ignore the exit code is cli's, which the tests check
 }
 
 // cli runs bench with args and returns its exit code: 2 for bad usage, 1
@@ -54,16 +54,16 @@ func cli(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	home, _ := os.UserHomeDir()
-	corpus := fs.String("corpus", cmp.Or(os.Getenv("CORPUS_CACHE"), filepath.Join(home, ".cache", "go-kit-mutant-corpus")), "directory holding the corpus clones")
-	ref := fs.String("ref", "mutant/docs/data", "exhaustive kill matrices, one directory per repository")
-	rerun := fs.String("rerun", "mutant/docs/data-rerun", "a second exhaustive run; only mutants both agree on count toward F")
+	corpus := fs.String("corpus", cmp.Or(os.Getenv("CORPUS_CACHE"), filepath.Join(home, ".cache", "allele-corpus")), "directory holding the corpus clones")
+	ref := fs.String("ref", "docs/data", "exhaustive kill matrices, one directory per repository")
+	rerun := fs.String("rerun", "docs/data-rerun", "a second exhaustive run; only mutants both agree on count toward F")
 	reps := fs.Int("reps", 3, "timed runs per build and repository")
 	jobs := fs.Int("j", 8, "the -j each build runs with")
 	seeds := fs.Int("seeds", 10, "simulations per repository for D")
 	out := fs.String("o", "", "if set, a file to append one JSON row per run and per build to")
 	only := fs.String("repos", strings.Join(repos, ","), "repositories to run")
 	trees := fs.String("faults", "", "if set, real-fault trees (docs/faulttrees.sh output) to report R_5 on, a diagnostic M does not use")
-	faultDetail := fs.String("fault-detail", "mutant/docs/data-faults/detail.ndjson.gz", "the coupled mutants of each fault (cmd/faults -detail)")
+	faultDetail := fs.String("fault-detail", "docs/data-faults/detail.ndjson.gz", "the coupled mutants of each fault (cmd/faults -detail)")
 	if fs.Parse(args) != nil {
 		return 2
 	}
@@ -89,7 +89,7 @@ func cli(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			_, _ = fmt.Fprintln(stderr, "bench:", err)
 			return 1
 		}
-		defer func() { _ = f.Close() }() //mut:ignore a leaked descriptor changes no result
+		defer func() { _ = f.Close() }() //allele:ignore a leaked descriptor changes no result
 		b.rows = json.NewEncoder(f)
 	}
 	if err := b.run(ctx, bins); err != nil {

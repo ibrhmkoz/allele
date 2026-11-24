@@ -1,9 +1,13 @@
-# mutant roadmap
+# allele roadmap
+
+allele was called `mutant`, and lived in a private monorepo, until
+2026-11-24; the history below keeps the old name, as do the commit
+messages ("mutant: ...").
 
 What is open, with enough context to pick it up cold. Findings live in
 [`docs/measurements.py`](docs/measurements.py); section numbers (§) refer to
 it. The working rule so far: measure an idea on the corpus before it goes
-into `cmd/mutant`, and keep the measurement in the notebook.
+into `cmd/allele`, and keep the measurement in the notebook.
 
 ## The metric
 
@@ -244,7 +248,7 @@ Kept so they are not retried without new evidence.
   -extreme`, `EXTREME=1 corpus.sh`) was removed; §12 reads the stored
   `data-extreme/`. To rerun it, restore the code as of commit `ff8bb8e`:
   `git checkout ff8bb8e -- mutant/mutant.go mutant/killmatrix/killmatrix.go
-  mutant/cmd/killmatrix/main.go mutant/docs/corpus.sh`.
+  mutant/cmd/killmatrix/main.go docs/corpus.sh`.
 - **Selecting tests by the line they reach** (§9): a clock-dependent branch
   ran in no baseline yet ran against the mutants. Selection is by function.
 - **Confirming a kill by rerunning the mutant only**, or **by checking the

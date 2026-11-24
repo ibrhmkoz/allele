@@ -14,7 +14,7 @@ func TestPick(t *testing.T) {
 	if Pick(1) == 1 {
 		return
 	}
-	marker := filepath.Join(os.TempDir(), fmt.Sprintf("killmatrix-flaky-%s-%d", os.Getenv("GOMUTANT"), os.Getppid()))
+	marker := filepath.Join(os.TempDir(), fmt.Sprintf("killmatrix-flaky-%s-%d", os.Getenv("ALLELE"), os.Getppid()))
 	if _, err := os.Stat(marker); err == nil {
 		_ = os.Remove(marker)
 		return

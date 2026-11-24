@@ -1,7 +1,7 @@
 """Draws the hand-labeling sample (roadmap D): surviving mutants, balanced
 across repositories, each with the source around it.
 
-    uv run python mutant/docs/labels/sample.py "$CORPUS_CACHE" > mutant/docs/labels/sample.ndjson
+    uv run python docs/labels/sample.py "$CORPUS_CACHE" > docs/labels/sample.ndjson
 
 A mutant survives when it compiles and no test kills it. covered says
 whether any test reached its function (from the selection run).

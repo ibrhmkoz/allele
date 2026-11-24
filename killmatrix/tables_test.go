@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // TestReadWrite: Read gives back what Write wrote, from plain or gzipped

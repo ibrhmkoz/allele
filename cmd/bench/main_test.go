@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
 )
 
 // fakeMutant writes a script that prints, as mutant -json would, the file

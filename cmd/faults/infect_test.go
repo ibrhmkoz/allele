@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // TestInfections: of the tests not skipped, Five and Zero reach x > 0.

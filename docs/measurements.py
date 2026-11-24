@@ -903,7 +903,7 @@ def _(alt, db, mo, pd, title):
             mo.md(_md),
             mo.md(rf"""
             - **Corpus:** three service libraries that log through a logger type: go-retryablehttp, robfig/cron, hashicorp/yamux. Their tests take 25–40 s, so verdicts come from schemata, selection and failing fast, not a full matrix.
-            - **Rules** (`Mutant.Arid`): a call statement that logs (by package or a logger-named type; never Fatal or Panic), records a metric or touches a trace; an if or switch whose branches do only that; a slice capacity or map size hint; a line marked `//mut:ignore`.
+            - **Rules** (`Mutant.Arid`): a call statement that logs (by package or a logger-named type; never Fatal or Panic), records a metric or touches a trace; an if or switch whose branches do only that; a slice capacity or map size hint; a line marked `//allele:ignore`.
             - **Precision:** both raters, blind to the tags, call every tagged survivor unproductive. **Recall:** {len(_miss)} of {len(_u)} untagged survivors are unproductive too ({", ".join(_miss.key)}: an error message's quoted text), so the rules catch most, not all, of the noise.
             - **Some logging is tested:** cron's TestWithVerboseLogger, retryablehttp's ResponseLogHook tests and yamux's captureLogs assert on log lines, and kill those arid mutants. Skipping arid mutants costs nothing there: a killed mutant is never shown.
             - **Flaky kills:** under 8 parallel workers these timing tests fail now and then, which read as kills and hid real survivors. A kill now counts only if the test fails against the mutant twice and passes against the original; when the original fails too, the cell is checked again alone after the run (`Runner.Confirm`). The last column counts the runs that rule threw out.
@@ -1419,31 +1419,31 @@ def _(mo):
 
     ```sh
     # Kill matrices: about 15 minutes per full run; JOBS=8 by default
-    OUT=mutant/docs/data mutant/docs/corpus.sh
-    OUT=mutant/docs/data-rerun mutant/docs/corpus.sh
-    SCHEMATA=1 OUT=mutant/docs/data-schemata mutant/docs/corpus.sh
-    SCHEMATA=1 SELECT=1 OUT=mutant/docs/data-select mutant/docs/corpus.sh
-    JOBS=1 OUT=mutant/docs/data-j1 mutant/docs/corpus.sh go-version shlex
+    OUT=docs/data docs/corpus.sh
+    OUT=docs/data-rerun docs/corpus.sh
+    SCHEMATA=1 OUT=docs/data-schemata docs/corpus.sh
+    SCHEMATA=1 SELECT=1 OUT=docs/data-select docs/corpus.sh
+    JOBS=1 OUT=docs/data-j1 docs/corpus.sh go-version shlex
 
     # Sections 1-3: simulate the strategies, about 15 seconds
-    go run ./mutant/cmd/simulate -o mutant/docs/data mutant/docs/data/*/
+    go run ./cmd/simulate -o docs/data docs/data/*/
 
     # Section 10: real faults, about 25 minutes over the corpus' history
     for d in shlex go-version glob uuid go-humanize semver; do
       git -C "$CORPUS_CACHE/$d" fetch --unshallow origin   # corpus.sh clones at depth 1
-      go run ./mutant/cmd/faults -name $d -o mutant/docs/data-faults/$d.ndjson "$CORPUS_CACHE/$d"
+      go run ./cmd/faults -name $d -o docs/data-faults/$d.ndjson "$CORPUS_CACHE/$d"
     done
 
-    # Section 11: sample to label, then label (Gemini: agy -p "$(cat mutant/docs/labels/prompt.md)" --model gemini-4-neon-high)
-    uv run python mutant/docs/labels/sample.py "$CORPUS_CACHE" > mutant/docs/labels/sample.ndjson
+    # Section 11: sample to label, then label (Gemini: agy -p "$(cat docs/labels/prompt.md)" --model gemini-4-neon-high)
+    uv run python docs/labels/sample.py "$CORPUS_CACHE" > docs/labels/sample.ndjson
 
     # Section 12: extreme mutation, about 90 seconds, with the code as of
     # commit ff8bb8e (removed since; see ROADMAP.md)
-    EXTREME=1 OUT=mutant/docs/data-extreme mutant/docs/corpus.sh
+    EXTREME=1 OUT=docs/data-extreme docs/corpus.sh
 
     # Section 13: service verdicts (about an hour), then the arid sample to label
-    SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh retryablehttp cron yamux
-    uv run python mutant/docs/labels/sample_arid.py "$CORPUS_CACHE" > mutant/docs/labels/arid-sample.ndjson
+    SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=docs/data-verdicts docs/corpus.sh retryablehttp cron yamux
+    uv run python docs/labels/sample_arid.py "$CORPUS_CACHE" > docs/labels/arid-sample.ndjson
 
     # Section 14: with the code at tag experiment/wild-caught, cmd/faults
     # over the corpus (data-faults-wild/) and over held-out repositories
@@ -1451,8 +1451,8 @@ def _(mo):
 
     # Section 21: per-mutant fault detail (about 6 hours over corpus and
     # held-out history), then score the selection rules
-    go run ./mutant/cmd/faults -name $d -detail detail.ndjson -o rows.ndjson "$CORPUS_CACHE/$d"
-    python3 mutant/docs/faultsel.py mutant/docs/data-faults/detail.ndjson.gz > mutant/docs/data-selection/selection.ndjson
+    go run ./cmd/faults -name $d -detail detail.ndjson -o rows.ndjson "$CORPUS_CACHE/$d"
+    python3 docs/faultsel.py docs/data-faults/detail.ndjson.gz > docs/data-selection/selection.ndjson
 
     # Section 17 simulates on data-verdicts/; sections 4-17 query the data
     # directly; view everything

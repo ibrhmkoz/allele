@@ -1,4 +1,4 @@
-package mutant
+package allele
 
 import (
 	"bytes"
@@ -13,14 +13,14 @@ import (
 
 // EnvVar names the environment variable that picks, by id, the mutant a
 // program built from Embed runs; unset or 0 runs none.
-const EnvVar = "GOMUTANT"
+const EnvVar = "ALLELE"
 
 // ReachEnvVar names the environment variable that, set to a file, makes a
 // program built from Embed append to it the id of every mutant whose site
 // runs, one per line: a test that never reaches a mutant cannot kill it.
 // It appends minus the id of every mutant that would have changed a value
 // there, too: one that never does cannot change what the test sees.
-const ReachEnvVar = "GOMUTANT_REACH"
+const ReachEnvVar = "ALLELE_REACH"
 
 // Embed returns file's source with its mutants built in, each switched on
 // at run time by its id in EnvVar (mutant schemata: Untch, Offutt and

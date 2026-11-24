@@ -1,7 +1,7 @@
 // Command simulate measures mutant selection strategies on kill matrices
 // computed by killmatrix, without building anything:
 //
-//	simulate -o mutant/docs/data mutant/docs/data/*/
+//	simulate -o docs/data docs/data/*/
 //
 // For each repository it writes a row to summary.ndjson (raw and dominator
 // counts) and, for each strategy, a row to strategies.ndjson: the share of
@@ -21,9 +21,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/mutant/adequacy"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/adequacy"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 func main() {
@@ -181,7 +181,7 @@ type strategy struct {
 }
 
 func (rp *repo) strategies() []strategy {
-	ops := []mutant.Operator{mutant.ROR, mutant.COR, mutant.AOR, mutant.SDL, mutant.ERR}
+	ops := []allele.Operator{allele.ROR, allele.COR, allele.AOR, allele.SDL, allele.ERR}
 	where := func(keep func(killmatrix.Mutant) bool) func(*rand.Rand) []int {
 		return func(*rand.Rand) []int {
 			var picked []int

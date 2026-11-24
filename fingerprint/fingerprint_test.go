@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant/fingerprint"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele/fingerprint"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
 )
 
 // module is a small module: package p uses dep in its code and helper

@@ -1,6 +1,6 @@
 """Judges per-line mutant selection rules on real faults (measurements §21).
 
-    python3 mutant/docs/faultsel.py mutant/docs/data-faults/detail.ndjson.gz > mutant/docs/data-selection/selection.ndjson
+    python3 docs/faultsel.py docs/data-faults/detail.ndjson.gz > docs/data-selection/selection.ndjson
 
 Each rule keeps one mutant per line. A fault's coupled mutants are those
 only its fix's tests kill; the old suite is the tests before the fix. J is

@@ -2,7 +2,7 @@
 the rules tag in the service repositories, and as many untagged survivors
 from the same repositories, each with the source around it.
 
-    uv run python mutant/docs/labels/sample_arid.py "$CORPUS_CACHE" > mutant/docs/labels/arid-sample.ndjson
+    uv run python docs/labels/sample_arid.py "$CORPUS_CACHE" > docs/labels/arid-sample.ndjson
 
 The tagged half measures what suppressing arid mutants would hide; the
 untagged half, what the rules miss.

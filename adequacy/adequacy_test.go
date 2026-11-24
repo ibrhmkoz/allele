@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant/adequacy"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele/adequacy"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
 )
 
 // discount is the kill matrix of the roadmap's Discount example, with

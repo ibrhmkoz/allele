@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // TestZeroRunnerDefaults checks zero-value Runner defaults (Workers=1, TimeoutPad=1s),
@@ -25,7 +25,7 @@ func Other(x int) bool { return x > 0 }
 		"p_test.go": `package zerorun
 import ("os"; "testing"; "time")
 func TestF(t *testing.T) {
-	if id := os.Getenv("GOMUTANT"); id != "" && id != "0" {
+	if id := os.Getenv("ALLELE"); id != "" && id != "0" {
 		time.Sleep(80 * time.Millisecond)
 	}
 	if !F(2) { t.Fatal() }
@@ -43,7 +43,7 @@ func TestTransient(t *testing.T) {
 	// Pick x >= 0 on F (skipping index 0, which would kill TestF if s.find[0] != -1).
 	r := killmatrix.Runner{
 		Schemata: true,
-		Choose: func(_ string, ms []mutant.Mutant) []int {
+		Choose: func(_ string, ms []allele.Mutant) []int {
 			for i, m := range ms {
 				if m.Pos.Line == 2 && m.Mutated == "x >= 0" {
 					return []int{i}
@@ -90,7 +90,7 @@ func Trans(x int) bool      { return x > 0 }
 		"p_test.go": `package ffpaths
 import ("os"; "testing"; "time")
 
-func isMut() bool { id := os.Getenv("GOMUTANT"); return id != "" && id != "0" }
+func isMut() bool { id := os.Getenv("ALLELE"); return id != "" && id != "0" }
 func bump(name string) int {
 	b, _ := os.ReadFile(name)
 	_ = os.WriteFile(name, append(b, 'x'), 0o600)
@@ -163,7 +163,7 @@ func TestRecheck3x(t *testing.T) {
 }
 `,
 	})
-	choose := func(_ string, ms []mutant.Mutant) []int {
+	choose := func(_ string, ms []allele.Mutant) []int {
 		var keep []int
 		for i, m := range ms {
 			if m.Mutated == "x >= 0" {
@@ -251,7 +251,7 @@ func TestBatchCrashAttribution(t *testing.T) {
 		"p_test.go": `package crashattr
 import ("os"; "testing")
 func TestA(t *testing.T) {
-	if id := os.Getenv("GOMUTANT"); id != "" && id != "0" {
+	if id := os.Getenv("ALLELE"); id != "" && id != "0" {
 		if _, err := os.Stat("once"); err != nil {
 			_ = os.WriteFile("once", nil, 0o600)
 			go func() { panic("once") }()
@@ -270,7 +270,7 @@ func TestB(t *testing.T) { if !F(2) { t.Fatal() } }
 		Schemata:     true,
 		FailFast:     true,
 		Confirm:      false,
-		Choose: func(_ string, ms []mutant.Mutant) []int {
+		Choose: func(_ string, ms []allele.Mutant) []int {
 			for i, m := range ms {
 				if m.Mutated == "x >= 0" {
 					return []int{i}

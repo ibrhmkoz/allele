@@ -1,13 +1,13 @@
 #!/bin/sh
 # Computes the kill matrix of each corpus repository at a pinned commit and
-# writes it to mutant/docs/data/<name>/ as gzipped NDJSON.
+# writes it to docs/data/<name>/ as gzipped NDJSON.
 #
-#   mutant/docs/corpus.sh                     all repositories
-#   mutant/docs/corpus.sh semver shlex        some
-#   JOBS=1 OUT=mutant/docs/data-j1 mutant/docs/corpus.sh go-version
-#   SCHEMATA=1 OUT=mutant/docs/data-schemata mutant/docs/corpus.sh
-#   SCHEMATA=1 SELECT=1 OUT=mutant/docs/data-select mutant/docs/corpus.sh
-#   SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=mutant/docs/data-verdicts mutant/docs/corpus.sh
+#   docs/corpus.sh                     all repositories
+#   docs/corpus.sh semver shlex        some
+#   JOBS=1 OUT=docs/data-j1 docs/corpus.sh go-version
+#   SCHEMATA=1 OUT=docs/data-schemata docs/corpus.sh
+#   SCHEMATA=1 SELECT=1 OUT=docs/data-select docs/corpus.sh
+#   SCHEMATA=1 SELECT=1 FAILFAST=1 CONFIRM=1 OUT=docs/data-verdicts docs/corpus.sh
 #
 # The first ten were picked for fast, hermetic tests (no network, database
 # or Docker) and pure logic: parsers, formatters, encoders. Each takes 1-5
@@ -34,12 +34,12 @@ yamux       https://github.com/hashicorp/yamux        98ba9c9ac60f4c45b2331377b5
 '
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
-cache=${CORPUS_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/go-kit-mutant-corpus}
+cache=${CORPUS_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/allele-corpus}
 jobs=${JOBS:-8}
-out_root=$(cd "$root" && mkdir -p "${OUT:-mutant/docs/data}" && cd "${OUT:-mutant/docs/data}" && pwd)
+out_root=$(cd "$root" && mkdir -p "${OUT:-docs/data}" && cd "${OUT:-docs/data}" && pwd)
 mkdir -p "$cache"
 bin="$cache/killmatrix"
-(cd "$root" && go build -o "$bin" ./mutant/cmd/killmatrix)
+(cd "$root" && go build -o "$bin" ./cmd/killmatrix)
 
 echo "$corpus" | while read -r name url commit; do
 	[ -n "$name" ] || continue

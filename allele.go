@@ -1,10 +1,10 @@
-// Package mutant finds the mutants of a Go source file: small, deliberate
+// Package allele finds the mutants of a Go source file: small, deliberate
 // changes such as > to >= that a good test suite should notice.
 //
 // Find is exhaustive on purpose. It is the reference that cheaper strategies,
 // such as one mutant per line or a subset of operators, are measured against,
 // so it does not filter for usefulness.
-package mutant
+package allele
 
 import (
 	"fmt"
@@ -49,7 +49,7 @@ type Mutant struct {
 	// matrix can check the rule: a killed one would prove it wrong.
 	Equivalent string
 	// Arid names why a mutant is in code no one writes a test for, if it
-	// is: logging, metrics, tracing, a capacity hint, a mut:ignore comment
+	// is: logging, metrics, tracing, a capacity hint, a allele:ignore comment
 	// or an if that does only such things (Google's arid nodes). Find keeps
 	// such mutants so the rule can be measured.
 	Arid string
@@ -83,7 +83,7 @@ func (m Mutant) Apply(src []byte) []byte {
 // Only a keyword can touch a span's start that way; nothing in Go's syntax
 // follows an expression without a separator, so its end needs no check.
 func fit(src []byte, from int, text string) string {
-	if text != "" && from > 0 && word(src[from-1]) && word(text[0]) { //mut:ignore only a deleted statement is empty, and none follows a word
+	if text != "" && from > 0 && word(src[from-1]) && word(text[0]) { //allele:ignore only a deleted statement is empty, and none follows a word
 		return " " + text
 	}
 	return text
@@ -134,7 +134,7 @@ type aridSpan struct {
 }
 
 // markArid tags each mutant with the reason of the smallest arid span
-// holding its change, or with mut:ignore when its line asks for it.
+// holding its change, or with allele:ignore when its line asks for it.
 func (f *finder) markArid(file *ast.File) {
 	var spans []aridSpan
 	ast.Inspect(file, func(n ast.Node) bool {
@@ -153,7 +153,7 @@ func (f *finder) markArid(file *ast.File) {
 	ignored := map[int]bool{}
 	for _, g := range file.Comments {
 		for _, c := range g.List {
-			if !strings.Contains(c.Text, "mut:ignore") {
+			if !strings.Contains(c.Text, "allele:ignore") {
 				continue
 			}
 			pos := f.fset.Position(c.Pos())
@@ -168,7 +168,7 @@ func (f *finder) markArid(file *ast.File) {
 	for i := range f.found {
 		m := &f.found[i]
 		if ignored[m.Pos.Line] {
-			m.Arid = "mut:ignore"
+			m.Arid = "allele:ignore"
 			continue
 		}
 		best := -1

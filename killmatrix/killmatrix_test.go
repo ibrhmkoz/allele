@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // TestRun computes the fixture's matrix with a build per mutant and with
@@ -147,7 +147,7 @@ func TestUnstableNames(t *testing.T) {
 // get the verdict the full matrix gives it.
 func TestFailFast(t *testing.T) {
 	t.Parallel()
-	firstPerLine := func(_ string, ms []mutant.Mutant) []int {
+	firstPerLine := func(_ string, ms []allele.Mutant) []int {
 		var keep []int
 		for i, m := range ms {
 			if i == 0 || m.Pos.Line != ms[i-1].Pos.Line {
@@ -196,7 +196,7 @@ func TestFailFast(t *testing.T) {
 // nor run, so that mutant -diff costs nothing in packages the diff misses.
 func TestChooseNone(t *testing.T) {
 	t.Parallel()
-	onlyLoop := func(file string, _ []mutant.Mutant) []int {
+	onlyLoop := func(file string, _ []allele.Mutant) []int {
 		if filepath.Base(file) != "loop.go" {
 			return nil
 		}

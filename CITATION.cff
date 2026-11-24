@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use allele or its dataset, please cite it as below."
+title: "allele: mutation testing for Go, with a dataset of kill matrices and real faults"
+type: software
+authors:
+  - family-names: Koz
+    given-names: Ibrahim
+repository-code: "https://github.com/ibrhmkoz/allele"
+license: MIT
+keywords:
+  - mutation testing
+  - go
+  - test adequacy
+  - real faults

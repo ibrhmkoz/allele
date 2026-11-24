@@ -1,6 +1,6 @@
 """Runs Go mutation tools on targets and records what each reports.
 
-    MUT_BIN=path/to/mutant python3 mutant/docs/compare.py TOOLS TARGETS OUT.ndjson
+    MUT_BIN=path/to/mutant python3 docs/compare.py TOOLS TARGETS OUT.ndjson
 
 TOOLS is a comma list of mutant, mutant-all, gremlins, gremlins-all and
 gomu. TARGETS has lines "name dir pkg [repo commit]": with repo and commit

@@ -30,8 +30,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ibrhmkoz/go-kit/mutant/adequacy"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele/adequacy"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 var (
@@ -47,18 +47,18 @@ func main() {
 	detailPath := flag.String("detail", "", "if set, a file to append one JSON row per mutant of each measured fault to, with its old tests' reach and infection")
 	flag.Parse()
 	for c := range strings.SplitSeq(*commits, ",") {
-		if c != "" { //mut:ignore flag wiring
-			only = append(only, c) //mut:ignore flag wiring
+		if c != "" { //allele:ignore flag wiring
+			only = append(only, c) //allele:ignore flag wiring
 		}
 	}
-	if *detailPath != "" { //mut:ignore flag wiring
+	if *detailPath != "" { //allele:ignore flag wiring
 		f, err := os.OpenFile(*detailPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-		if err != nil { //mut:ignore flag wiring
+		if err != nil { //allele:ignore flag wiring
 			fmt.Fprintln(os.Stderr, "faults:", err)
-			os.Exit(1) //mut:ignore flag wiring
+			os.Exit(1) //allele:ignore flag wiring
 		}
-		defer func() { _ = f.Close() }() //mut:ignore flag wiring
-		details = json.NewEncoder(f)     //mut:ignore flag wiring
+		defer func() { _ = f.Close() }() //allele:ignore flag wiring
+		details = json.NewEncoder(f)     //allele:ignore flag wiring
 	}
 	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: faults -name NAME -o FILE REPO")
@@ -133,7 +133,7 @@ func run(ctx context.Context, repo, name, out string, jobs int) error {
 	}
 	var rows []fault
 	for c := range strings.FieldsSeq(string(commits)) {
-		if !wanted(c, only) { //mut:ignore the driver runs only on the corpus; wanted is tested
+		if !wanted(c, only) { //allele:ignore the driver runs only on the corpus; wanted is tested
 			continue
 		}
 		fs, err := candidate(ctx, repo, name, c, string(module[1]), jobs)
@@ -299,14 +299,14 @@ func measure(ctx context.Context, repo, tree, parent, commit, dir string, change
 	f.Chance, f.ChanceOnFix = chance(matrix, revealed, index, func(i int) bool { return onFix[compiled[i].File][compiled[i].Line] })
 	f.Operators, f.OnFixOperators = map[string]int{}, map[string]int{}
 	coupled := matrix.Coupled(revealed)
-	if details != nil { //mut:ignore the driver runs only on the corpus; infections and countOf are tested
+	if details != nil { //allele:ignore the driver runs only on the corpus; infections and countOf are tested
 		counts, err := infections(ctx, filepath.Join(tree, dir), f.Revealing)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s %s: infections: %v\n", f.Repo, commit[:12], err)
 		}
 		for i, mu := range compiled {
 			c := countOf(counts, mu)
-			_ = details.Encode(detail{Repo: f.Repo, Commit: commit, Pkg: f.Pkg, File: mu.File, Line: mu.Line, Col: mu.Col, Operator: string(mu.Operator), Original: mu.Original, Mutated: mu.Mutated, Equivalent: mu.Equivalent, Arid: mu.Arid, Killable: !kills[i].Empty(), Coupled: slices.Contains(coupled, i), OnFix: onFix[mu.File][mu.Line], Reached: c[0], Infected: c[1]}) //mut:ignore the driver runs only on the corpus
+			_ = details.Encode(detail{Repo: f.Repo, Commit: commit, Pkg: f.Pkg, File: mu.File, Line: mu.Line, Col: mu.Col, Operator: string(mu.Operator), Original: mu.Original, Mutated: mu.Mutated, Equivalent: mu.Equivalent, Arid: mu.Arid, Killable: !kills[i].Empty(), Coupled: slices.Contains(coupled, i), OnFix: onFix[mu.File][mu.Line], Reached: c[0], Infected: c[1]}) //allele:ignore the driver runs only on the corpus
 		}
 	}
 	for _, i := range coupled {

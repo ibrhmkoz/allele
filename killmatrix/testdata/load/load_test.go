@@ -24,7 +24,7 @@ func TestPick(t *testing.T) {
 	if Pick(1) == 1 {
 		return
 	}
-	seen := filepath.Join(dir, fmt.Sprintf("killmatrix-load-%d-%s", parent, os.Getenv("GOMUTANT")))
+	seen := filepath.Join(dir, fmt.Sprintf("killmatrix-load-%d-%s", parent, os.Getenv("ALLELE")))
 	if _, err := os.Stat(seen); err != nil {
 		_ = os.WriteFile(seen, nil, 0o600)
 		_ = os.WriteFile(load, nil, 0o600)

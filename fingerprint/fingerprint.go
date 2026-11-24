@@ -54,7 +54,7 @@ func Load(ctx context.Context, dir string, patterns ...string) (map[string]Print
 	}
 	loaded, err := packages.Load(cfg, patterns...)
 	cmd := exec.CommandContext(ctx, "go", "env", "GOVERSION", "GOOS", "GOARCH")
-	cmd.Dir = dir //mut:ignore the tests run in a module of their own toolchain
+	cmd.Dir = dir //allele:ignore the tests run in a module of their own toolchain
 	toolchain, envErr := cmd.Output()
 	if err := errors.Join(err, envErr); err != nil {
 		return nil, err
@@ -128,8 +128,8 @@ func of(variants []*packages.Package, toolchain []byte) Print {
 func splitTests(shared hash.Hash, tests map[string]string, label string, src []byte) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", src, 0)
-	if err != nil { //mut:ignore Load fails on a file that does not parse before it gets here
-		frame(shared, label, src) //mut:ignore
+	if err != nil { //allele:ignore Load fails on a file that does not parse before it gets here
+		frame(shared, label, src) //allele:ignore
 		return
 	}
 	frame(shared, label, []byte(f.Name.Name))

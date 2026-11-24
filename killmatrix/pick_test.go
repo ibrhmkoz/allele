@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // TestPick: after the baseline, Pick sees each line's candidates with how

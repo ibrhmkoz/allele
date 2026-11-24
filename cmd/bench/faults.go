@@ -43,7 +43,7 @@ func readFaults(trees, detail string) ([]fault, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = f.Close() }() //mut:ignore a leaked descriptor changes no result
+	defer func() { _ = f.Close() }() //allele:ignore a leaked descriptor changes no result
 	var src io.Reader = f
 	if strings.HasSuffix(detail, ".gz") {
 		if src, err = gzip.NewReader(f); err != nil {

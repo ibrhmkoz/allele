@@ -1,4 +1,4 @@
-package mutant_test
+package allele_test
 
 import (
 	"bytes"
@@ -18,8 +18,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
 )
 
 // stdImporter caches standard library packages across tests so each test
@@ -46,12 +46,12 @@ func (c *cachedImporter) Import(path string) (*types.Package, error) {
 }
 
 // find type-checks src as a file of its own package and returns its mutants.
-func find(t testing.TB, name, src string) []mutant.Mutant {
+func find(t testing.TB, name, src string) []allele.Mutant {
 	t.Helper()
 	return findInPkg(t, "p", name, src)
 }
 
-func findInPkg(t testing.TB, pkg, name, src string) []mutant.Mutant {
+func findInPkg(t testing.TB, pkg, name, src string) []allele.Mutant {
 	t.Helper()
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, parser.ParseComments)
@@ -63,10 +63,10 @@ func findInPkg(t testing.TB, pkg, name, src string) []mutant.Mutant {
 	if _, err := conf.Check(pkg, fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	return mutant.Find(fset, f, []byte(src), info)
+	return allele.Find(fset, f, []byte(src), info)
 }
 
-func listing(ms []mutant.Mutant) string {
+func listing(ms []allele.Mutant) string {
 	var b strings.Builder
 	for _, m := range ms {
 		fmt.Fprintln(&b, m)
@@ -440,7 +440,7 @@ func TestApplyOnStdlib(t *testing.T) {
 	want := map[string]bool{"strconv": true, "sort": true, "strings": true}
 	type job struct {
 		src []byte
-		m   mutant.Mutant
+		m   allele.Mutant
 	}
 	var jobs []job
 	for _, pkg := range pkgs {
@@ -453,7 +453,7 @@ func TestApplyOnStdlib(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, m := range mutant.Find(pkg.Fset, f, src, pkg.TypesInfo) {
+			for _, m := range allele.Find(pkg.Fset, f, src, pkg.TypesInfo) {
 				jobs = append(jobs, job{src, m})
 			}
 		}
@@ -505,7 +505,7 @@ func Max(a, b int) int {
 	info := &types.Info{Types: map[ast.Expr]types.TypeAndValue{}, Defs: map[*ast.Ident]types.Object{}, Uses: map[*ast.Ident]types.Object{}}
 	_, _ = new(types.Config).Check("p", fset, []*ast.File{f}, info)
 
-	ms := mutant.Find(fset, f, []byte(src), info)
+	ms := allele.Find(fset, f, []byte(src), info)
 	for _, m := range ms[:3] {
 		fmt.Println(m)
 	}
@@ -547,7 +547,7 @@ func check(xs []int, n int) bool {
 	// bytes is used only for a type: a nil pointer to it keeps it used.
 	// slices.Contains is generic: no expression names it without type
 	// arguments, so an import used only for it is not repaired.
-	xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
+	xtesting.EqualText(t, listing(allele.Find(fset, f, []byte(src), info)), `
 		p.go:11:2 SDL consume(new(bytes.Buffer)) → _ = (*bytes.Buffer)(nil)
 		p.go:12:5 COR slices.Contains(xs, n) → true
 		p.go:12:5 COR slices.Contains(xs, n) → false
@@ -584,7 +584,7 @@ func report(logger any, n int) int {
 	}
 	// A switch whose every case only logs is arid, and so is the if that
 	// guards it: its condition only decides whether to log.
-	xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
+	xtesting.EqualText(t, listing(allele.Find(fset, f, []byte(src), info)), `
 		p.go:8:5 COR logger != nil → true [arid: only arid statements]
 		p.go:8:5 COR logger != nil → false [arid: only arid statements]
 		p.go:8:12 ROR logger != nil → logger == nil [arid: only arid statements]
@@ -615,7 +615,7 @@ func work(l Logger, w io.Writer, n int, debug bool) []int {
 	}
 	out := make([]int, 0, n+1)
 	fmt.Fprintf(w, "%d\n", n+2)
-	out = append(out, n*3) //mut:ignore
+	out = append(out, n*3) //allele:ignore
 	return out
 }
 `
@@ -630,12 +630,12 @@ func work(l Logger, w io.Writer, n int, debug bool) []int {
 	}
 	type key struct {
 		line int
-		op   mutant.Operator
+		op   allele.Operator
 		arid string
 	}
 	var order []key
 	count := map[key]int{}
-	for _, m := range mutant.Find(fset, f, []byte(src), info) {
+	for _, m := range allele.Find(fset, f, []byte(src), info) {
 		k := key{m.Pos.Line, m.Operator, cmp.Or(m.Arid, "-")}
 		if count[k] == 0 {
 			order = append(order, k)
@@ -647,7 +647,7 @@ func work(l Logger, w io.Writer, n int, debug bool) []int {
 		fmt.Fprintf(&b, "%d %s ×%d: %s\n", k.line, k.op, count[k], k.arid)
 	}
 	// Logging, as a statement or behind an if that does nothing else, a
-	// slice's capacity, and a line marked mut:ignore are arid. Writing to
+	// slice's capacity, and a line marked allele:ignore are arid. Writing to
 	// a writer the caller passed is output, not logging.
 	xtesting.EqualText(t, b.String(), `
 		15 SDL ×1: logging
@@ -660,12 +660,12 @@ func work(l Logger, w io.Writer, n int, debug bool) []int {
 		20 AOR ×4: capacity hint
 		21 SDL ×1: -
 		21 AOR ×4: -
-		22 SDL ×1: mut:ignore
-		22 AOR ×4: mut:ignore
+		22 SDL ×1: allele:ignore
+		22 AOR ×4: allele:ignore
 	`)
 }
 
-// TestAridRules checks line-above mut:ignore, os.Stdout/Stderr detection,
+// TestAridRules checks line-above allele:ignore, os.Stdout/Stderr detection,
 // arid poisoning on if/else and switch branches, and metrics/tracing/map rules.
 func TestAridRules(t *testing.T) {
 	src := `package p
@@ -691,7 +691,7 @@ type streams struct{ Stdout io.Writer }
 func getStreams() streams { return streams{} }
 
 func f(n int, flag bool, l myLogger, sp Span, st streams) int {
-	//mut:ignore
+	//allele:ignore
 	n += 1
 	// regular comment
 	n += 2
@@ -752,11 +752,11 @@ func f(n int, flag bool, l myLogger, sp Span, st streams) int {
 	for _, line := range lines {
 		fmt.Fprintf(&b, "%d %s\n", line, byLine[line])
 	}
-	// Standalone //mut:ignore marks only the next line; os.Stdout/Stderr are
+	// Standalone //allele:ignore marks only the next line; os.Stdout/Stderr are
 	// logging while os.Stdin, io.Discard, and struct fields are not; a single
 	// non-arid statement in an else or switch case clears arid on the outer if.
 	xtesting.EqualText(t, b.String(), `
-		25 mut:ignore
+		25 allele:ignore
 		27 -
 		28 logging
 		29 logging
@@ -835,7 +835,7 @@ func consume(...float64) {}
 		t.Fatal(err)
 	}
 	for range 20 {
-		xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
+		xtesting.EqualText(t, listing(allele.Find(fset, f, []byte(src), info)), `
 			p.go:6:2 SDL consume(math.Abs(x), math.Floor(x), math.Ceil(x), math.Sqrt(x), math.Trunc(x)) → _ = math.Abs
 		`)
 	}

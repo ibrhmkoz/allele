@@ -1,4 +1,4 @@
-package mutant_test
+package allele_test
 
 import (
 	"fmt"
@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
 )
 
-func embedCheck(t testing.TB, src string, makeIDs func(ms []mutant.Mutant) []int) ([]mutant.Mutant, []byte, []bool) {
+func embedCheck(t testing.TB, src string, makeIDs func(ms []allele.Mutant) []int) ([]allele.Mutant, []byte, []bool) {
 	t.Helper()
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
@@ -28,8 +28,8 @@ func embedCheck(t testing.TB, src string, makeIDs func(ms []mutant.Mutant) []int
 	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	ms := mutant.Find(fset, f, []byte(src), info)
-	out, emb := mutant.Embed(fset, f, []byte(src), info, makeIDs(ms))
+	ms := allele.Find(fset, f, []byte(src), info)
+	out, emb := allele.Embed(fset, f, []byte(src), info, makeIDs(ms))
 	return ms, out, emb
 }
 
@@ -39,7 +39,7 @@ func TestEmbedGaps(t *testing.T) {
 	t.Run("short and zero ids", func(t *testing.T) {
 		t.Parallel()
 		src := "package p\nfunc f(x int) bool { return x > 0 }\n"
-		ms, _, emb := embedCheck(t, src, func(_ []mutant.Mutant) []int { return []int{0, 2} })
+		ms, _, emb := embedCheck(t, src, func(_ []allele.Mutant) []int { return []int{0, 2} })
 		var got []string
 		for i, m := range ms {
 			got = append(got, fmt.Sprintf("%s embedded=%v", m.Mutated, emb[i]))
@@ -83,12 +83,12 @@ func clauses(x int, ch <-chan int) int {
 
 func emptyRes() () { return }
 `
-		ms, _, emb := embedCheck(t, src, func(ms []mutant.Mutant) []int { return sequential(len(ms)) })
+		ms, _, emb := embedCheck(t, src, func(ms []allele.Mutant) []int { return sequential(len(ms)) })
 		var got []string
 		for i, m := range ms {
 			if m.Pos.Line == 5 || m.Pos.Line == 8 || m.Pos.Line == 10 || m.Pos.Line == 12 ||
-				(m.Operator == mutant.AOR && m.Mutated == "x -= 1") ||
-				(m.Operator == mutant.AOR && m.Mutated == "x -= 2") {
+				(m.Operator == allele.AOR && m.Mutated == "x -= 1") ||
+				(m.Operator == allele.AOR && m.Mutated == "x -= 2") {
 				got = append(got, fmt.Sprintf("L%d %s %s embedded=%v", m.Pos.Line, m.Operator, m.Original, emb[i]))
 			}
 		}
@@ -105,7 +105,7 @@ func emptyRes() () { return }
 	t.Run("WithGo121 comment before build tag", func(t *testing.T) {
 		t.Parallel()
 		in := "// Copyright notice\n\n//go:build linux\n\npackage p\n"
-		got := mutant.WithGo121([]byte(in), "/abs/p.go")
+		got := allele.WithGo121([]byte(in), "/abs/p.go")
 		xtesting.EqualText(t, string(got), `
 			// Copyright notice
 

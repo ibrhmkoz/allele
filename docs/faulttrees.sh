@@ -4,10 +4,10 @@
 # suite that missed the fault. A tree whose old tests do not build against
 # the fixed code is dropped. Writes "<name> <pkg> <tree>" lines to stdout.
 #
-#   mutant/docs/faulttrees.sh mutant/docs/data-faults/*.ndjson > trees.txt
+#   docs/faulttrees.sh docs/data-faults/*.ndjson > trees.txt
 set -eu
 root=$(cd "$(dirname "$0")/../.." && pwd)
-cache=${CORPUS_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/go-kit-mutant-corpus}
+cache=${CORPUS_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/allele-corpus}
 for rows in "$@"; do
 	name=$(basename "$rows" .ndjson)
 	repo=$cache/$name

@@ -12,7 +12,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-package mutant_test
+package allele_test
 
 import (
 	"cmp"
@@ -17,8 +17,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
 )
 
 // sequential numbers mutants 1, 2, 3, ... like killmatrix does.
@@ -49,8 +49,8 @@ func Discount(price int, vip bool) int {
 	if _, err := new(types.Config).Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	ms := mutant.Find(fset, f, []byte(src), info)
-	out, embedded := mutant.Embed(fset, f, []byte(src), info, sequential(len(ms)))
+	ms := allele.Find(fset, f, []byte(src), info)
+	out, embedded := allele.Embed(fset, f, []byte(src), info, sequential(len(ms)))
 	// Ids index the alternatives by operator: [6]int{<, <=, >, >=, ==, !=}
 	// and [5]int{+, -, *, /, %}; 0 marks the original.
 	xtesting.EqualText(t, string(out), `
@@ -160,22 +160,22 @@ func half(n float64) float64 { return n / 2 }
 			if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
 				t.Fatal(err)
 			}
-			ms := mutant.Find(fset, f, []byte(tt.src), info)
-			out, _ := mutant.Embed(fset, f, []byte(tt.src), info, sequential(len(ms)))
+			ms := allele.Find(fset, f, []byte(tt.src), info)
+			out, _ := allele.Embed(fset, f, []byte(tt.src), info, sequential(len(ms)))
 			xtesting.EqualText(t, string(out), tt.want)
 		})
 	}
 }
 
 func TestWithGo121(t *testing.T) {
-	xtesting.EqualText(t, string(mutant.WithGo121([]byte("// Package p does things.\npackage p\n"), "/src/p/p.go")), `
+	xtesting.EqualText(t, string(allele.WithGo121([]byte("// Package p does things.\npackage p\n"), "/src/p/p.go")), `
 		//go:build go1.21
 
 		//line /src/p/p.go:1
 		// Package p does things.
 		package p
 	`)
-	xtesting.EqualText(t, string(mutant.WithGo121([]byte("//go:build linux\n\npackage p\n"), "/src/p/p.go")), `
+	xtesting.EqualText(t, string(allele.WithGo121([]byte("//go:build linux\n\npackage p\n"), "/src/p/p.go")), `
 		//go:build (linux) && go1.21
 
 		package p
@@ -209,8 +209,8 @@ func TestEmbedTypeChecks(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				ms := mutant.Find(pkg.Fset, f, src, pkg.TypesInfo)
-				out, ok := mutant.Embed(pkg.Fset, f, src, pkg.TypesInfo, sequential(len(ms)))
+				ms := allele.Find(pkg.Fset, f, src, pkg.TypesInfo)
+				out, ok := allele.Embed(pkg.Fset, f, src, pkg.TypesInfo, sequential(len(ms)))
 				total += len(ok)
 				for _, e := range ok {
 					if e {
@@ -223,7 +223,7 @@ func TestEmbedTypeChecks(t *testing.T) {
 				}
 				files = append(files, g)
 			}
-			rt, err := parser.ParseFile(fset, "zz_mutant.go", mutant.Runtime(pkg.Name), 0)
+			rt, err := parser.ParseFile(fset, "zz_mutant.go", allele.Runtime(pkg.Name), 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -322,10 +322,10 @@ func main() {
 	if _, err := (&types.Config{Importer: stdImporter}).Check("main", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	ms := mutant.Find(fset, f, []byte(src), info)
-	out, _ := mutant.Embed(fset, f, []byte(src), info, offset(sequential(len(ms)), base))
+	ms := allele.Find(fset, f, []byte(src), info)
+	out, _ := allele.Embed(fset, f, []byte(src), info, offset(sequential(len(ms)), base))
 	dir := t.TempDir()
-	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.21\n"), "main.go": out, "runtime.go": mutant.Runtime("main")} {
+	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.21\n"), "main.go": out, "runtime.go": allele.Runtime("main")} {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -333,7 +333,7 @@ func main() {
 	reach := filepath.Join(dir, "reach")
 	cmd := exec.CommandContext(t.Context(), "go", "run", ".")
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), mutant.ReachEnvVar+"="+reach)
+	cmd.Env = append(os.Environ(), allele.ReachEnvVar+"="+reach)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
@@ -456,8 +456,8 @@ func g() bool { return true }
 	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	ms := mutant.Find(fset, f, []byte(src), info)
-	out, _ := mutant.Embed(fset, f, []byte(src), info, sequential(len(ms)))
+	ms := allele.Find(fset, f, []byte(src), info)
+	out, _ := allele.Embed(fset, f, []byte(src), info, sequential(len(ms)))
 	var b strings.Builder
 	for line := range strings.Lines(string(out)) {
 		if strings.Contains(line, "_mutCond(") {
@@ -543,8 +543,8 @@ func main() {
 	if _, err := (&types.Config{Importer: stdImporter}).Check("main", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	ms := mutant.Find(fset, f, []byte(src), info)
-	out, _ := mutant.Embed(fset, f, []byte(src), info, sequential(len(ms)))
+	ms := allele.Find(fset, f, []byte(src), info)
+	out, _ := allele.Embed(fset, f, []byte(src), info, sequential(len(ms)))
 	var cloned []string
 	for line := range strings.Lines(string(out)) {
 		if strings.HasPrefix(line, "func ") {
@@ -562,7 +562,7 @@ func main() {
 	`)
 
 	dir := t.TempDir()
-	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.21\n"), "main.go": out, "runtime.go": mutant.Runtime("main")} {
+	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.21\n"), "main.go": out, "runtime.go": allele.Runtime("main")} {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -582,7 +582,7 @@ func main() {
 	}
 	panics := func(mutantID int, arg string) string {
 		cmd := exec.CommandContext(t.Context(), bin, arg)
-		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, mutantID))
+		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", allele.EnvVar, mutantID))
 		out, _ := cmd.CombinedOutput()
 		for line := range strings.Lines(string(out)) {
 			if strings.Contains(line, "main.go:") {
@@ -599,7 +599,7 @@ func main() {
 	// tick's body is one site: deleting calls++ must take effect.
 	run := func(mutantID int) string {
 		cmd := exec.CommandContext(t.Context(), bin, "0")
-		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, mutantID))
+		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", allele.EnvVar, mutantID))
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatal(err)
@@ -661,16 +661,16 @@ func G(x int) error {
 	if _, err := conf.Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	ms := mutant.Find(fset, f, []byte(src), info)
+	ms := allele.Find(fset, f, []byte(src), info)
 	for _, m := range ms {
 		if _, err := parser.ParseFile(token.NewFileSet(), "p.go", m.Apply([]byte(src)), 0); err != nil {
 			t.Errorf("%v: %v", m, err)
 		}
 	}
-	out, _ := mutant.Embed(fset, f, []byte(src), info, sequential(len(ms)))
+	out, _ := allele.Embed(fset, f, []byte(src), info, sequential(len(ms)))
 	g := token.NewFileSet()
 	files := []*ast.File{}
-	for name, s := range map[string][]byte{"p.go": out, "zz_mutant.go": mutant.Runtime("p")} {
+	for name, s := range map[string][]byte{"p.go": out, "zz_mutant.go": allele.Runtime("p")} {
 		h, err := parser.ParseFile(g, name, s, 0)
 		if err != nil {
 			t.Fatalf("%s: %v\n%s", name, err, s)
@@ -707,7 +707,7 @@ func main() {
 }
 `
 	dir := t.TempDir()
-	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.25\n"), "main.go": []byte(src), "runtime.go": mutant.Runtime("main")} {
+	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.25\n"), "main.go": []byte(src), "runtime.go": allele.Runtime("main")} {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -715,7 +715,7 @@ func main() {
 	reach := filepath.Join(dir, "reach")
 	cmd := exec.CommandContext(t.Context(), "go", "run", ".")
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), mutant.ReachEnvVar+"="+reach)
+	cmd.Env = append(os.Environ(), allele.ReachEnvVar+"="+reach)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
@@ -758,7 +758,7 @@ func main() {
 }
 `
 	dir := t.TempDir()
-	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.25\n"), "main.go": []byte(src), "runtime.go": mutant.Runtime("main")} {
+	for name, content := range map[string][]byte{"go.mod": []byte("module m\n\ngo 1.25\n"), "main.go": []byte(src), "runtime.go": allele.Runtime("main")} {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -766,7 +766,7 @@ func main() {
 	reach := filepath.Join(dir, "reach")
 	cmd := exec.CommandContext(t.Context(), "go", "run", ".")
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), mutant.ReachEnvVar+"="+reach)
+	cmd.Env = append(os.Environ(), allele.ReachEnvVar+"="+reach)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}

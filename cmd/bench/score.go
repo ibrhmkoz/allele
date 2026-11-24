@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ibrhmkoz/go-kit/mutant/adequacy"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
+	"github.com/ibrhmkoz/allele/adequacy"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
 // The metric's frozen constants. T0 is the naive exhaustive runner's time

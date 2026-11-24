@@ -9,21 +9,21 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/mutant/killmatrix"
-	"github.com/ibrhmkoz/go-kit/xtesting"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/killmatrix"
 )
 
-func at(line int, mutated string, equivalent string) mutant.Mutant {
-	return mutant.Mutant{Pos: token.Position{Line: line}, Mutated: mutated, Equivalent: equivalent}
+func at(line int, mutated string, equivalent string) allele.Mutant {
+	return allele.Mutant{Pos: token.Position{Line: line}, Mutated: mutated, Equivalent: equivalent}
 }
 
-func arid(line int, mutated string) mutant.Mutant {
-	return mutant.Mutant{Pos: token.Position{Line: line}, Mutated: mutated, Arid: "logging"}
+func arid(line int, mutated string) allele.Mutant {
+	return allele.Mutant{Pos: token.Position{Line: line}, Mutated: mutated, Arid: "logging"}
 }
 
 func TestChoose(t *testing.T) {
-	ms := []mutant.Mutant{
+	ms := []allele.Mutant{
 		at(3, "a", ""), at(3, "b", ""), at(3, "c", ""),
 		at(4, "d", "smallest value compared"), at(4, "e", ""),
 		at(5, "f", "smallest value compared"),
@@ -53,10 +53,10 @@ func TestReport(t *testing.T) {
 	}
 	m := &killmatrix.Matrix{
 		Mutants: []killmatrix.Mutant{
-			{ID: 1, Path: "/src/p/version.go", File: "version.go", Line: 4, Col: 12, Operator: mutant.ROR, Original: "len(v) > 128", Mutated: "len(v) >= 128", Compiled: true},
-			{ID: 2, Path: "/src/p/version.go", File: "version.go", Line: 4, Col: 12, Operator: mutant.ROR, Original: "len(v) > 128", Mutated: "len(v) < 128", Compiled: true},
-			{ID: 3, Path: "/src/p/version.go", File: "version.go", Line: 5, Col: 3, Operator: mutant.SDL, Original: "return true", Mutated: "", Compiled: true},
-			{ID: 4, Path: "/src/p/version.go", File: "version.go", Line: 7, Col: 9, Operator: mutant.COR, Original: "false", Mutated: "true", Compiled: false},
+			{ID: 1, Path: "/src/p/version.go", File: "version.go", Line: 4, Col: 12, Operator: allele.ROR, Original: "len(v) > 128", Mutated: "len(v) >= 128", Compiled: true},
+			{ID: 2, Path: "/src/p/version.go", File: "version.go", Line: 4, Col: 12, Operator: allele.ROR, Original: "len(v) > 128", Mutated: "len(v) < 128", Compiled: true},
+			{ID: 3, Path: "/src/p/version.go", File: "version.go", Line: 5, Col: 3, Operator: allele.SDL, Original: "return true", Mutated: "", Compiled: true},
+			{ID: 4, Path: "/src/p/version.go", File: "version.go", Line: 7, Col: 9, Operator: allele.COR, Original: "false", Mutated: "true", Compiled: false},
 		},
 		Results: []killmatrix.Result{
 			{MutantID: 1, TestID: 1, Status: killmatrix.Survived},
@@ -99,8 +99,8 @@ diff --git a/gone.go b/gone.go
 func TestReportJSON(t *testing.T) {
 	m := &killmatrix.Matrix{
 		Mutants: []killmatrix.Mutant{
-			{ID: 1, Path: "/src/p/version.go", Line: 4, Col: 12, Operator: mutant.ROR, Original: "len(v) > 128", Mutated: "len(v) >= 128", Compiled: true},
-			{ID: 2, Path: "/src/p/version.go", Line: 4, Col: 12, Operator: mutant.ROR, Original: "len(v) > 128", Mutated: "len(v) < 128", Compiled: true},
+			{ID: 1, Path: "/src/p/version.go", Line: 4, Col: 12, Operator: allele.ROR, Original: "len(v) > 128", Mutated: "len(v) >= 128", Compiled: true},
+			{ID: 2, Path: "/src/p/version.go", Line: 4, Col: 12, Operator: allele.ROR, Original: "len(v) > 128", Mutated: "len(v) < 128", Compiled: true},
 		},
 		Results: []killmatrix.Result{
 			{MutantID: 1, TestID: 1, Status: killmatrix.Survived},
@@ -117,7 +117,7 @@ func TestReportJSON(t *testing.T) {
 // TestPick tells the story of one line's mutants as the baseline sees
 // more of them.
 func TestPick(t *testing.T) {
-	c := func(op mutant.Operator, original, mutated string, reached, infected int) killmatrix.Candidate {
+	c := func(op allele.Operator, original, mutated string, reached, infected int) killmatrix.Candidate {
 		return killmatrix.Candidate{Path: "/src/p.go", Line: 7, Operator: op, Original: original, Mutated: mutated, Reached: reached, Infected: infected}
 	}
 	show := func(cs []killmatrix.Candidate) string {
@@ -126,10 +126,10 @@ func TestPick(t *testing.T) {
 	}
 	// Every test that reaches the line infects every mutant: the fewest win.
 	cs := []killmatrix.Candidate{
-		c(mutant.ROR, "n > 0", "n >= 0", 4, 3),
-		c(mutant.ROR, "n > 0", "n < 0", 4, 1),
-		c(mutant.COR, "n > 0 && ok", "true", 4, 2),
-		c(mutant.COR, "ok", "false", 4, 4),
+		c(allele.ROR, "n > 0", "n >= 0", 4, 3),
+		c(allele.ROR, "n > 0", "n < 0", 4, 1),
+		c(allele.COR, "n > 0 && ok", "true", 4, 2),
+		c(allele.COR, "ok", "false", 4, 4),
 	}
 	xtesting.EqualText(t, show(cs), "ROR n > 0→n < 0")
 	// A mutant no test infects shows only when it is an untaken branch.
@@ -141,9 +141,9 @@ func TestPick(t *testing.T) {
 	cs[3].Infected, cs[3].Reached = 0, 2
 	xtesting.EqualText(t, show(cs), "COR ok→false")
 	// Only a condition forced true or false counts as an untaken branch.
-	cs[3].Operator = mutant.ROR
+	cs[3].Operator = allele.ROR
 	xtesting.EqualText(t, show(cs), "COR n > 0 && ok→true")
-	cs[3].Operator = mutant.COR
+	cs[3].Operator = allele.COR
 	// A nil check forced either way is mostly a defensive path.
 	cs[2].Original, cs[3].Original = "err != nil", "p == nil"
 	xtesting.EqualText(t, show(cs), "ROR n > 0→n < 0")
@@ -186,12 +186,12 @@ func TestReportOrderingAndFallbacks(t *testing.T) {
 	// Deliberately unsorted by verdict rank, path, and line.
 	m := &killmatrix.Matrix{
 		Mutants: []killmatrix.Mutant{
-			{ID: 1, Path: "/src/b.go", Line: 1, Col: 6, Operator: mutant.ROR, Original: "c > 0", Mutated: "c >= 0", Compiled: true},
-			{ID: 2, Path: "/src/a.go", Line: 4, Col: 6, Operator: mutant.ROR, Original: "b > 0", Mutated: "b >= 0", Compiled: true},
-			{ID: 3, Path: "/src/a.go", Line: 1, Col: 6, Operator: mutant.ROR, Original: "a > 0", Mutated: "a >= 0", Compiled: true},
-			{ID: 4, Path: "/src/missing.go", Line: 1, Col: 1, Operator: mutant.SDL, Original: "x++", Mutated: "", Compiled: true},
-			{ID: 5, Path: "/src/b.go", Line: 2, Col: 2, Operator: mutant.SDL, Original: "return 3", Mutated: "", Compiled: true},
-			{ID: 6, Path: "/src/a.go", Line: 2, Col: 2, Operator: mutant.SDL, Original: "return 1", Mutated: "", Compiled: false},
+			{ID: 1, Path: "/src/b.go", Line: 1, Col: 6, Operator: allele.ROR, Original: "c > 0", Mutated: "c >= 0", Compiled: true},
+			{ID: 2, Path: "/src/a.go", Line: 4, Col: 6, Operator: allele.ROR, Original: "b > 0", Mutated: "b >= 0", Compiled: true},
+			{ID: 3, Path: "/src/a.go", Line: 1, Col: 6, Operator: allele.ROR, Original: "a > 0", Mutated: "a >= 0", Compiled: true},
+			{ID: 4, Path: "/src/missing.go", Line: 1, Col: 1, Operator: allele.SDL, Original: "x++", Mutated: "", Compiled: true},
+			{ID: 5, Path: "/src/b.go", Line: 2, Col: 2, Operator: allele.SDL, Original: "return 3", Mutated: "", Compiled: true},
+			{ID: 6, Path: "/src/a.go", Line: 2, Col: 2, Operator: allele.SDL, Original: "return 1", Mutated: "", Compiled: false},
 		},
 		Results: []killmatrix.Result{
 			{MutantID: 1, TestID: 1, Status: killmatrix.Timeout},

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/ibrhmkoz/go-kit/mutant/fingerprint"
+	"github.com/ibrhmkoz/allele/fingerprint"
 )
 
 const cacheFormatVersion = "v1"
@@ -59,22 +59,22 @@ func loadCache(cacheDir, pkgPath string) (cacheEntry, bool) {
 func saveCache(cacheDir, pkgPath string, e cacheEntry) {
 	// Best-effort persistence: filesystem errors drop the cache write rather
 	// than failing the run.
-	if err := os.MkdirAll(cacheDir, 0o700); err != nil { //mut:ignore
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil { //allele:ignore
 		return
 	}
 	data, err := json.Marshal(e)
-	if err != nil { //mut:ignore
+	if err != nil { //allele:ignore
 		return
 	}
 	tmp, err := os.CreateTemp(cacheDir, "cache-*.tmp")
-	if err != nil { //mut:ignore
+	if err != nil { //allele:ignore
 		return
 	}
 	name := tmp.Name()
 	_, werr := tmp.Write(data)
 	cerr := tmp.Close()
-	if werr != nil || cerr != nil { //mut:ignore
-		_ = os.Remove(name) //mut:ignore
+	if werr != nil || cerr != nil { //allele:ignore
+		_ = os.Remove(name) //allele:ignore
 		return
 	}
 	_ = os.Rename(name, cachePath(cacheDir, pkgPath))
@@ -88,7 +88,7 @@ func (r Runner) snapshot(p fingerprint.Print, mutants []Mutant) pkgSnapshot {
 	// entry holds one per line, without it every candidate.
 	_, _ = fmt.Fprintf(prod, "%s\x00%s\x00%v:%v:%v:%v:%v:%d:%g:%d:%v\x00",
 		cacheFormatVersion, p.Shared,
-		r.Schemata, r.Select, r.Infect, r.FailFast, r.Confirm, r.BaselineRuns, r.TimeoutFactor, r.TimeoutPad, r.Pick != nil) //mut:ignore any boolean that differs keeps the two apart
+		r.Schemata, r.Select, r.Infect, r.FailFast, r.Confirm, r.BaselineRuns, r.TimeoutFactor, r.TimeoutPad, r.Pick != nil) //allele:ignore any boolean that differs keeps the two apart
 	prodKey := hex.EncodeToString(prod.Sum(nil))
 	full := sha256.New()
 	_, _ = full.Write([]byte(prodKey))

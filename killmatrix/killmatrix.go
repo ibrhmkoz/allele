@@ -29,8 +29,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/ibrhmkoz/go-kit/mutant"
-	"github.com/ibrhmkoz/go-kit/mutant/fingerprint"
+	"github.com/ibrhmkoz/allele"
+	"github.com/ibrhmkoz/allele/fingerprint"
 )
 
 // Matrix holds one row per mutant, one per test and one per mutant and test
@@ -49,11 +49,11 @@ type Mutant struct {
 	File     string          `json:"file"`
 	Line     int             `json:"line"`
 	Col      int             `json:"col"`
-	Operator mutant.Operator `json:"operator"`
+	Operator allele.Operator `json:"operator"`
 	Node     string          `json:"node"`
 	Original string          `json:"original"`
 	Mutated  string          `json:"mutated"`
-	// Equivalent, Repaired and Arid are as in mutant.Mutant.
+	// Equivalent, Repaired and Arid are as in allele.Mutant.
 	Equivalent string `json:"equivalent"`
 	Repaired   bool   `json:"repaired"`
 	Arid       string `json:"arid"`
@@ -67,7 +67,7 @@ type Mutant struct {
 	// are meant to be shared.
 	Path string `json:"-"`
 
-	m mutant.Mutant
+	m allele.Mutant
 }
 
 // TestState says whether a test is in the matrix. Flaky and failing tests
@@ -184,7 +184,7 @@ type Runner struct {
 	// Log, if set, receives a line per package and per mutant.
 	Log io.Writer
 	// Schemata builds each package once with every mutant it can embed
-	// (mutant.Embed) and picks one per run; the rest build on their own.
+	// (allele.Embed) and picks one per run; the rest build on their own.
 	Schemata bool
 	// Select, with Schemata, runs a top-level test against a mutant only
 	// if, in the baseline, the test reached a site in the function that
@@ -195,7 +195,7 @@ type Runner struct {
 	Select bool
 	// Choose, if set, picks by index which of a file's mutants to run;
 	// path is the file's absolute path. The rest are left out entirely.
-	Choose func(path string, ms []mutant.Mutant) []int
+	Choose func(path string, ms []allele.Mutant) []int
 	// Pick, if set, keeps one mutant of each line among those Choose
 	// returned, once the baseline has run: it is given the line's
 	// candidates, in source order, and returns the index of the one to
@@ -233,15 +233,15 @@ type Runner struct {
 	sem chan struct{}
 }
 
-func (r Runner) acquire() { r.sem <- struct{}{} } //mut:ignore
+func (r Runner) acquire() { r.sem <- struct{}{} } //allele:ignore
 
-func (r Runner) release() { <-r.sem } //mut:ignore
+func (r Runner) release() { <-r.sem } //allele:ignore
 
 // Run computes the kill matrix of the packages that patterns match in dir.
 func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matrix, error) {
 	r = r.withDefaults()
 	// Cost-only skip when CacheDir is empty (loadCache/saveCache no-op on "").
-	useCache := r.CacheDir != "" && r.FailFast //mut:ignore
+	useCache := r.CacheDir != "" && r.FailFast //allele:ignore
 	cfg := &packages.Config{
 		Context: ctx,
 		Dir:     dir,
@@ -254,10 +254,10 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 	slices.SortFunc(pkgs, func(a, b *packages.Package) int { return cmp.Compare(a.PkgPath, b.PkgPath) })
 
 	var prints map[string]fingerprint.Print
-	if useCache { //mut:ignore loading prints the cache does not use costs time, not verdicts
+	if useCache { //allele:ignore loading prints the cache does not use costs time, not verdicts
 		// The packages loaded above already failed on what fails here.
-		if prints, err = fingerprint.Load(ctx, dir, patterns...); err != nil { //mut:ignore
-			return nil, err //mut:ignore
+		if prints, err = fingerprint.Load(ctx, dir, patterns...); err != nil { //allele:ignore
+			return nil, err //allele:ignore
 		}
 	}
 
@@ -274,8 +274,8 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 	}
 
 	// Throttle total concurrent build/test subprocesses across packages.
-	r.sem = make(chan struct{}, r.Workers)  //mut:ignore
-	pkgWorkers := min(len(pkgs), r.Workers) //mut:ignore
+	r.sem = make(chan struct{}, r.Workers)  //allele:ignore
+	pkgWorkers := min(len(pkgs), r.Workers) //allele:ignore
 	subs := make([]*Matrix, len(pkgs))
 	rechecks := make([]func() error, len(pkgs))
 	errs := make([]error, len(pkgs))
@@ -378,7 +378,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 			return err
 		}
 		s := source{name: name, src: src, file: f}
-		found := mutant.Find(pkg.Fset, f, src, pkg.TypesInfo)
+		found := allele.Find(pkg.Fset, f, src, pkg.TypesInfo)
 		s.find = make([]int, len(found))
 		chosen := make([]bool, len(found))
 		if r.Choose == nil {
@@ -428,9 +428,9 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	reused := make([]bool, len(mutants))
 	reusedKillers := map[int]string{}
 	reusedResults := make([][]Result, len(mutants))
-	if useCache { //mut:ignore
+	if useCache { //allele:ignore
 		snap = r.snapshot(fp, mutants)
-		if entry, ok := loadCache(r.CacheDir, pkg.PkgPath); ok { //mut:ignore
+		if entry, ok := loadCache(r.CacheDir, pkg.PkgPath); ok { //allele:ignore
 			byKey := make(map[string]cachedMutant, len(entry.Mutants))
 			for _, cm := range entry.Mutants {
 				byKey[cm.Key] = cm
@@ -483,7 +483,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		if r.Pick != nil {
 			skip = make([]bool, len(mutants))
 		}
-		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants, skip); err != nil { //mut:ignore
+		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants, skip); err != nil { //allele:ignore
 			return err
 		}
 	}
@@ -566,7 +566,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		// Only tests that pass run against mutants, so only theirs count.
 		var passing []map[int]bool
 		for i, ids := range baseIDs {
-			if slices.ContainsFunc(baseTests[i], func(t Test) bool { return t.State == OK }) { //mut:ignore no other state sorts at or after "ok"
+			if slices.ContainsFunc(baseTests[i], func(t Test) bool { return t.State == OK }) { //allele:ignore no other state sorts at or after "ok"
 				passing = append(passing, ids)
 			}
 		}
@@ -629,7 +629,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 			saveCache(r.CacheDir, pkg.PkgPath, buildCacheEntry(snap, m, reusedKillers))
 		}
 		// recheck only returns ctx.Err() on cancellation.
-		return err //mut:ignore
+		return err //allele:ignore
 	}
 	return nil
 }
@@ -641,7 +641,7 @@ func picks(pick func([]Candidate) int, mutants []Mutant, ids []map[int]bool, rec
 	reached, infected := map[int]int{}, map[int]int{}
 	for _, top := range ids {
 		for id := range top {
-			if id > 0 { //mut:ignore no mark is 0
+			if id > 0 { //allele:ignore no mark is 0
 				reached[id]++
 			} else {
 				infected[-id]++
@@ -707,7 +707,7 @@ func (r Runner) recheck(ctx context.Context, dir, bin string, tests []Test, resu
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
-				ran[top] = p //mut:ignore caching recheck per top-level test changes cost, not verdicts
+				ran[top] = p //allele:ignore caching recheck per top-level test changes cost, not verdicts
 			}
 			res.Status = FlakyKill
 			if p.original.status(t.Name) == Survived && p.mutant.status(t.Name) == Killed {
@@ -740,7 +740,7 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 					ids[j] = mutants[k].ID
 				}
 			}
-			out, in := mutant.Embed(pkg.Fset, s.file, s.src, pkg.TypesInfo, ids)
+			out, in := allele.Embed(pkg.Fset, s.file, s.src, pkg.TypesInfo, ids)
 			changed := false
 			for j, k := range s.find {
 				if k >= 0 {
@@ -752,7 +752,7 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 				continue
 			}
 			if old {
-				out = mutant.WithGo121(out, s.name)
+				out = allele.WithGo121(out, s.name)
 			}
 			path := filepath.Join(work, filepath.Base(s.name))
 			if err := os.WriteFile(path, out, 0o600); err != nil {
@@ -761,7 +761,7 @@ func (r Runner) buildSchema(ctx context.Context, pkg *packages.Package, dir, tmp
 			replace[s.name] = path
 		}
 		rt := filepath.Join(work, "zz_mutant_runtime.go")
-		if err := os.WriteFile(rt, mutant.Runtime(pkg.Name), 0o600); err != nil {
+		if err := os.WriteFile(rt, allele.Runtime(pkg.Name), 0o600); err != nil {
 			return "", err
 		}
 		replace[filepath.Join(dir, "zz_mutant_runtime.go")] = rt
@@ -878,7 +878,7 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 			results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
 			continue
 		}
-		if top := topOf(t.Name); top != ran { //mut:ignore caching top-level runs across subtests changes cost, not verdicts
+		if top := topOf(t.Name); top != ran { //allele:ignore caching top-level runs across subtests changes cost, not verdicts
 			limit := r.limit(t.BaselineMS)
 			rep, ran = r.run(ctx, dir, bin, top, limit, mu.ID, ""), top
 			if ctx.Err() != nil {
@@ -887,13 +887,13 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		}
 		status := rep.status(t.Name)
 		if status == Killed && r.Confirm {
-			if ranAgain != ran { //mut:ignore caching confirm runs across subtests changes cost, not verdicts
+			if ranAgain != ran { //allele:ignore caching confirm runs across subtests changes cost, not verdicts
 				limit := r.limit(t.BaselineMS)
 				again, ranAgain = r.run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
 				original = report{ok: true}
 				// Cost-only skip: when again passed, every leaf becomes FlakyKill
 				// and original is never read, so mutating this guard cannot change verdicts.
-				if mu.Schema && !again.ok { //mut:ignore
+				if mu.Schema && !again.ok { //allele:ignore
 					original = r.run(ctx, dir, bin, ran, limit, 0, "")
 				}
 				if ctx.Err() != nil {
@@ -961,7 +961,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		groups[idx].leaves = append(groups[idx].leaves, t)
 	}
 	// Fastest first: the order changes how many tests run, not verdicts.
-	slices.SortStableFunc(groups, func(a, b topGroup) int { //mut:ignore
+	slices.SortStableFunc(groups, func(a, b topGroup) int { //allele:ignore
 		return cmp.Or(cmp.Compare(a.baseMS, b.baseMS), cmp.Compare(a.name, b.name))
 	})
 
@@ -1044,14 +1044,14 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		var startedUnfinished []topGroup
 		var rest []topGroup
 		for _, g := range unfinished {
-			if rep.started[g.name] { //mut:ignore falling back to single runs changes cost, not verdicts
+			if rep.started[g.name] { //allele:ignore falling back to single runs changes cost, not verdicts
 				startedUnfinished = append(startedUnfinished, g)
 			} else {
 				rest = append(rest, g)
 			}
 		}
 
-		if len(startedUnfinished) == 1 { //mut:ignore falling back to single runs changes cost, not verdicts
+		if len(startedUnfinished) == 1 { //allele:ignore falling back to single runs changes cost, not verdicts
 			g := startedUnfinished[0]
 			if rep.timedOut {
 				if r.Confirm {
@@ -1062,7 +1062,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 					if ctx.Err() != nil {
 						return nil, ctx.Err()
 					}
-					if !again.timedOut { //mut:ignore delegating a confirmed timeout to recordSingle changes cost, not verdicts
+					if !again.timedOut { //allele:ignore delegating a confirmed timeout to recordSingle changes cost, not verdicts
 						stop, err := r.recordSingle(ctx, dir, bin, mu, g, again, &results)
 						if err != nil {
 							return nil, err
@@ -1125,19 +1125,19 @@ func makeBatches(groups []topGroup) [][]topGroup {
 	var batches [][]topGroup
 	var cur []topGroup
 	flush := func() {
-		if len(cur) > 0 { //mut:ignore empty batches are no-ops and change cost, not verdicts
+		if len(cur) > 0 { //allele:ignore empty batches are no-ops and change cost, not verdicts
 			batches = append(batches, cur)
 			cur = nil
 		}
 	}
 	for _, g := range groups {
-		if g.baseMS >= fastTestMS { //mut:ignore batching threshold changes cost, not verdicts
-			flush() //mut:ignore batch boundary order changes cost, not verdicts
+		if g.baseMS >= fastTestMS { //allele:ignore batching threshold changes cost, not verdicts
+			flush() //allele:ignore batch boundary order changes cost, not verdicts
 			batches = append(batches, []topGroup{g})
 			continue
 		}
-		if len(cur) >= maxBatchLen { //mut:ignore a batch's length changes its cost, not verdicts
-			flush() //mut:ignore a batch's length changes its cost, not verdicts
+		if len(cur) >= maxBatchLen { //allele:ignore a batch's length changes its cost, not verdicts
+			flush() //allele:ignore a batch's length changes its cost, not verdicts
 		}
 		cur = append(cur, g)
 	}
@@ -1173,19 +1173,19 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 	for _, t := range g.leaves {
 		status := rep.status(t.Name)
 		if status == Killed && r.Confirm {
-			if !confirmed { //mut:ignore caching confirm runs across subtests changes cost, not verdicts
+			if !confirmed { //allele:ignore caching confirm runs across subtests changes cost, not verdicts
 				limit := r.limit(g.baseMS)
 				again = r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 				original = report{ok: true}
 				// Cost-only skip: when again passed, every leaf becomes FlakyKill
 				// and original is never read, so mutating this guard cannot change verdicts.
-				if mu.Schema && !again.ok { //mut:ignore
+				if mu.Schema && !again.ok { //allele:ignore
 					original = r.run(ctx, dir, bin, g.name, limit, 0, "")
 				}
 				if ctx.Err() != nil {
 					return false, ctx.Err()
 				}
-				confirmed = true //mut:ignore caching confirm runs across subtests changes cost, not verdicts
+				confirmed = true //allele:ignore caching confirm runs across subtests changes cost, not verdicts
 			}
 			switch {
 			case again.status(t.Name) != Killed:
@@ -1373,7 +1373,7 @@ func runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Du
 	pattern := "^(" + strings.Join(quoted, "|") + ")$"
 	cmd := command(ctx, bin, append(testArgs(pattern, limit), "-test.failfast")...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", allele.EnvVar, id))
 	start := time.Now()
 	out, err := output(cmd)
 	return (&report{
@@ -1407,9 +1407,9 @@ func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int,
 	}
 	cmd := command(ctx, bin, testArgs("^"+top+"$", limit)...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", mutant.EnvVar, id))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", allele.EnvVar, id))
 	if reach != "" {
-		cmd.Env = append(cmd.Env, mutant.ReachEnvVar+"="+reach)
+		cmd.Env = append(cmd.Env, allele.ReachEnvVar+"="+reach)
 	}
 	start := time.Now()
 	out, err := output(cmd)
