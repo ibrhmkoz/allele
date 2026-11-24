@@ -270,7 +270,7 @@ func showColors(s string) string {
 }
 
 // TestDemo fails on purpose to show what a failing diff looks like.
-// Run it with: make demo
+// Run it with XTESTING_DEMO=1 go test ./pkg/xtesting -run TestDemo.
 func TestDemo(t *testing.T) {
 	if os.Getenv("XTESTING_DEMO") != "1" {
 		t.Skip("set XTESTING_DEMO=1 to see a failing diff")

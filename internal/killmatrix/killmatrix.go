@@ -104,9 +104,9 @@ const (
 	// Timeout is not a kill: a mutant that only slows a test down may
 	// still be equivalent.
 	Timeout Status = "timeout"
-	// FlakyKill, with Confirm, is a test that failed against the mutant
-	// but passed when run against it again, or passed against it, or
-	// failed against the original code, once run alone. It is not a kill.
+	// FlakyKill is a test that, with Confirm, failed against the mutant
+	// but passed when run against it again, or passed against it or
+	// failed against the original code once run alone. It is not a kill.
 	FlakyKill Status = "flaky"
 	// recheck marks a kill that Confirm could not tell from load, until
 	// the runner checks it alone.

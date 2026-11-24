@@ -144,7 +144,7 @@ type Outcome int
 const (
 	Pass Outcome = iota
 	Fail
-	// Timeout: the run stopped at its limit before the test reported.
+	// Timeout means the run stopped at its limit before the test reported.
 	Timeout
 )
 

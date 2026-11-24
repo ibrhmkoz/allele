@@ -4,14 +4,36 @@ version: "2"
 linters:
   enable:
     - errorlint
+    - gocheckcompilerdirectives
+    - godoclint
+    - godot
     - misspell
     - modernize
+    - revive
     - unconvert
   settings:
     staticcheck:
       # staticcheck's defaults plus ST1000 and ST1020-ST1022: every package has a "Package x ..." comment,
       # and a doc comment, where there is one, starts with the name it documents.
       checks: ["all", "-ST1003", "-ST1016"]
+    godoclint:
+      default: basic
+      enable:
+        - no-unused-link
+    revive:
+      rules:
+        # Catches "Name:" / "Name," and grouped const/var doc comments that staticcheck ST1022 and godoclint miss.
+        - name: exported
+          arguments:
+            - disable-stuttering-check
+        - name: package-comments
+        - name: comment-spacings
+  exclusions:
+    rules:
+      # Do not require comments on exported identifiers; check format only where a comment exists.
+      - linters:
+          - revive
+        text: '^exported: exported .+ should have comment'
 formatters:
   enable:
     - gofmt
