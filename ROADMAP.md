@@ -200,6 +200,12 @@ would cover them.
 
 Kept so they are not retried without new evidence.
 
+- **Sharing the cores among test processes** (`GOMAXPROCS` =
+  cores / Workers, branch `share-cores`): one sjson mutant's random-data
+  test ran 2.5 s instead of 1.1 s, its schedulers and collector fighting
+  the seven other processes, and sjson alone ran 14% faster. Over the
+  corpus M v2 1.3731 → 1.3840 (+0.8%, noise). Not merged: a test that
+  expects parallel speedup would fail its baseline and drop out.
 - **A second, narrow schema for R2b's mutant runs** (only the kept
   mutants, after the baseline needed them all): M 1.3598 against 1.3618
   without it; it costs a build per package. Not merged.
