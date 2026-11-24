@@ -603,7 +603,34 @@ func _mutWrite(key int) {
 	_, _ = _mutReach.Write(append(strconv.AppendInt(make([]byte, 0, 21), int64(key), 10), '\n'))
 }
 
+// _mutSet reports whether slot i of _mutSeen is set, inline: a site
+// evaluated millions of times then pays one load per mutant, not a call.
+// A baseline spends most of its time there (sjson: 13× the plain run).
+// Slots past the table read as unset, so ids past it take the slow paths,
+// which keep every check.
+func _mutSet(i int) bool { return uint(i) < uint(len(_mutSeen)) && _mutSeen[i].Load() }
+
+// _mutQuiet sets the slots that never need writing: id 0's, an operator
+// left as written, and, with nothing recording reach, all of them, so
+// that a mutant run's sites skip marking at the first load.
+var _mutQuiet = func() bool {
+	n := 2
+	if _mutReach == nil {
+		n = len(_mutSeen)
+	}
+	for i := 0; i < n; i++ {
+		_mutSeen[i].Store(true)
+	}
+	return true
+}()
+
 func _mutMark(id int) {
+	if i := uint(2 * id); i >= uint(len(_mutSeen)) || !_mutSeen[i].Load() {
+		_mutMarkSlow(id)
+	}
+}
+
+func _mutMarkSlow(id int) {
 	if _mutReach != nil && id != 0 && _mutFirst(id) {
 		_mutWrite(id)
 	}
@@ -612,35 +639,52 @@ func _mutMark(id int) {
 // _mutInfect records that mutant id would have changed a value here: a
 // test that reaches a mutant's site and never infects it cannot kill it.
 func _mutInfect(id int) {
+	if i := uint(2*id + 1); i >= uint(len(_mutSeen)) || !_mutSeen[i].Load() {
+		_mutInfectSlow(id)
+	}
+}
+
+func _mutInfectSlow(id int) {
 	if _mutReach != nil && id != 0 && _mutFirst(-id) {
 		_mutWrite(-id)
 	}
 }
 
-// _mutInfected reports whether mutant id is already known to infect, so
-// that hot loops stop comparing once every mutant of a site has.
-func _mutInfected(id int) bool {
-	if i := 2*id + 1; i < len(_mutSeen) {
-		return _mutSeen[i].Load()
-	}
-	_, ok := _mutSeenRest.Load(-id)
-	return ok
-}
+// _mutInfected reports whether mutant id is known to infect, so that hot
+// loops stop comparing once every mutant of a site has. An id past the
+// table never reads as known: its site keeps comparing, which costs time
+// and changes no mark.
+func _mutInfected(id int) bool { return _mutSet(2*id + 1) }
 
 // _mutInfectAll marks every mutant of a site whose change cannot be told
 // apart without running it.
 func _mutInfectAll(ids []int) {
 	if _mutReach != nil {
 		for _, id := range ids {
-			_mutInfect(id)
+			if !_mutSet(2*id + 1) {
+				_mutInfectSlow(id)
+			}
 		}
 	}
 }
 
+// _mutMarkAll marks a site's mutants, in order: once the last is marked
+// all are, so a site run again costs one load, not one per mutant.
 func _mutMarkAll(ids []int) {
-	if _mutReach != nil {
-		for _, id := range ids {
-			_mutMark(id)
+	if _mutReach == nil {
+		return
+	}
+	for k := len(ids) - 1; k >= 0; k-- {
+		if ids[k] != 0 {
+			if _mutSet(2 * ids[k]) {
+				return
+			}
+			break
+		}
+	}
+	for _, id := range ids {
+		if !_mutSet(2 * id) {
+			_mutMarkSlow(id)
 		}
 	}
 }
@@ -655,8 +699,12 @@ func _mutOff(lo, hi int) bool {
 
 // _mutOn guards a deletable statement: deleting one that runs infects.
 func _mutOn(id int) bool {
-	_mutMark(id)
-	_mutInfect(id)
+	if !_mutSet(2 * id) {
+		_mutMarkSlow(id)
+	}
+	if !_mutSet(2*id + 1) {
+		_mutInfectSlow(id)
+	}
 	return _mutIs(id)
 }
 
@@ -686,7 +734,9 @@ func _mutOrd[T cmp.Ordered](x, y T, op int, ids [6]int) bool {
 		want := _mutOrdOp(x, y, op)
 		for alt, id := range ids {
 			if id != 0 && !_mutInfected(id) && _mutOrdOp(x, y, alt) != want {
-				_mutInfect(id)
+				if !_mutSet(2*id + 1) {
+					_mutInfectSlow(id)
+				}
 			}
 		}
 	}
@@ -736,7 +786,9 @@ func _mutArith[T _mutInteger](x, y T, op int, ids [5]int) T {
 			want := _mutArithOp(x, y, op)
 			for alt, id := range ids {
 				if id != 0 && !_mutInfected(id) && (y == 0 && divides(alt) || _mutArithOp(x, y, alt) != want) {
-					_mutInfect(id)
+					if !_mutSet(2*id + 1) {
+						_mutInfectSlow(id)
+					}
 				}
 			}
 		}
@@ -769,7 +821,9 @@ func _mutArithF[T _mutFloat](x, y T, op int, ids [5]int) T {
 				continue
 			}
 			if got := _mutArithFOp(x, y, alt); got != want || 1/got != 1/want {
-				_mutInfect(id)
+				if !_mutSet(2*id + 1) {
+					_mutInfectSlow(id)
+				}
 			}
 		}
 	}
@@ -793,34 +847,46 @@ func _mutArithFOp[T _mutFloat](x, y T, op int) T {
 // rather than called. With x true the mutant skips y: infected unless y is
 // pure and true.
 func _mutAnd(x bool, y func() bool, id int, pure bool) bool {
-	_mutMark(id)
+	if !_mutSet(2 * id) {
+		_mutMarkSlow(id)
+	}
 	if _mutIs(id) {
 		return x || y()
 	}
 	if !x {
-		_mutInfect(id)
+		if !_mutSet(2*id + 1) {
+			_mutInfectSlow(id)
+		}
 		return false
 	}
 	v := y()
 	if !v || !pure {
-		_mutInfect(id)
+		if !_mutSet(2*id + 1) {
+			_mutInfectSlow(id)
+		}
 	}
 	return v
 }
 
 // _mutOr is _mutAnd's mirror: x || y(), or x && y() for mutant id.
 func _mutOr(x bool, y func() bool, id int, pure bool) bool {
-	_mutMark(id)
+	if !_mutSet(2 * id) {
+		_mutMarkSlow(id)
+	}
 	if _mutIs(id) {
 		return x && y()
 	}
 	if x {
-		_mutInfect(id)
+		if !_mutSet(2*id + 1) {
+			_mutInfectSlow(id)
+		}
 		return true
 	}
 	v := y()
 	if v || !pure {
-		_mutInfect(id)
+		if !_mutSet(2*id + 1) {
+			_mutInfectSlow(id)
+		}
 	}
 	return v
 }
@@ -828,8 +894,12 @@ func _mutOr(x bool, y func() bool, id int, pure bool) bool {
 // _mutCond is the condition c, or true for mutant t and false for f: both
 // skip c, so they infect unless c is pure and has their value.
 func _mutCond(c func() bool, t, f int, pure bool) bool {
-	_mutMark(t)
-	_mutMark(f)
+	if !_mutSet(2 * t) {
+		_mutMarkSlow(t)
+	}
+	if !_mutSet(2 * f) {
+		_mutMarkSlow(f)
+	}
 	switch {
 	case _mutIs(t):
 		return true
@@ -838,10 +908,14 @@ func _mutCond(c func() bool, t, f int, pure bool) bool {
 	}
 	v := c()
 	if v || !pure {
-		_mutInfect(f)
+		if !_mutSet(2*f + 1) {
+			_mutInfectSlow(f)
+		}
 	}
 	if !v || !pure {
-		_mutInfect(t)
+		if !_mutSet(2*t + 1) {
+			_mutInfectSlow(t)
+		}
 	}
 	return v
 }
@@ -850,13 +924,17 @@ func _mutCond(c func() bool, t, f int, pure bool) bool {
 // The mutant infects where the error is not nil, or where f is not pure:
 // skipping it skips whatever else it does.
 func _mutErr(f func() error, id int, pure bool) error {
-	_mutMark(id)
+	if !_mutSet(2 * id) {
+		_mutMarkSlow(id)
+	}
 	if _mutIs(id) {
 		return nil
 	}
 	err := f()
 	if err != nil || !pure {
-		_mutInfect(id)
+		if !_mutSet(2*id + 1) {
+			_mutInfectSlow(id)
+		}
 	}
 	return err
 }
