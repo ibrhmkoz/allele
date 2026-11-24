@@ -5,128 +5,15 @@ package killmatrix
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"slices"
-	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
+
+	"github.com/ibrhmkoz/allele/pkg/gotest"
 )
-
-// A mutant can make a test hang or leak the processes it starts; killmatrix's
-// own tests start fixture binaries, so mutating killmatrix does both. Every
-// process a test starts must be gone once its run returns.
-func TestOutputLeavesNoProcess(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		limit time.Duration
-		// script prints the pid of a child that would outlive it.
-		script string
-	}{
-		{"timed out", 200 * time.Millisecond, `sleep 300 & echo $!; exec sleep 300`},
-		{"exited", 0, `sleep 300 & echo $!`},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := t.Context()
-			if tc.limit > 0 {
-				var cancel context.CancelFunc
-				ctx, cancel = context.WithTimeout(ctx, tc.limit)
-				defer cancel()
-			}
-			start := time.Now()
-			out, _ := output(command(ctx, "sh", "-c", tc.script))
-			if d := time.Since(start); d > 5*time.Second {
-				t.Errorf("output took %v: it waited for the leaked child", d)
-			}
-			pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
-			if err != nil {
-				t.Fatalf("output %q: %v", out, err)
-			}
-			// SIGKILL is delivered asynchronously, and launchd or init reaps the
-			// orphan a moment later.
-			deadline := time.Now().Add(2 * time.Second)
-			for !errors.Is(syscall.Kill(pid, 0), syscall.ESRCH) {
-				if time.Now().After(deadline) {
-					_ = syscall.Kill(pid, syscall.SIGKILL)
-					t.Fatalf("child %d still running after output returned", pid)
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
-		})
-	}
-}
-
-// TestArgsStopAHangingTest: a test binary must stop by itself even if no
-// one is left to kill it. Mutating killmatrix runs killmatrix's own tests,
-// and a mutant that breaks its timeout handling would otherwise leave a
-// looping fixture running for hours.
-func TestArgsStopAHangingTest(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	for name, src := range map[string]string{
-		"go.mod":       "module hang\n\ngo 1.21\n",
-		"hang_test.go": "package hang\n\nimport \"testing\"\n\nfunc TestHang(t *testing.T) {\n\tfor {\n\t}\n}\n",
-	} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	bin := filepath.Join(dir, "hang.test")
-	if out, err := build(t.Context(), dir, bin, ""); err != nil {
-		t.Fatalf("%v\n%s", err, out)
-	}
-	// No limit uses go test's 10-minute default deadline (L1294).
-	if !slices.Contains(testArgs("^TestHang$", 0), "-test.timeout=10m0s") {
-		t.Errorf("testArgs(0) = %v, want -test.timeout=10m0s", testArgs("^TestHang$", 0))
-	}
-	// No context: nothing but the binary itself can stop it.
-	cmd := exec.Command(bin, testArgs("^TestHang$", 200*time.Millisecond)...)
-	cmd.Dir = dir
-	start := time.Now()
-	done := make(chan error, 1)
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-	go func() { done <- cmd.Wait() }()
-	select {
-	case err := <-done:
-		if err == nil {
-			t.Error("the looping test passed; want it to fail on its deadline")
-		}
-		if d := time.Since(start); d < 200*time.Millisecond {
-			t.Errorf("stopped after %v, before killmatrix's own limit", d)
-		}
-	case <-time.After(3 * time.Second):
-		_ = cmd.Process.Kill()
-		t.Fatal("still running after 3s")
-	}
-}
-
-// TestCommandCancelKillsGroup verifies command's Cancel hook kills the whole
-// process group on timeout without relying on output()'s post-exit cleanup.
-func TestCommandCancelKillsGroup(t *testing.T) {
-	t.Parallel()
-	ctx, cancel := context.WithTimeout(t.Context(), 150*time.Millisecond)
-	defer cancel()
-	out, _ := command(ctx, "sh", "-c", `sleep 300 & echo $!; exec sleep 300`).Output()
-	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
-	if err != nil {
-		t.Fatalf("output %q: %v", out, err)
-	}
-	deadline := time.Now().Add(2 * time.Second)
-	for !errors.Is(syscall.Kill(pid, 0), syscall.ESRCH) {
-		if time.Now().After(deadline) {
-			_ = syscall.Kill(pid, syscall.SIGKILL)
-			t.Fatalf("grandchild %d still running after command cancelled", pid)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
 
 // TestCancelHelpers builds one tiny test binary and exercises the OS-process
 // cancellation and cwd paths in recheck, runTests, runTestsFailFast, runBatch,
@@ -195,11 +82,11 @@ func TestZ(t *testing.T) {
 		}
 	}
 	bin := filepath.Join(srcDir, "chelper.test")
-	if out, err := build(t.Context(), srcDir, bin, ""); err != nil {
+	if out, err := gotest.Build(t.Context(), srcDir, bin, ""); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
 	// Warm macOS AMFI code-signature check once so tight timeout subtests start in ~3ms.
-	if _, err := list(t.Context(), srcDir, bin); err != nil {
+	if _, err := gotest.List(t.Context(), srcDir, bin); err != nil {
 		t.Fatalf("warm list: %v", err)
 	}
 
@@ -250,8 +137,8 @@ func TestZ(t *testing.T) {
 		t.Parallel()
 		d, ctx, cancel := makeRunDir(t, "require-cwd")
 		defer cancel()
-		rep := runBatch(ctx, d, bin, []string{"TestA", "TestZ"}, 500*time.Millisecond, 0)
-		if !rep.ok {
+		rep := newRunner(true, 0).runBatch(ctx, d, bin, []string{"TestA", "TestZ"}, 500*time.Millisecond, 0)
+		if !rep.OK {
 			t.Fatalf("runBatch failed in %s: %+v", d, rep)
 		}
 	})

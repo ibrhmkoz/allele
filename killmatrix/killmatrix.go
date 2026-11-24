@@ -18,7 +18,6 @@ import (
 	"go/version"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/ibrhmkoz/allele"
 	"github.com/ibrhmkoz/allele/pkg/fingerprint"
+	"github.com/ibrhmkoz/allele/pkg/gotest"
 )
 
 // Matrix holds one row per mutant, one per test and one per mutant and test
@@ -497,7 +497,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		return nil // no test files
 	}
 
-	tops, err := list(ctx, dir, bin)
+	tops, err := gotest.List(ctx, dir, bin)
 	if err != nil {
 		return err
 	}
@@ -690,7 +690,7 @@ func (r Runner) recheck(ctx context.Context, dir, bin string, tests []Test, resu
 		byID[t.ID] = t
 	}
 	for i := range results {
-		type pair struct{ original, mutant report }
+		type pair struct{ original, mutant gotest.Report }
 		ran := map[string]pair{}
 		for j := range results[i] {
 			res := &results[i][j]
@@ -698,7 +698,7 @@ func (r Runner) recheck(ctx context.Context, dir, bin string, tests []Test, resu
 				continue
 			}
 			t := byID[res.TestID]
-			top := topOf(t.Name)
+			top := gotest.Top(t.Name)
 			p, ok := ran[top]
 			if !ok {
 				limit := r.limit(t.BaselineMS)
@@ -710,7 +710,7 @@ func (r Runner) recheck(ctx context.Context, dir, bin string, tests []Test, resu
 				ran[top] = p //allele:ignore caching recheck per top-level test changes cost, not verdicts
 			}
 			res.Status = FlakyKill
-			if p.original.status(t.Name) == Survived && p.mutant.status(t.Name) == Killed {
+			if statusOf(p.original, t.Name) == Survived && statusOf(p.mutant, t.Name) == Killed {
 				res.Status = Killed
 			}
 		}
@@ -868,32 +868,32 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 		return r.runTestsFailFast(ctx, dir, bin, mu, tests, reached, reachedSite, fn)
 	}
 	var results []Result
-	var rep, again, original report
+	var rep, again, original gotest.Report
 	ran, ranAgain := "", "" // the top-level tests rep, and again and original, are from
 	for _, t := range tests {
 		if t.State != OK {
 			continue
 		}
-		if reached != nil && fn[mu.ID] >= 0 && !reached[topOf(t.Name)][fn[mu.ID]] {
+		if reached != nil && fn[mu.ID] >= 0 && !reached[gotest.Top(t.Name)][fn[mu.ID]] {
 			results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, Skipped: true})
 			continue
 		}
-		if top := topOf(t.Name); top != ran { //allele:ignore caching top-level runs across subtests changes cost, not verdicts
+		if top := gotest.Top(t.Name); top != ran { //allele:ignore caching top-level runs across subtests changes cost, not verdicts
 			limit := r.limit(t.BaselineMS)
 			rep, ran = r.run(ctx, dir, bin, top, limit, mu.ID, ""), top
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
 		}
-		status := rep.status(t.Name)
+		status := statusOf(rep, t.Name)
 		if status == Killed && r.Confirm {
 			if ranAgain != ran { //allele:ignore caching confirm runs across subtests changes cost, not verdicts
 				limit := r.limit(t.BaselineMS)
 				again, ranAgain = r.run(ctx, dir, bin, ran, limit, mu.ID, ""), ran
-				original = report{ok: true}
+				original = gotest.Report{OK: true}
 				// Cost-only skip: when again passed, every leaf becomes FlakyKill
 				// and original is never read, so mutating this guard cannot change verdicts.
-				if mu.Schema && !again.ok { //allele:ignore
+				if mu.Schema && !again.OK { //allele:ignore
 					original = r.run(ctx, dir, bin, ran, limit, 0, "")
 				}
 				if ctx.Err() != nil {
@@ -901,15 +901,15 @@ func (r Runner) runTests(ctx context.Context, dir, bin string, mu *Mutant, tests
 				}
 			}
 			switch {
-			case again.status(t.Name) != Killed:
+			case statusOf(again, t.Name) != Killed:
 				status = FlakyKill
-			case original.status(t.Name) != Survived:
+			case statusOf(original, t.Name) != Survived:
 				// The original fails too: the machine may be too loaded
 				// to tell. Decided after every mutant has run, alone.
 				status = recheck
 			}
 		}
-		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.elapsed)})
+		results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.Elapsed)})
 	}
 	r.logf("M%d done\n", mu.ID)
 	return results, nil
@@ -942,7 +942,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		if t.State != OK {
 			continue
 		}
-		top := topOf(t.Name)
+		top := gotest.Top(t.Name)
 		if reached != nil && fnID >= 0 && !reached[top][fnID] {
 			continue
 		}
@@ -997,10 +997,10 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		}
 
 		// Multi-test batch: all passed.
-		if rep.ok {
+		if rep.OK { //allele:ignore the failed-batch path below records the same survivors, test by test
 			for _, g := range batch {
 				for _, t := range g.leaves {
-					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, MS: ms(rep.elapsed)})
+					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, MS: ms(rep.Elapsed)})
 				}
 			}
 			continue
@@ -1017,9 +1017,9 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 				}
 				continue
 			}
-			if passed, done := rep.passed[g.name]; done && passed {
+			if passed, done := rep.Passed(g.name); done && passed {
 				for _, t := range g.leaves {
-					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, MS: ms(rep.elapsed)})
+					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Survived, MS: ms(rep.Elapsed)})
 				}
 				continue
 			}
@@ -1044,7 +1044,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 		var startedUnfinished []topGroup
 		var rest []topGroup
 		for _, g := range unfinished {
-			if rep.started[g.name] { //allele:ignore falling back to single runs changes cost, not verdicts
+			if rep.Started(g.name) { //allele:ignore falling back to single runs changes cost, not verdicts
 				startedUnfinished = append(startedUnfinished, g)
 			} else {
 				rest = append(rest, g)
@@ -1053,7 +1053,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 
 		if len(startedUnfinished) == 1 { //allele:ignore falling back to single runs changes cost, not verdicts
 			g := startedUnfinished[0]
-			if rep.timedOut {
+			if rep.TimedOut { //allele:ignore recordSingle reads the same timeout from rep; this path only confirms it first
 				if r.Confirm {
 					// Under load a fast test can hit its deadline; recheck alone
 					// before letting an unconfirmed timeout stop FailFast.
@@ -1062,7 +1062,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 					if ctx.Err() != nil {
 						return nil, ctx.Err()
 					}
-					if !again.timedOut { //allele:ignore delegating a confirmed timeout to recordSingle changes cost, not verdicts
+					if !again.TimedOut { //allele:ignore delegating a confirmed timeout to recordSingle changes cost, not verdicts
 						stop, err := r.recordSingle(ctx, dir, bin, mu, g, again, &results)
 						if err != nil {
 							return nil, err
@@ -1077,7 +1077,7 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 					}
 				}
 				for _, t := range g.leaves {
-					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Timeout, MS: ms(rep.elapsed)})
+					results = append(results, Result{MutantID: mu.ID, TestID: t.ID, Status: Timeout, MS: ms(rep.Elapsed)})
 				}
 				// A timed-out mutant cannot survive; stop FailFast rather
 				// than waiting out repeated timeouts on the same loop.
@@ -1145,20 +1145,20 @@ func makeBatches(groups []topGroup) [][]topGroup {
 	return batches
 }
 
-func topFailed(g topGroup, rep report) bool {
-	if passed, ok := rep.passed[g.name]; ok && !passed {
+func topFailed(g topGroup, rep gotest.Report) bool {
+	if passed, ok := rep.Passed(g.name); ok && !passed {
 		return true
 	}
 	for _, t := range g.leaves {
-		if passed, ok := rep.passed[t.Name]; ok && !passed {
+		if passed, ok := rep.Passed(t.Name); ok && !passed {
 			return true
 		}
 	}
 	return false
 }
 
-func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g topGroup, rep report, results *[]Result) (bool, error) {
-	if rep.timedOut && r.Confirm {
+func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g topGroup, rep gotest.Report, results *[]Result) (bool, error) {
+	if rep.TimedOut && r.Confirm {
 		limit := r.recheckLimit(g.baseMS)
 		again := r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
 		if ctx.Err() != nil {
@@ -1166,20 +1166,20 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 		}
 		rep = again
 	}
-	var again, original report
+	var again, original gotest.Report
 	confirmed := false
 	killed := false
 	timedOut := false
 	for _, t := range g.leaves {
-		status := rep.status(t.Name)
+		status := statusOf(rep, t.Name)
 		if status == Killed && r.Confirm {
 			if !confirmed { //allele:ignore caching confirm runs across subtests changes cost, not verdicts
 				limit := r.limit(g.baseMS)
 				again = r.run(ctx, dir, bin, g.name, limit, mu.ID, "")
-				original = report{ok: true}
+				original = gotest.Report{OK: true}
 				// Cost-only skip: when again passed, every leaf becomes FlakyKill
 				// and original is never read, so mutating this guard cannot change verdicts.
-				if mu.Schema && !again.ok { //allele:ignore
+				if mu.Schema && !again.OK { //allele:ignore
 					original = r.run(ctx, dir, bin, g.name, limit, 0, "")
 				}
 				if ctx.Err() != nil {
@@ -1188,9 +1188,9 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 				confirmed = true //allele:ignore caching confirm runs across subtests changes cost, not verdicts
 			}
 			switch {
-			case again.status(t.Name) != Killed:
+			case statusOf(again, t.Name) != Killed:
 				status = FlakyKill
-			case original.status(t.Name) != Survived:
+			case statusOf(original, t.Name) != Survived:
 				status = recheck
 			}
 		}
@@ -1200,7 +1200,7 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 		if status == Timeout {
 			timedOut = true
 		}
-		*results = append(*results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.elapsed)})
+		*results = append(*results, Result{MutantID: mu.ID, TestID: t.ID, Status: status, MS: ms(rep.Elapsed)})
 	}
 	return killed || timedOut, nil
 }
@@ -1213,20 +1213,41 @@ func (r Runner) recordSingle(ctx context.Context, dir, bin string, mu *Mutant, g
 // the ids of the mutants whose sites the test reached in any run.
 func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top, reach string) ([]Test, map[int]bool) {
 	var times []time.Duration
-	var reports []report
-	var names []string
+	var reports []gotest.Report
 	for range r.BaselineRuns {
 		rep := r.run(ctx, dir, bin, top, 0, 0, reach)
-		times = append(times, rep.elapsed)
+		times = append(times, rep.Elapsed)
 		reports = append(reports, rep)
-		for _, name := range rep.order {
+	}
+	slices.Sort(times)
+	var tests []Test
+	for _, t := range states(top, reports) {
+		t.Pkg, t.BaselineMS = pkg, ms(times[len(times)/2])
+		tests = append(tests, t)
+	}
+	ids := map[int]bool{}
+	data, _ := os.ReadFile(reach) // absent when the test reached no site, or when not recorded
+	for f := range strings.FieldsSeq(string(data)) {
+		if id, err := strconv.Atoi(f); err == nil {
+			ids[id] = true
+		}
+	}
+	return tests, ids
+}
+
+// states names the leaves of top that the baseline runs reported, each
+// with how it did across them: OK if it passed every run, Flaky if only
+// some, Failing if none.
+func states(top string, reports []gotest.Report) []Test {
+	var names []string
+	for _, rep := range reports {
+		for _, name := range rep.Reported() {
 			if !slices.Contains(names, name) {
 				names = append(names, name)
 			}
 		}
 	}
-	slices.Sort(times)
-	leaves := leavesOf(names)
+	leaves := gotest.Leaves(names)
 	if len(leaves) == 0 {
 		leaves = []string{top} // the binary crashed before reporting
 	}
@@ -1237,9 +1258,9 @@ func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top, reach string) 
 			// Unlike against a mutant, a leaf a baseline run did not
 			// report did not pass: its name may change from run to run.
 			// The exception is the top-level test standing in for a run
-			// that crashed before reporting anything.
-			p, seen := rep.passed[leaf]
-			if seen && p || !seen && leaf == top && len(rep.order) == 0 && rep.ok {
+			// that reported nothing.
+			p, seen := rep.Passed(leaf)
+			if seen && p || !seen && leaf == top && len(rep.Reported()) == 0 && rep.OK {
 				passed++
 			}
 		}
@@ -1247,23 +1268,13 @@ func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top, reach string) 
 		switch passed {
 		case 0:
 			state = Failing
-		case r.BaselineRuns:
+		case len(reports):
 		default:
 			state = Flaky
 		}
-		tests = append(tests, Test{Pkg: pkg, Name: leaf, BaselineMS: ms(times[len(times)/2]), State: state})
+		tests = append(tests, Test{Name: leaf, State: state})
 	}
-	if reach == "" {
-		return tests, nil
-	}
-	ids := map[int]bool{}
-	data, _ := os.ReadFile(reach) // absent when the test reached no site
-	for f := range strings.FieldsSeq(string(data)) {
-		if id, err := strconv.Atoi(f); err == nil {
-			ids[id] = true
-		}
-	}
-	return tests, ids
+	return tests
 }
 
 func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, tests []Test) ([]Result, error) {
@@ -1309,115 +1320,44 @@ func (r Runner) runMutant(ctx context.Context, dir, tmp string, mu *Mutant, test
 func (r Runner) build(ctx context.Context, dir, bin, overlay string) ([]byte, error) {
 	r.acquire()
 	defer r.release()
-	return build(ctx, dir, bin, overlay)
+	return gotest.Build(ctx, dir, bin, overlay)
 }
 
-func (r Runner) run(ctx context.Context, dir, bin, top string, limit time.Duration, id int, reach string) report {
+func (r Runner) run(ctx context.Context, dir, bin, top string, limit time.Duration, id int, reach string) gotest.Report {
 	r.acquire()
 	defer r.release()
 	return run(ctx, dir, bin, top, limit, id, reach)
 }
 
-func (r Runner) runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Duration, id int) report {
+// runBatch runs one or more top-level tests of bin in one process,
+// stopping at the first failing test when more than one is given.
+func (r Runner) runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Duration, id int) gotest.Report {
 	r.acquire()
 	defer r.release()
-	return runBatch(ctx, dir, bin, tops, limit, id)
-}
-
-// build compiles the test binary of the package in dir into bin, with the
-// files in overlay, if given, replacing the originals. Vet is off: it
-// rejects mutants that compile, such as c != 'a' || c != 'b'.
-func build(ctx context.Context, dir, bin, overlay string) ([]byte, error) {
-	args := []string{"test", "-c", "-vet=off", "-ldflags=-s -w", "-o", bin}
-	if overlay != "" {
-		args = append(args, "-overlay", overlay)
-	}
-	cmd := exec.CommandContext(ctx, "go", args...)
-	cmd.Dir = dir
-	return cmd.CombinedOutput()
-}
-
-// list returns the tests, examples and fuzz targets of a test binary.
-// Benchmarks are left out: -test.run does not run them.
-func list(ctx context.Context, dir, bin string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, bin, "-test.list", ".")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("list tests: %w", err)
-	}
-	var names []string
-	for name := range strings.FieldsSeq(string(out)) {
-		if !strings.HasPrefix(name, "Benchmark") {
-			names = append(names, name)
-		}
-	}
-	return names, nil
-}
-
-// runBatch runs one or more top-level tests of bin in one process, stopping
-// at the first failing test when more than one is given.
-func runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Duration, id int) report {
-	if len(tops) == 1 {
-		return run(ctx, dir, bin, tops[0], limit, id, "")
-	}
-	if limit > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, limit)
-		defer cancel()
-	}
-	quoted := make([]string, len(tops))
-	for i, top := range tops {
-		quoted[i] = regexp.QuoteMeta(top)
-	}
-	pattern := "^(" + strings.Join(quoted, "|") + ")$"
-	cmd := command(ctx, bin, append(testArgs(pattern, limit), "-test.failfast")...)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", allele.EnvVar, id))
-	start := time.Now()
-	out, err := output(cmd)
-	return (&report{
-		ok:       err == nil,
-		timedOut: limit > 0 && errors.Is(ctx.Err(), context.DeadlineExceeded),
-		elapsed:  time.Since(start),
-	}).parse(out)
-}
-
-// testArgs runs the tests that pattern matches once, reporting as
-// test2json reads, with a deadline the test binary enforces itself: twice
-// limit, past the one killmatrix enforces, or go test's 10 minutes when
-// there is no limit. A binary orphaned with its killer, as when mutating
-// killmatrix runs killmatrix's own tests, then still stops.
-func testArgs(pattern string, limit time.Duration) []string {
-	deadline := 10 * time.Minute
-	if limit > 0 {
-		deadline = 2*limit + time.Second
-	}
-	return []string{"-test.run", pattern, "-test.count=1", "-test.v=test2json", "-test.timeout=" + deadline.String()}
+	env := []string{fmt.Sprintf("%s=%d", allele.EnvVar, id)}
+	return gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: tops, Limit: limit, Env: env, FailFast: len(tops) > 1})
 }
 
 // run runs one top-level test of bin in dir with mutant id switched on, if
 // bin is a schema binary, recording the sites it reaches into reach if
 // set. A limit of 0 means no limit.
-func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int, reach string) report {
-	if limit > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, limit)
-		defer cancel()
-	}
-	cmd := command(ctx, bin, testArgs("^"+top+"$", limit)...)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", allele.EnvVar, id))
+func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int, reach string) gotest.Report {
+	env := []string{fmt.Sprintf("%s=%d", allele.EnvVar, id)}
 	if reach != "" {
-		cmd.Env = append(cmd.Env, allele.ReachEnvVar+"="+reach)
+		env = append(env, allele.ReachEnvVar+"="+reach)
 	}
-	start := time.Now()
-	out, err := output(cmd)
-	return (&report{
-		ok:       err == nil,
-		timedOut: limit > 0 && errors.Is(ctx.Err(), context.DeadlineExceeded),
-		elapsed:  time.Since(start),
-	}).parse(out)
+	return gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{top}, Limit: limit, Env: env})
+}
+
+// statusOf is how leaf did against a mutant: a failure kills it.
+func statusOf(rep gotest.Report, leaf string) Status {
+	switch rep.Outcome(leaf) {
+	case gotest.Pass:
+		return Survived
+	case gotest.Timeout:
+		return Timeout
+	}
+	return Killed
 }
 
 // Log is progress only; a failed write must not stop a run.

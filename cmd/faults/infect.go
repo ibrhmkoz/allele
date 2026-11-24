@@ -7,17 +7,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/tools/go/packages"
 
 	"github.com/ibrhmkoz/allele"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/gotest"
 )
 
 // infections returns, for each mutant of the package in dir, keyed by
@@ -92,9 +93,7 @@ func infections(ctx context.Context, dir string, revealing []string) (map[string
 		if err := os.WriteFile(ovPath, ov, 0o600); err != nil {
 			return err //allele:ignore the OS refusing a temp file
 		}
-		cmd := exec.CommandContext(ctx, "go", "test", "-c", "-vet=off", "-overlay", ovPath, "-o", bin, ".")
-		cmd.Dir = dir
-		if out, err := cmd.CombinedOutput(); err != nil { //allele:ignore a failed build fails the -test.list run after it
+		if out, err := gotest.Build(ctx, dir, bin, ovPath); err != nil { //allele:ignore a failed build fails the -test.list run after it
 			return fmt.Errorf("%w: %s", err, out) //allele:ignore a failed build fails the -test.list run after it
 		}
 		return nil
@@ -104,24 +103,18 @@ func infections(ctx context.Context, dir string, revealing []string) (map[string
 			return nil, err
 		}
 	}
-	lister := exec.CommandContext(ctx, bin, "-test.list", ".")
-	lister.Dir = dir
-	list, err := lister.Output()
+	list, err := gotest.List(ctx, dir, bin)
 	if err != nil { //allele:ignore a binary that built lists its tests
 		return nil, err //allele:ignore a binary that built lists its tests
 	}
-	for test := range strings.FieldsSeq(string(list)) {
+	for _, test := range list {
 		run, skip := oldSuite(test, revealing)
 		if !runnable(test) || !run {
 			continue
 		}
 		reach := filepath.Join(tmp, "reach")
 		_ = os.Remove(reach)
-		// An empty -test.skip skips nothing.
-		cmd := exec.CommandContext(ctx, bin, "-test.run", "^"+regexp.QuoteMeta(test)+"$", "-test.skip", skip, "-test.count=1", "-test.timeout=2m")
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), allele.ReachEnvVar+"="+reach)
-		_ = cmd.Run()
+		gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{test}, Skip: skip, Limit: 2 * time.Minute, Env: []string{allele.ReachEnvVar + "=" + reach}}) //allele:ignore the limit only stops a test that hangs
 		data, _ := os.ReadFile(reach)
 		s := bufio.NewScanner(bytes.NewReader(data))
 		for s.Scan() {

@@ -1,6 +1,6 @@
 //go:build !unix
 
-package killmatrix
+package gotest
 
 import (
 	"context"

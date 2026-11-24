@@ -11,6 +11,7 @@ import (
 	"slices"
 
 	"github.com/ibrhmkoz/allele/pkg/fingerprint"
+	"github.com/ibrhmkoz/allele/pkg/gotest"
 )
 
 const cacheFormatVersion = "v1"
@@ -121,7 +122,7 @@ func cachedResult(id int, v Verdict) (compiled bool, res []Result) {
 func buildCacheEntry(snap pkgSnapshot, m *Matrix, reusedKillers map[int]string) cacheEntry {
 	byTestID := map[int]string{}
 	for _, t := range m.Tests {
-		byTestID[t.ID] = topOf(t.Name)
+		byTestID[t.ID] = gotest.Top(t.Name)
 	}
 	killerOf := map[int]string{}
 	maps.Copy(killerOf, reusedKillers)
