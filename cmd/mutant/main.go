@@ -113,7 +113,7 @@ func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
 			cacheDir = filepath.Join(dir, "mutant")
 		}
 	}
-	return killmatrix.Runner{
+	r := killmatrix.Runner{
 		Workers:      jobs,
 		BaselineRuns: 1,
 		// A test's baseline time already holds its process start; a 100 ms
@@ -129,6 +129,10 @@ func runner(o options, jobs int, log io.Writer) killmatrix.Runner {
 		CacheDir:   cacheDir,
 		Choose:     func(path string, ms []mutant.Mutant) []int { return choose(o, path, ms) },
 	}
+	if !o.all {
+		r.Pick = pick
+	}
+	return r
 }
 
 func git(ctx context.Context, dir string, args ...string) ([]byte, error) {

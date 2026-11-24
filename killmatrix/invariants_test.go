@@ -23,8 +23,9 @@ func matrixErrors(m *killmatrix.Matrix) []error {
 	var errs []error
 	fail := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
 	mutants := map[int]killmatrix.Mutant{}
+	// Ids increase; with Pick they skip the candidates left out.
 	for i, mu := range m.Mutants {
-		if mu.ID != i+1 {
+		if mu.ID < 1 || i > 0 && mu.ID <= m.Mutants[i-1].ID {
 			fail("mutant %d has id %d", i+1, mu.ID)
 		}
 		if mu.Schema && !mu.Compiled {

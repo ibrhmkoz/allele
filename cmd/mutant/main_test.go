@@ -17,8 +17,11 @@ func TestRunnerConfirmsKills(t *testing.T) {
 	if r.CacheDir != "" {
 		t.Fatalf("noCache set, got CacheDir=%q", r.CacheDir)
 	}
-	if withCache := runner(options{}, 2, io.Discard); withCache.CacheDir == "" {
-		t.Fatal("default runner should set CacheDir")
+	if withCache := runner(options{}, 2, io.Discard); withCache.CacheDir == "" || withCache.Pick == nil {
+		t.Fatal("default runner should set CacheDir and pick one mutant per line")
+	}
+	if r.Pick != nil {
+		t.Fatal("-all picks no mutant per line")
 	}
 	m, err := r.Run(t.Context(), "../../killmatrix/testdata", "./flaky")
 	if err != nil {

@@ -32,11 +32,9 @@ type options struct {
 }
 
 // choose returns, in order, the indices of the mutants of the file at path
-// to run. Equivalent mutants never run, nor arid ones without o.arid.
-// Without o.all, one mutant per line
-// runs, picked by a hash of the file's name and the line so that reruns
-// pick the same: on the measured corpus that keeps 0.88 of the dominator
-// score at 36% of the cost, and beats as many random mutants.
+// that may run: equivalent mutants never do, nor arid ones without o.arid,
+// nor, with a diff, those off its lines. Without o.all, pick then keeps
+// one per line.
 func choose(o options, path string, ms []mutant.Mutant) []int {
 	var lines map[int]bool
 	if o.diff != nil {
@@ -45,26 +43,63 @@ func choose(o options, path string, ms []mutant.Mutant) []int {
 			return nil
 		}
 	}
-	byLine := map[int][]int{}
 	var keep []int
 	for i, m := range ms {
 		if m.Equivalent != "" || m.Arid != "" && !o.arid || lines != nil && !lines[m.Pos.Line] {
 			continue
 		}
-		byLine[m.Pos.Line] = append(byLine[m.Pos.Line], i)
 		keep = append(keep, i)
 	}
-	if o.all {
-		return keep
-	}
-	keep = keep[:0]
-	for line, idx := range byLine {
-		h := fnv.New32a()
-		_, _ = fmt.Fprintf(h, "%s:%d", filepath.Base(path), line) // a hash never fails to write
-		keep = append(keep, idx[h.Sum32()%uint32(len(idx))])
-	}
-	slices.Sort(keep)
 	return keep
+}
+
+// pick keeps one of a line's mutants, by what the baseline saw of them
+// (measurements §21, rule R2b). Real faults hide where no test looks:
+//  1. a mutant whose site no test reaches, while others on the line are
+//     (the right side of a short-circuit);
+//  2. an if's condition forced true or false that no test infects: a
+//     branch no test takes one way, unless it checks nil, which mostly
+//     guards defensive paths;
+//  3. the one the fewest tests infect, so a weak test's mutant shows.
+//
+// On 79 real faults it reports a mutant coupled to the fault on 80% of
+// the lines holding one, against a hash pick's 73%, with 2% fewer
+// survivors; simulated on the corpus it raises D from 0.887 to 0.920. Without the baseline's counts, and
+// to break ties, a hash of the file and line picks, so reruns pick the
+// same.
+func pick(cs []killmatrix.Candidate) int {
+	h := fnv.New32a()
+	_, _ = fmt.Fprintf(h, "%s:%d", filepath.Base(cs[0].Path), cs[0].Line) // a hash never fails to write
+	hashed := int(h.Sum32() % uint32(len(cs)))
+	if slices.ContainsFunc(cs, func(c killmatrix.Candidate) bool { return c.Reached < 0 }) {
+		return hashed
+	}
+	if i := slices.IndexFunc(cs, func(c killmatrix.Candidate) bool { return c.Reached == 0 }); i >= 0 {
+		return i
+	}
+	best := -1
+	for i, c := range cs {
+		if c.Infected == 0 && untakenBranch(c.Mutant) && (best < 0 || c.Reached < cs[best].Reached) {
+			best = i
+		}
+	}
+	if best >= 0 {
+		return best
+	}
+	best = hashed
+	for i, c := range cs {
+		if c.Infected > 0 && (cs[best].Infected == 0 || c.Infected < cs[best].Infected) {
+			best = i
+		}
+	}
+	return best
+}
+
+// untakenBranch reports whether mu forces a condition true or false,
+// other than a nil check.
+func untakenBranch(mu killmatrix.Mutant) bool {
+	forced := mu.Mutated == "true" || mu.Mutated == "false" || strings.HasSuffix(mu.Mutated, "return true }()") || strings.HasSuffix(mu.Mutated, "return false }()")
+	return mu.Operator == mutant.COR && forced && !strings.Contains(mu.Original, "nil")
 }
 
 var hunk = regexp.MustCompile(`^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@`)

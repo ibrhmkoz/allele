@@ -84,9 +84,11 @@ func saveCache(cacheDir, pkgPath string, e cacheEntry) {
 // options that change verdicts, then its tests and the mutants chosen.
 func (r Runner) snapshot(p fingerprint.Print, mutants []Mutant) pkgSnapshot {
 	prod := sha256.New()
-	_, _ = fmt.Fprintf(prod, "%s\x00%s\x00%v:%v:%v:%v:%v:%d:%g:%d\x00",
+	// Whether Pick runs changes which mutants a run keeps: with it the
+	// entry holds one per line, without it every candidate.
+	_, _ = fmt.Fprintf(prod, "%s\x00%s\x00%v:%v:%v:%v:%v:%d:%g:%d:%v\x00",
 		cacheFormatVersion, p.Shared,
-		r.Schemata, r.Select, r.Infect, r.FailFast, r.Confirm, r.BaselineRuns, r.TimeoutFactor, r.TimeoutPad)
+		r.Schemata, r.Select, r.Infect, r.FailFast, r.Confirm, r.BaselineRuns, r.TimeoutFactor, r.TimeoutPad, r.Pick != nil) //mut:ignore any boolean that differs keeps the two apart
 	prodKey := hex.EncodeToString(prod.Sum(nil))
 	full := sha256.New()
 	_, _ = full.Write([]byte(prodKey))

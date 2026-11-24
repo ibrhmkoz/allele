@@ -160,6 +160,15 @@ type Result struct {
 	Skipped bool `json:"skipped,omitempty"`
 }
 
+// Candidate is a mutant on offer to Runner.Pick with what the baseline
+// saw of it: how many top-level tests reached its site and how many
+// infected it. Both are -1 when the baseline did not record reach: no
+// schema, or the mutant builds on its own.
+type Candidate struct {
+	Mutant
+	Reached, Infected int
+}
+
 // Runner computes kill matrices. The zero value is ready to use.
 type Runner struct {
 	// BaselineRuns is how often each test runs on the unmutated package to
@@ -187,6 +196,13 @@ type Runner struct {
 	// Choose, if set, picks by index which of a file's mutants to run;
 	// path is the file's absolute path. The rest are left out entirely.
 	Choose func(path string, ms []mutant.Mutant) []int
+	// Pick, if set, keeps one mutant of each line among those Choose
+	// returned, once the baseline has run: it is given the line's
+	// candidates, in source order, and returns the index of the one to
+	// keep. The rest never run and are left out of the matrix. Choosing
+	// after the baseline lets it prefer a mutant no test exercises, which
+	// is where faults hide (measurements §21).
+	Pick func(cs []Candidate) int
 	// FailFast stops running tests against a mutant once one kills it,
 	// trying the fastest top-level tests first. The matrix then holds only
 	// the runs made: enough for Verdict, not for adequacy. It also stops at
@@ -292,10 +308,14 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 		return nil, err
 	}
 	m := &Matrix{}
+	// Ids go on from the last mutant's, not the count: Pick leaves
+	// candidates out, and a reused id would mix two mutants' results.
+	mOff, last := 0, 0
 	for _, sub := range subs {
-		mOff, tOff := len(m.Mutants), len(m.Tests)
+		tOff := len(m.Tests)
 		for _, mu := range sub.Mutants {
 			mu.ID += mOff
+			last = mu.ID
 			m.Mutants = append(m.Mutants, mu)
 		}
 		for _, t := range sub.Tests {
@@ -307,6 +327,7 @@ func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matri
 			res.TestID += tOff
 			m.Results = append(m.Results, res)
 		}
+		mOff = last
 	}
 	return m, nil
 }
@@ -415,6 +436,9 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 				byKey[cm.Key] = cm
 			}
 			if entry.FullKey == snap.fullKey {
+				// With Pick the cache holds only the mutants it kept; the
+				// other candidates never ran.
+				mutants = keep(m, firstMutant, func(mu Mutant) bool { _, ok := byKey[mutantKey(mu)]; return ok })
 				for i := range mutants {
 					cm := byKey[mutantKey(mutants[i])]
 					compiled, rs := cachedResult(mutants[i].ID, cm.Verdict)
@@ -452,7 +476,14 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 	if r.Schemata && len(mutants) > 0 {
 		var err error
 		// buildSchema returns an error only on temp-dir FS errors or ctx cancellation.
-		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants, reused); err != nil { //mut:ignore
+		// Pick needs every candidate counted, kills reused from the
+		// cache too, or it cannot weigh the line; reused mutants are
+		// embedded then, and still not run.
+		skip := reused
+		if r.Pick != nil {
+			skip = make([]bool, len(mutants))
+		}
+		if schema, err = r.buildSchema(ctx, pkg, dir, tmp, sources, mutants, skip); err != nil { //mut:ignore
 			return err
 		}
 	}
@@ -531,6 +562,26 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		}
 	}
 	tests := m.Tests[firstTest:]
+	if r.Pick != nil {
+		// Only tests that pass run against mutants, so only theirs count.
+		var passing []map[int]bool
+		for i, ids := range baseIDs {
+			if slices.ContainsFunc(baseTests[i], func(t Test) bool { return t.State == OK }) { //mut:ignore no other state sorts at or after "ok"
+				passing = append(passing, ids)
+			}
+		}
+		kept := picks(r.Pick, mutants, passing, reachedSite != nil)
+		var keptReused []bool
+		var keptResults [][]Result
+		for i := range mutants {
+			if kept[mutants[i].ID] {
+				keptReused = append(keptReused, reused[i])
+				keptResults = append(keptResults, reusedResults[i])
+			}
+		}
+		mutants = keep(m, firstMutant, func(mu Mutant) bool { return kept[mu.ID] })
+		reused, reusedResults = keptReused, keptResults
+	}
 	r.logf("%s: %d top-level tests, %d leaves, %d mutants\n", pkg.PkgPath, len(tops), len(tests), len(mutants))
 
 	results := make([][]Result, len(mutants))
@@ -560,7 +611,7 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		}
 	}
 	for i := range mutants {
-		if mutants[i].Schema {
+		if mutants[i].Schema && !reused[i] {
 			jobs <- i
 		}
 	}
@@ -581,6 +632,53 @@ func (r Runner) runPackage(ctx context.Context, m *Matrix, pkg *packages.Package
 		return err //mut:ignore
 	}
 	return nil
+}
+
+// picks returns the ids of the mutants pick keeps, one per line. ids holds
+// each top-level test's baseline marks: a mutant's id when it reached the
+// mutant's site, minus it when it infected the mutant.
+func picks(pick func([]Candidate) int, mutants []Mutant, ids []map[int]bool, recorded bool) map[int]bool {
+	reached, infected := map[int]int{}, map[int]int{}
+	for _, top := range ids {
+		for id := range top {
+			if id > 0 { //mut:ignore no mark is 0
+				reached[id]++
+			} else {
+				infected[-id]++
+			}
+		}
+	}
+	type line struct {
+		path string
+		n    int
+	}
+	var order []line
+	byLine := map[line][]Candidate{}
+	for _, mu := range mutants {
+		c := Candidate{Mutant: mu, Reached: -1, Infected: -1}
+		if recorded && mu.Schema {
+			c.Reached, c.Infected = reached[mu.ID], infected[mu.ID]
+		}
+		l := line{mu.Path, mu.Line}
+		if _, ok := byLine[l]; !ok {
+			order = append(order, l)
+		}
+		byLine[l] = append(byLine[l], c)
+	}
+	kept := map[int]bool{}
+	for _, l := range order {
+		cs := byLine[l]
+		kept[cs[pick(cs)].ID] = true
+	}
+	return kept
+}
+
+// keep drops from m the package's mutants, from firstMutant on, that ok
+// rejects, and returns those left.
+func keep(m *Matrix, firstMutant int, ok func(Mutant) bool) []Mutant {
+	left := slices.DeleteFunc(m.Mutants[firstMutant:], func(mu Mutant) bool { return !ok(mu) })
+	m.Mutants = m.Mutants[:firstMutant+len(left)]
+	return left
 }
 
 // recheck settles, one at a time with nothing else running, the kills

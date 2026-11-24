@@ -37,7 +37,17 @@ are comparable with each other, not with v1's; v1's log is in §18-19.
 
 ## Where M stands
 
-**M v2** (ten libraries) went from 1.258 to 1.333 on 2026-11-24: reach
+**M v2** (ten libraries) is about 1.35-1.36 since R2b (2026-11-24): each
+line's mutant is picked after the baseline, by what the old tests reach
+and infect (§21), D 0.876 → 0.906. Checking reach marks inline (#40,
++0.75%) paid for recording every candidate. Against main with #40, R2b
+measured +1.1% and +1.2% in two runs (`data-bench/v2-r2b.ndjson`,
+`v2-r2b-final.ndjson`): T rises 79 → 85-88 s, since the baseline records
+3.3× the mutants and the picks are harder to kill. Merged below the
++1.5% speed gate because it is a selection change: D +3.4% on the corpus
+and J +0.086 on real faults, with F unchanged.
+
+Before that it went from 1.258 to 1.333: reach
 marks in an atomic table (#31, +1.3%), cloning each mutated function so
 the rest run as written (#32, §20, +4.4%), and an ERR fidelity fix (#33).
 T is now 80 s: sjson 26 s (a 2-million-iteration fuzz test reaches most
@@ -97,26 +107,6 @@ so the cheap levers are spent. What is left, by measured upper bound:
   metric's price of time. New operators need many more held-out faults.
 
 ## Open
-
-### R2b: pick each line's mutant by the old suite's reach and infection
-Measurements §21. Prefer a mutant whose site no test reaches, then a
-non-nil `if` → true/false no test infects (fewest reaching tests first),
-then the one infected by the fewest tests above 0. On 79 real faults it
-gains Youden's J on both the tuning and the held-out faults (+0.086 ±
-0.036 over all; held-out alone +0.032 ± 0.057, inside the noise).
-
-Built on branch `r2b-select` (`killmatrix.Runner.Pick`, called after the
-baseline) and measured on 2026-11-24: D 0.876 → 0.906, as simulated, F
-unchanged, but T 80 → 96 s, so M v2 1.3315 → 1.3325, noise. The cost is
-the baseline: to count reach and infection for every candidate it embeds
-all of them (sjson: 920 instead of 278), and each evaluation of a site
-checks each of its mutants, so sjson's baseline takes 14.5 s instead of
-7.2 s. A second, narrow schema for the mutant runs saves nothing; with
-the hash picking, the same mechanism alone costs sjson 8 s. Not merged.
-
-Next: make recording cheaper per evaluation. The baseline already runs
-7× slower than the plain tests on sjson with one mutant per line, so a
-cheaper record speeds up every run, and would let R2b's D gain through.
 
 ### Compare with other Go tools
 Run [Gremlins](https://github.com/go-gremlins/gremlins) and
@@ -204,6 +194,9 @@ would cover them.
 
 Kept so they are not retried without new evidence.
 
+- **A second, narrow schema for R2b's mutant runs** (only the kept
+  mutants, after the baseline needed them all): M 1.3598 against 1.3618
+  without it; it costs a build per package. Not merged.
 - **M v3, D^0.7·R5^0.3·F·S(T)** (§21), with R5 the chance that reading 5
   random reported survivors of a real fault's tree finds one coupled to the
   fault. R5 rewards reporting fewer survivors whatever they are: the

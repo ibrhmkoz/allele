@@ -37,23 +37,10 @@ func TestChoose(t *testing.T) {
 		}
 		return strings.Join(s, " ")
 	}
-	// Equivalents never run. -all keeps the rest; by default one per line,
-	// picked by a hash of the file and line, so reruns pick the same.
-	xtesting.EqualText(t, show(choose(options{all: true}, "/src/p.go", ms)), "a b c e g")
-	xtesting.EqualText(t, show(choose(options{all: true, arid: true}, "/src/p.go", ms)), "a b c e g h")
-	one := show(choose(options{}, "/src/p.go", ms))
-	if len(strings.Fields(one)) != 3 || !strings.HasSuffix(one, "e g") || one != show(choose(options{}, "/src/p.go", ms)) {
-		t.Errorf("one per line picked %q", one)
-	}
-	// The picks come back in source order. byLine is a map, so with only a
-	// few lines an unsorted result can come out sorted by chance.
-	var many []mutant.Mutant
-	for line := range 20 {
-		many = append(many, at(line+1, "x", ""), at(line+1, "y", ""))
-	}
-	if keep := choose(options{}, "/src/p.go", many); len(keep) != 20 || !slices.IsSorted(keep) {
-		t.Errorf("one per line over 20 lines picked %v, want 20 in source order", keep)
-	}
+	// Equivalents never run, nor arid mutants without -arid; pick then
+	// keeps one per line.
+	xtesting.EqualText(t, show(choose(options{}, "/src/p.go", ms)), "a b c e g")
+	xtesting.EqualText(t, show(choose(options{arid: true}, "/src/p.go", ms)), "a b c e g h")
 	// A diff limits the run to the lines it touches.
 	diff := map[string]map[int]bool{"/src/p.go": {4: true, 9: true}}
 	xtesting.EqualText(t, show(choose(options{all: true, diff: diff}, "/src/p.go", ms)), "e g")
@@ -127,50 +114,65 @@ func TestReportJSON(t *testing.T) {
 	`)
 }
 
-// TestChooseProperties checks deterministic one-per-line hashing varies across
-// lines and filenames, preserves ordering, and respects equivalent/arid/diff filters.
-func TestChooseProperties(t *testing.T) {
-	var ms []mutant.Mutant
-	for line := 1; line <= 40; line++ {
-		ms = append(ms,
-			at(line, "a", ""),
-			at(line, "b", ""),
-			at(line, "c", ""),
-			at(line, "d", ""),
-			at(line, "eq", "smallest value compared"),
-			arid(line, "log"),
-		)
+// TestPick tells the story of one line's mutants as the baseline sees
+// more of them.
+func TestPick(t *testing.T) {
+	c := func(op mutant.Operator, original, mutated string, reached, infected int) killmatrix.Candidate {
+		return killmatrix.Candidate{Path: "/src/p.go", Line: 7, Operator: op, Original: original, Mutated: mutated, Reached: reached, Infected: infected}
 	}
-	pickP := choose(options{}, "/src/p.go", ms)
-	pickQ := choose(options{}, "/src/q.go", ms)
-	all := choose(options{all: true}, "/src/p.go", ms)
-	if len(pickP) != 40 || !slices.IsSorted(pickP) {
-		t.Fatalf("picked %d mutants, sorted=%v; want 40 sorted", len(pickP), slices.IsSorted(pickP))
+	show := func(cs []killmatrix.Candidate) string {
+		k := cs[pick(cs)]
+		return fmt.Sprintf("%s %s→%s", k.Operator, k.Original, k.Mutated)
 	}
-	slots := map[string]bool{}
-	allSet := map[int]bool{}
-	for _, i := range all {
-		allSet[i] = true
-		if ms[i].Equivalent != "" || ms[i].Arid != "" {
-			t.Fatalf("choose(all=true) kept filtered mutant %+v", ms[i])
+	// Every test that reaches the line infects every mutant: the fewest win.
+	cs := []killmatrix.Candidate{
+		c(mutant.ROR, "n > 0", "n >= 0", 4, 3),
+		c(mutant.ROR, "n > 0", "n < 0", 4, 1),
+		c(mutant.COR, "n > 0 && ok", "true", 4, 2),
+		c(mutant.COR, "ok", "false", 4, 4),
+	}
+	xtesting.EqualText(t, show(cs), "ROR n > 0→n < 0")
+	// A mutant no test infects shows only when it is an untaken branch.
+	cs[0].Infected = 0
+	xtesting.EqualText(t, show(cs), "ROR n > 0→n < 0")
+	cs[2].Infected = 0
+	xtesting.EqualText(t, show(cs), "COR n > 0 && ok→true")
+	// Of two untaken branches, the one fewer tests reach.
+	cs[3].Infected, cs[3].Reached = 0, 2
+	xtesting.EqualText(t, show(cs), "COR ok→false")
+	// Only a condition forced true or false counts as an untaken branch.
+	cs[3].Operator = mutant.ROR
+	xtesting.EqualText(t, show(cs), "COR n > 0 && ok→true")
+	cs[3].Operator = mutant.COR
+	// A nil check forced either way is mostly a defensive path.
+	cs[2].Original, cs[3].Original = "err != nil", "p == nil"
+	xtesting.EqualText(t, show(cs), "ROR n > 0→n < 0")
+	// The right side of a short circuit that never runs comes first.
+	cs[3].Reached = 0
+	xtesting.EqualText(t, show(cs), "COR p == nil→false")
+	// Without the baseline's counts the hash decides, the same every run.
+	cs[1].Reached = -1
+	if a, b := pick(cs), pick(cs); a != b {
+		t.Errorf("hash picked %d then %d", a, b)
+	}
+}
+
+// TestPickHash: without counts, the hash varies across lines and files.
+func TestPickHash(t *testing.T) {
+	picks := func(path string) []int {
+		var out []int
+		for line := 1; line <= 40; line++ {
+			var cs []killmatrix.Candidate
+			for range 4 {
+				cs = append(cs, killmatrix.Candidate{Path: path, Line: line, Reached: -1, Infected: -1})
+			}
+			out = append(out, pick(cs))
 		}
+		return out
 	}
-	seenLine := map[int]bool{}
-	for _, i := range pickP {
-		if !allSet[i] {
-			t.Fatalf("one-per-line pick %d not in all", i)
-		}
-		if seenLine[ms[i].Pos.Line] {
-			t.Fatalf("duplicate line %d in one-per-line picks", ms[i].Pos.Line)
-		}
-		seenLine[ms[i].Pos.Line] = true
-		slots[ms[i].Mutated] = true
-	}
-	if len(slots) < 2 {
-		t.Fatalf("one-per-line hash picked only %v across 40 lines; hash is not varying", slots)
-	}
-	if slices.Equal(pickP, pickQ) {
-		t.Fatal("different file names picked identical indices across 40 lines")
+	p, q := picks("/src/p.go"), picks("/src/q.go")
+	if slices.Equal(p, q) || len(slices.Compact(slices.Sorted(slices.Values(p)))) < 2 {
+		t.Errorf("hash picks %v and %v", p, q)
 	}
 }
 
