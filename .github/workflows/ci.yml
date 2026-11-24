@@ -13,6 +13,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
-      # allele mutates the lines the pull request changes.
-      - run: make ci BASE=origin/${{ github.base_ref }}
+      - name: allele -v on pkg/gotest
+        run: go run ./cmd/allele -v -no-cache -json -diff 4bf5dc9 ./pkg/gotest 2>&1 | grep -E 'gotest|"line":27|tests|leaves|M[0-9]+ ' | head -60
+      - name: full matrix of pkg/gotest
+        run: |
+          go run ./cmd/killmatrix -schemata -select -runs 1 -j 4 -o /tmp/km ./pkg/gotest
+          ls /tmp/km/*/ || ls -R /tmp/km | head
+          f=$(find /tmp/km -name tests.ndjson* | head -1); d=$(dirname "$f")
+          echo "== tests"; zcat -f $d/tests.ndjson* | head -40
+          id=$(zcat -f $d/mutants.ndjson* | grep '"line":27' | grep SDL | grep -o '"id":[0-9]*' | cut -d: -f2)
+          echo "== mutant $id"; zcat -f $d/mutants.ndjson* | grep "\"id\":$id,"
+          echo "== results"; zcat -f $d/results.ndjson* | grep "\"mutant_id\":$id," | head -40
