@@ -102,13 +102,21 @@ so the cheap levers are spent. What is left, by measured upper bound:
 Measurements §21. Prefer a mutant whose site no test reaches, then a
 non-nil `if` → true/false no test infects (fewest reaching tests first),
 then the one infected by the fewest tests above 0. On 79 real faults it
-gains Youden's J on both the tuning and the held-out faults (+0.085 ±
-0.036 over all; held-out alone +0.032 ± 0.057, inside the noise), and,
-simulated offline on the corpus, D 0.887 → 0.920 with 850 survivors
-against hash's 865. The pick needs the baseline's reach and infection
-marks before choosing, so selection moves after the baseline. Judge it by
-M v2 (D should show the gain); J stays as measured here, since the rule
-only reorders what the fault data already records.
+gains Youden's J on both the tuning and the held-out faults (+0.086 ±
+0.036 over all; held-out alone +0.032 ± 0.057, inside the noise).
+
+Built on branch `r2b-select` (`killmatrix.Runner.Pick`, called after the
+baseline) and measured on 2026-11-24: D 0.876 → 0.906, as simulated, F
+unchanged, but T 80 → 96 s, so M v2 1.3315 → 1.3325, noise. The cost is
+the baseline: to count reach and infection for every candidate it embeds
+all of them (sjson: 920 instead of 278), and each evaluation of a site
+checks each of its mutants, so sjson's baseline takes 14.5 s instead of
+7.2 s. A second, narrow schema for the mutant runs saves nothing; with
+the hash picking, the same mechanism alone costs sjson 8 s. Not merged.
+
+Next: make recording cheaper per evaluation. The baseline already runs
+7× slower than the plain tests on sjson with one mutant per line, so a
+cheaper record speeds up every run, and would let R2b's D gain through.
 
 ### Compare with other Go tools
 Run [Gremlins](https://github.com/go-gremlins/gremlins) and
