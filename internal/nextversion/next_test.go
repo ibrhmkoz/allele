@@ -62,6 +62,9 @@ func TestNextBadTag(t *testing.T) {
 }
 
 func TestPlan(t *testing.T) {
+	// A mutant that drops gitIn's Dir runs git in the working directory;
+	// one of its own keeps git init out of the source tree.
+	t.Chdir(t.TempDir())
 	dir := t.TempDir()
 	git := gitIn(dir)
 	must := func(args ...string) {
