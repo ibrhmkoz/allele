@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // fakeMutant writes a script that prints, as mutant -json would, the file

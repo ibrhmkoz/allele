@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 func TestChangedLines(t *testing.T) {

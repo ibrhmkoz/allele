@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/ibrhmkoz/allele/fingerprint"
+	"github.com/ibrhmkoz/allele/pkg/fingerprint"
 )
 
 const cacheFormatVersion = "v1"

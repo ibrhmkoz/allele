@@ -19,7 +19,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // stdImporter caches standard library packages across tests so each test

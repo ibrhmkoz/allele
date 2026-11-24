@@ -18,7 +18,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // sequential numbers mutants 1, 2, 3, ... like killmatrix does.

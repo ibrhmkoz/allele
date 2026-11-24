@@ -5,8 +5,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/internal/xtesting"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // TestRunnerConfirmsKills: the command's runner must not count a test that

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/internal/xtesting"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // TestZeroRunnerDefaults checks zero-value Runner defaults (Workers=1, TimeoutPad=1s),

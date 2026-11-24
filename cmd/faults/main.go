@@ -30,8 +30,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ibrhmkoz/allele/adequacy"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/adequacy"
 )
 
 var (

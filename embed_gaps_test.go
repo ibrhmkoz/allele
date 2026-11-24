@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 func embedCheck(t testing.TB, src string, makeIDs func(ms []allele.Mutant) []int) ([]allele.Mutant, []byte, []bool) {

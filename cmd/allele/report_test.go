@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/internal/xtesting"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 func at(line int, mutated string, equivalent string) allele.Mutant {

@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ibrhmkoz/allele/adequacy"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/adequacy"
 )
 
 // The metric's frozen constants. T0 is the naive exhaustive runner's time

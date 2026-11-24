@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 func TestRevealed(t *testing.T) {

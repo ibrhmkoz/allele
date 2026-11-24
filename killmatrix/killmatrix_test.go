@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/internal/xtesting"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // TestRun computes the fixture's matrix with a build per mutant and with

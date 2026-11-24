@@ -30,7 +30,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/ibrhmkoz/allele"
-	"github.com/ibrhmkoz/allele/fingerprint"
+	"github.com/ibrhmkoz/allele/pkg/fingerprint"
 )
 
 // Matrix holds one row per mutant, one per test and one per mutant and test

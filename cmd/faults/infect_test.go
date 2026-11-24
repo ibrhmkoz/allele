@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/internal/xtesting"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // TestInfections: of the tests not skipped, Five and Zero reach x > 0.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // spyTB records failures instead of failing the real test.

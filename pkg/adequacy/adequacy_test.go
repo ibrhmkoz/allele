@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/adequacy"
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/adequacy"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // discount is the kill matrix of the roadmap's Discount example, with

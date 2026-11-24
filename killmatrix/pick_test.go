@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ibrhmkoz/allele/internal/xtesting"
 	"github.com/ibrhmkoz/allele/killmatrix"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // TestPick: after the baseline, Pick sees each line's candidates with how

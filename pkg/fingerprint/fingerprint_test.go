@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ibrhmkoz/allele/fingerprint"
-	"github.com/ibrhmkoz/allele/internal/xtesting"
+	"github.com/ibrhmkoz/allele/pkg/fingerprint"
+	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
 // module is a small module: package p uses dep in its code and helper
