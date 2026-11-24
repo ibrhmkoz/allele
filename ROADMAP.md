@@ -115,20 +115,40 @@ so the cheap levers are spent. What is left, by measured upper bound:
 ## Open
 
 ### Compare with other Go tools
-Run [Gremlins](https://github.com/go-gremlins/gremlins) and
-[go-mutesting](https://pkg.go.dev/github.com/jonbaldie/go-mutesting/v2) on
-the six libraries of `docs/corpus.sh` and compare:
+An overview on 2026-11-24 (`docs/compare.py`), cut short: the machine
+froze once and crashed twice, each time while gomu ran, so gomu is not
+measured. The raw rows of the first, larger run were lost with the
+scratch directory; the numbers below are as read then.
 
-- **cost** (axis B): wall time and builds, against `mutant`'s default and
-  `-all` runs at the same `-j`;
-- **effectiveness** (axis C): map each tool's surviving mutants to lines and
-  ask how many of `mutant`'s dominator mutants (§1) sit on lines the tool
-  mutated at all, and how many real faults of `data-faults/` (§10) the
-  tool's mutants are coupled to.
+On 61 real faults (trees whose old tests pass; found = a survivor
+reported on a line the fix changed), `-j 8`:
 
-Neither tool records which test kills which mutant, so their kill matrices
-cannot be compared cell by cell; verdicts per mutant and lines covered can.
-Deferred on 2026-11-23 as too long for that session.
+| tool | found | survivors on fix lines per fault | seconds |
+|---|---|---|---|
+| mutant -all | 48 | 6.2 | 384 |
+| mutant | 43 | 2.2 | 181 |
+| Gremlins 0.6.0 | 26 | 1.2 | 1349 |
+| Gremlins, every operator | 21 | 1.2 | 1445 |
+
+On eight corpus libraries mutant ran 1.6–14× faster than Gremlins
+(49 s against 186 s in all). Kept run, `-j 4`
+(`data-compare/overview.ndjson`): go-version, mutant 2.4 s, -all 3.9 s,
+Gremlins 23.9 s.
+
+Seen along the way:
+- Gremlins times each mutant out at a multiple of its coverage run; a
+  cached test result makes that milliseconds, and every mutant times out
+  (shlex: 10 of 10). `compare.py` clears the test cache before it runs.
+  With every operator on it found fewer faults than with its defaults.
+- go-mutesting (avito-tech) runs one mutant at a time (shlex: 86 s
+  against 1 s) and counts every mutant killed when the tests fail.
+  Dropped.
+- gomu 0.3.0 builds each mutant twice (go build, then go test with an
+  overlay), runs the whole package's tests, with a fixed 30 s timeout
+  and no baseline: shlex took 156 s, 29 of 211 mutants timing out.
+- 14 of 75 fault trees have old tests that fail on the fixed code:
+  Gremlins stops, go-mutesting calls every mutant killed, mutant leaves
+  the failing tests out.
 
 ### Trivial Compiler Equivalence (TCE)
 Compile each mutant and compare the machine code with the original's and
