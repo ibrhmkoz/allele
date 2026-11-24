@@ -1,0 +1,14 @@
+cabal-version: 3.0
+name:          allele-build
+version:       0.1.0.0
+build-type:    Simple
+
+executable allele-build
+  main-is:          Build.hs
+  hs-source-dirs:   .
+  default-language: GHC2021
+  ghc-options:      -Wall -threaded -rtsopts -with-rtsopts=-I0
+  build-depends:
+    , base       >= 4.18
+    , directory  >= 1.3
+    , shake      >= 0.19
