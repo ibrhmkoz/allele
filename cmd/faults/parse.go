@@ -33,7 +33,6 @@ func changedLines(diff []byte) map[int]bool {
 	return lines
 }
 
-// testRun is what go test -json said about a package.
 type testRun struct {
 	built  bool
 	passed map[string]bool // every test reported, at any depth; skipped counts as passed

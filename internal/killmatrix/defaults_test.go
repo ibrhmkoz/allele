@@ -11,9 +11,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// TestZeroRunnerDefaults checks zero-value Runner defaults (Workers=1, TimeoutPad=1s),
-// go 1.17 WithGo121 injection (L633/656/657), Choose skipping index 0 (L373),
-// Select=false not skipping unreached tests (L475), and Workers=1 skipping baseline recheck (L504).
 func TestZeroRunnerDefaults(t *testing.T) {
 	t.Parallel()
 	dir := writeModule(t, map[string]string{
@@ -185,7 +182,6 @@ func TestRecheck3x(t *testing.T) {
 	}
 	m := run(t, r, dir, ".")
 
-	// Verify baseline edge cases: crash, median sort, exit 0 subtest, and parallel recheck.
 	var baseStates []string
 	for _, tt := range m.Tests {
 		switch tt.Name {
@@ -241,8 +237,6 @@ func TestRecheck3x(t *testing.T) {
 	}
 }
 
-// TestBatchCrashAttribution checks that a goroutine crash in a multi-test batch
-// is attributed to the single started test without re-running it (report.go L53-55).
 func TestBatchCrashAttribution(t *testing.T) {
 	t.Parallel()
 	dir := writeModule(t, map[string]string{

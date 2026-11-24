@@ -40,8 +40,6 @@ func TestRevealing(t *testing.T) {
 {"Action":"pass","Test":"TestPanics/second"}
 {"Action":"pass","Test":"TestPanics"}
 `))
-	// The buggy code fails TestParse/zero, and panics in TestPanics/first,
-	// so TestPanics/second never reports.
 	buggy := parseTestJSON([]byte(`{"Action":"output","Output":"ok"}
 {"Action":"pass","Test":"TestParse/empty"}
 {"Action":"fail","Test":"TestParse/zero"}

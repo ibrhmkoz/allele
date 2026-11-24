@@ -13,8 +13,6 @@ import (
 	"github.com/ibrhmkoz/allele/internal/killmatrix"
 )
 
-// TestReadWrite: Read gives back what Write wrote, from plain or gzipped
-// tables, so stored matrices of real modules can be read back as matrices.
 func TestReadWrite(t *testing.T) {
 	t.Parallel()
 	m := &killmatrix.Matrix{
@@ -45,8 +43,6 @@ func TestReadWrite(t *testing.T) {
 	}
 }
 
-// TestReadWriteErrors: a table that cannot be written or read is an error,
-// never a matrix with rows missing.
 func TestReadWriteErrors(t *testing.T) {
 	t.Parallel()
 	m := &killmatrix.Matrix{Tests: []killmatrix.Test{{ID: 1, Name: "T"}}}

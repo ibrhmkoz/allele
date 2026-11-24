@@ -13,8 +13,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// fixture builds a test binary whose tests pass, fail, skip, panic or
-// hang, as the environment asks.
 func fixture(t *testing.T) (dir, bin string) {
 	t.Helper()
 	dir = t.TempDir()
@@ -80,7 +78,6 @@ func BenchmarkNothing(b *testing.B) {}
 	return dir, bin
 }
 
-// show prints a report: the run, then each leaf it was asked about.
 func show(r gotest.Report, leaves ...string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "ok %v, timed out %v, reported %v\n", r.OK, r.TimedOut, r.Reported())
@@ -102,14 +99,12 @@ func TestRun(t *testing.T) {
 	}
 	xtesting.EqualText(t, fmt.Sprint(names), "[TestLong TestOne TestEnv TestPanics TestHangs]")
 
-	// A long line does not stop the reading.
 	r := gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{"TestLong"}})
 	xtesting.EqualText(t, show(r, "TestLong/after"), `
 		ok true, timed out false, reported [TestLong/after TestLong]
 		  TestLong/after     pass    started true  reported true  passed true
 	`)
 
-	// A skipped subtest passed: it did not fail.
 	r = gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{"TestOne"}})
 	xtesting.EqualText(t, show(r, "TestOne/passes", "TestOne/fails", "TestOne/skips"), `
 		ok false, timed out false, reported [TestOne/passes TestOne/fails TestOne/skips TestOne]
@@ -118,11 +113,9 @@ func TestRun(t *testing.T) {
 		  TestOne/skips      pass    started true  reported true  passed true
 	`)
 
-	// Skip leaves the failing subtest out.
 	r = gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{"TestOne"}, Skip: "TestOne/fails"})
 	xtesting.EqualText(t, show(r), "ok true, timed out false, reported [TestOne/passes TestOne/skips TestOne]\n")
 
-	// The environment and the directory reach the test.
 	r = gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{"TestEnv"}, Env: []string{"FIXTURE=on"}})
 	xtesting.EqualText(t, show(r, "TestEnv"), `
 		ok true, timed out false, reported [TestEnv]
@@ -153,7 +146,6 @@ func TestRun(t *testing.T) {
 		  TestEnv            fail    started true  reported true  passed false
 	`)
 
-	// A hanging test is stopped at the limit.
 	start := time.Now()
 	r = gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{"TestHangs"}, Limit: 300 * time.Millisecond})
 	xtesting.EqualText(t, show(r, "TestHangs"), `
@@ -171,7 +163,6 @@ func TestRun(t *testing.T) {
 	xtesting.EqualText(t, show(r), "ok false, timed out false, reported []\n")
 }
 
-// TestBuildOverlay: an overlay replaces a file for the build only.
 func TestBuildOverlay(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

@@ -145,7 +145,6 @@ func redeclares(fd *ast.FuncDecl) bool {
 	return false
 }
 
-// labeled reports whether body declares a label.
 func labeled(body *ast.BlockStmt) bool {
 	found := false
 	ast.Inspect(body, func(n ast.Node) bool {
@@ -159,7 +158,6 @@ func labeled(body *ast.BlockStmt) bool {
 
 type span struct{ from, to int }
 
-// site is a node with the mutants built into it.
 type site struct {
 	node ast.Node
 	op   Operator
@@ -211,7 +209,6 @@ func (e *embedder) offset(p token.Pos) int { return e.fset.Position(p).Offset }
 
 func (e *embedder) spanOf(n ast.Node) span { return span{e.offset(n.Pos()), e.offset(n.End())} }
 
-// span is the source a site rewrites.
 func (e *embedder) span(s *site) span {
 	switch n := s.node.(type) {
 	case *ast.IfStmt:
@@ -224,7 +221,6 @@ func (e *embedder) span(s *site) span {
 	return e.spanOf(s.node)
 }
 
-// text renders sp, built in if a group of sites spans exactly it.
 func (e *embedder) text(sp span) string {
 	if g, ok := e.groups[sp]; ok {
 		return fit(e.src, sp.from, e.wrap(sp, g))
@@ -232,7 +228,6 @@ func (e *embedder) text(sp span) string {
 	return e.inside(sp)
 }
 
-// inside renders sp with each outermost group strictly inside it built in.
 func (e *embedder) inside(sp span) string {
 	var b strings.Builder
 	at := sp.from
@@ -248,7 +243,6 @@ func (e *embedder) inside(sp span) string {
 	return b.String()
 }
 
-// wrap renders the sites of one span, innermost first.
 func (e *embedder) wrap(sp span, g []*site) string {
 	inner := g[len(g)-1]
 	var s string
@@ -338,8 +332,6 @@ func (e *embedder) binary(n *ast.BinaryExpr, s *site) string {
 	}
 }
 
-// idArray lists, for each operator in ops, the id of the mutant that
-// replaces the original with it, 0 for none.
 func (e *embedder) idArray(s *site, ops []token.Token) string {
 	parts := make([]string, len(ops))
 	for i, op := range ops {
@@ -363,8 +355,6 @@ func (e *embedder) opAssign(n *ast.AssignStmt, s *site) string {
 	return b.String()
 }
 
-// embeddable reports whether m can be built in: whether the helper its
-// site calls accepts the operands' types where the original appears.
 func (e *embedder) embeddable(m Mutant) bool {
 	switch n := m.node.(type) {
 	case *ast.IfStmt:
@@ -467,8 +457,6 @@ func listed(file *ast.File) map[ast.Stmt]bool {
 	return m
 }
 
-// resultTypes maps each return statement to the type of its function's
-// last result.
 func resultTypes(file *ast.File, info *types.Info) map[*ast.ReturnStmt]types.Type {
 	m := map[*ast.ReturnStmt]types.Type{}
 	var stack []types.Type
@@ -582,8 +570,6 @@ var (
 	_mutSeenRest sync.Map
 )
 
-// _mutFirst reports whether key, an id or minus an id, is seen now for the
-// first time.
 func _mutFirst(key int) bool {
 	i := 2 * key
 	if key < 0 {
@@ -636,8 +622,6 @@ func _mutMarkSlow(id int) {
 	}
 }
 
-// _mutInfect records that mutant id would have changed a value here: a
-// test that reaches a mutant's site and never infects it cannot kill it.
 func _mutInfect(id int) {
 	if i := uint(2*id + 1); i >= uint(len(_mutSeen)) || !_mutSeen[i].Load() {
 		_mutInfectSlow(id)
@@ -656,8 +640,6 @@ func _mutInfectSlow(id int) {
 // and changes no mark.
 func _mutInfected(id int) bool { return _mutSet(2*id + 1) }
 
-// _mutInfectAll marks every mutant of a site whose change cannot be told
-// apart without running it.
 func _mutInfectAll(ids []int) {
 	if _mutReach != nil {
 		for _, id := range ids {
@@ -691,8 +673,6 @@ func _mutMarkAll(ids []int) {
 
 func _mutIs(id int) bool { return id != 0 && _mutActive == id }
 
-// _mutOff reports whether a function whose mutants are lo to hi may run as
-// written: none of them is active, and no baseline is recording reach.
 func _mutOff(lo, hi int) bool {
 	return _mutReach == nil && (_mutActive < lo || _mutActive > hi)
 }
@@ -708,15 +688,12 @@ func _mutOn(id int) bool {
 	return _mutIs(id)
 }
 
-// _mutAt returns the active mutant for an op-assignment's switch.
 func _mutAt(ids ...int) int {
 	_mutMarkAll(ids)
 	_mutInfectAll(ids)
 	return _mutActive
 }
 
-// _mutPick returns the operator the active mutant puts in place of op:
-// ids[alt] is the id of the mutant that uses alt.
 func _mutPick(op int, ids []int) int {
 	if _mutActive != 0 {
 		for alt, id := range ids {
@@ -905,7 +882,6 @@ func _mutAnd(x bool, y func() bool, id int, pure bool) bool {
 	return v
 }
 
-// _mutOr is _mutAnd's mirror: x || y(), or x && y() for mutant id.
 func _mutOr(x bool, y func() bool, id int, pure bool) bool {
 	if !_mutSet(2 * id) {
 		_mutMarkSlow(id)

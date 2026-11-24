@@ -117,8 +117,6 @@ func matrixErrors(m *killmatrix.Matrix) []error {
 	return errs
 }
 
-// verdictOf is the verdict one run gives its mutant, "" for an unknown
-// status. A flaky kill is no kill.
 func verdictOf(s killmatrix.Status) killmatrix.Verdict {
 	return map[killmatrix.Status]killmatrix.Verdict{
 		killmatrix.Killed:    killmatrix.VerdictKilled,
@@ -128,8 +126,6 @@ func verdictOf(s killmatrix.Status) killmatrix.Verdict {
 	}[s]
 }
 
-// TestStoredMatrices checks the matrices of real modules kept in docs:
-// runs of earlier versions, under every option measured there.
 func TestStoredMatrices(t *testing.T) {
 	t.Parallel()
 	dirs, err := filepath.Glob("../../docs/data*/*/mutants.ndjson.gz")
@@ -152,7 +148,6 @@ func TestStoredMatrices(t *testing.T) {
 	}
 }
 
-// run computes r's matrix and checks it.
 func run(t *testing.T, r killmatrix.Runner, dir string, patterns ...string) *killmatrix.Matrix {
 	t.Helper()
 	m, err := r.Run(t.Context(), dir, patterns...)

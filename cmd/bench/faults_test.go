@@ -17,7 +17,6 @@ func TestRevealed(t *testing.T) {
 	for _, c := range [][2]int{{0, 0}, {3, 0}, {3, 1}, {5, 1}, {6, 1}, {10, 1}, {10, 2}, {100, 1}} {
 		fmt.Fprintf(&b, "%d survivors, %d coupled: %.4f\n", c[0], c[1], revealed(c[0], c[1], 5))
 	}
-	// Reading 5 of 10 with one coupled finds it half the time; of 6, 5/6.
 	xtesting.EqualText(t, b.String(), `
 		0 survivors, 0 coupled: 0.0000
 		3 survivors, 0 coupled: 0.0000
@@ -30,7 +29,6 @@ func TestRevealed(t *testing.T) {
 	`)
 }
 
-// writeDetail writes cmd/faults -detail rows, gzipped when name says so.
 func writeDetail(t *testing.T, name string, rows []coupledRow) {
 	t.Helper()
 	f, err := os.Create(name)
@@ -61,8 +59,6 @@ func writeDetail(t *testing.T, name string, rows []coupledRow) {
 	}
 }
 
-// TestReadFaults: a tree becomes a fault when detail names coupled
-// mutants for its commit and package; plain or gzipped detail alike.
 func TestReadFaults(t *testing.T) {
 	dir := t.TempDir()
 	rows := []coupledRow{

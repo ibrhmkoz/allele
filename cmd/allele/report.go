@@ -17,24 +17,15 @@ import (
 	"github.com/ibrhmkoz/allele/internal/mutant"
 )
 
-// options picks the mutants of a run.
 type options struct {
-	// all runs every mutant on a line rather than one.
-	all bool
-	// arid runs mutants in code no one writes a test for: logging,
-	// metrics, capacity hints, lines marked allele:ignore.
+	all  bool
 	arid bool
 	// diff, if set, maps absolute paths to the lines a diff touched; only
 	// mutants on those lines run.
-	diff map[string]map[int]bool
-	// noCache disables the per-package verdict cache.
+	diff    map[string]map[int]bool
 	noCache bool
 }
 
-// choose returns, in order, the indices of the mutants of the file at path
-// that may run: equivalent mutants never do, nor arid ones without o.arid,
-// nor, with a diff, those off its lines. Without o.all, pick then keeps
-// one per line.
 func choose(o options, path string, ms []mutant.Mutant) []int {
 	var lines map[int]bool
 	if o.diff != nil {
@@ -95,8 +86,6 @@ func pick(cs []killmatrix.Candidate) int {
 	return best
 }
 
-// untakenBranch reports whether mu forces a condition true or false,
-// other than a nil check.
 func untakenBranch(mu killmatrix.Mutant) bool {
 	forced := mu.Mutated == "true" || mu.Mutated == "false" || strings.HasSuffix(mu.Mutated, "return true }()") || strings.HasSuffix(mu.Mutated, "return false }()")
 	return mu.Operator == mutant.COR && forced && !strings.Contains(mu.Original, "nil")
@@ -141,8 +130,6 @@ func parseDiff(out []byte, root string) map[string]map[int]bool {
 	return files
 }
 
-// report lists the mutants no test killed, each as the line before and
-// after, then counts every verdict. Paths are shown relative to root.
 func report(m *killmatrix.Matrix, root string, read func(path string) ([]byte, error)) string {
 	verdicts := m.Verdicts()
 	rank := map[killmatrix.Verdict]int{killmatrix.VerdictSurvived: 0, killmatrix.VerdictNotCovered: 1, killmatrix.VerdictTimeout: 2}
@@ -188,7 +175,6 @@ func report(m *killmatrix.Matrix, root string, read func(path string) ([]byte, e
 	return b.String()
 }
 
-// jsonMutant is one line of -json output.
 type jsonMutant struct {
 	File     string             `json:"file"`
 	Line     int                `json:"line"`
@@ -199,8 +185,6 @@ type jsonMutant struct {
 	Verdict  killmatrix.Verdict `json:"verdict"`
 }
 
-// reportJSON writes one JSON object per mutant, every verdict included, for
-// tools to filter. Paths are relative to root.
 func reportJSON(m *killmatrix.Matrix, root string) string {
 	verdicts := m.Verdicts()
 	var b strings.Builder

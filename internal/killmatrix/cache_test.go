@@ -67,10 +67,6 @@ func formatVerdicts(m *killmatrix.Matrix) string {
 	return b.String()
 }
 
-// TestCacheReusesAndInvalidates verifies the four incremental-cache
-// invariants: exact hit skips builds, adding a test re-runs only survivors,
-// weakening an existing test invalidates the mutants it killed, and editing
-// production code invalidates the whole package.
 func TestCacheReusesAndInvalidates(t *testing.T) {
 	t.Parallel()
 	dir := copyDiscount(t)
@@ -85,7 +81,6 @@ func TestCacheReusesAndInvalidates(t *testing.T) {
 		CacheDir:     cacheDir,
 	}
 
-	// 1. Cold run: M5 (price > 100 → price >= 100) survives, all others killed.
 	m1 := run(t, r, dir, ".")
 	wantInitial := `
 		M1 killed
@@ -103,8 +98,6 @@ func TestCacheReusesAndInvalidates(t *testing.T) {
 	`
 	xtesting.EqualText(t, formatVerdicts(m1), wantInitial)
 
-	// 2. Exact hit: nothing changed, so every mutant reuses its cached verdict
-	// with zero build time.
 	m2 := run(t, r, dir, ".")
 	xtesting.EqualText(t, formatVerdicts(m2), wantInitial)
 	for _, mu := range m2.Mutants {
@@ -113,8 +106,6 @@ func TestCacheReusesAndInvalidates(t *testing.T) {
 		}
 	}
 
-	// 3. Level-2 hit: append a new test that kills M5. Previously killed
-	// mutants stay cached (BuildMS == 0); only M5 is built and killed.
 	testPath := filepath.Join(dir, "discount_test.go")
 	origTest, err := os.ReadFile(testPath)
 	if err != nil {
@@ -146,8 +137,6 @@ func TestVIPAt100(t *testing.T) {
 		}
 	}
 
-	// 3b. All-reused Level-2 fast path: adding a no-op test when every mutant
-	// is already killed skips building completely and updates the L1 cache.
 	withExtra := added + "\nfunc TestExtra(t *testing.T) {}\n"
 	if err := os.WriteFile(testPath, []byte(withExtra), 0o600); err != nil {
 		t.Fatal(err)
@@ -161,7 +150,6 @@ func TestVIPAt100(t *testing.T) {
 			t.Errorf("M%d: BuildMS = %v on all-reused L2 hit, want 0", mu.ID, mu.BuildMS)
 		}
 	}
-	// Verify 3b persisted the updated L1 snapshot (containing TestExtra).
 	entries, err := os.ReadDir(cacheDir)
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("cacheDir entries = %d, err = %v; want 1", len(entries), err)
@@ -174,8 +162,6 @@ func TestVIPAt100(t *testing.T) {
 		t.Fatal("all-reused L2 hit did not update cached snapshot with TestExtra")
 	}
 
-	// 4. Weakening an existing test invalidates the mutants it killed, while
-	// mutants killed by unchanged tests stay cached (verifies reusedKillers).
 	weakened := strings.Replace(withExtra, `if got := Discount(120, true); got != 100`, `if got := Discount(120, true); got != got`, 1)
 	if err := os.WriteFile(testPath, []byte(weakened), 0o600); err != nil {
 		t.Fatal(err)
@@ -188,7 +174,6 @@ func TestVIPAt100(t *testing.T) {
 		t.Fatalf("M1 (killed by unchanged TestRegularOver100): BuildMS = %v, want 0", m4.Mutants[0].BuildMS)
 	}
 
-	// 5. Editing production code invalidates the whole package.
 	prodPath := filepath.Join(dir, "discount.go")
 	prod, err := os.ReadFile(prodPath)
 	if err != nil {
@@ -204,7 +189,6 @@ func TestVIPAt100(t *testing.T) {
 		}
 	}
 
-	// 6. Full-matrix mode (FailFast=false) must neither read nor write CacheDir.
 	full := r
 	full.FailFast = false
 	full.CacheDir = t.TempDir()
@@ -218,10 +202,6 @@ func TestVIPAt100(t *testing.T) {
 	}
 }
 
-// TestCacheInvalidatesOnRunner: the cache misses when the runner options
-// that change verdicts change, and misses, rather than fails, on an entry
-// it cannot read.
-// Which edits to a package change its fingerprint is fingerprint's test.
 func TestCacheInvalidatesOnRunner(t *testing.T) {
 	t.Parallel()
 	dir := copyDiscount(t)
@@ -260,8 +240,6 @@ func TestCacheInvalidatesOnRunner(t *testing.T) {
 	mustMiss("corrupt cache", infect)
 }
 
-// TestCacheChoosesMore: mutants chosen after the cache was filled run;
-// none of them is reported from an entry that never held it.
 func TestCacheChoosesMore(t *testing.T) {
 	t.Parallel()
 	dir := copyDiscount(t)
@@ -282,9 +260,6 @@ func TestCacheChoosesMore(t *testing.T) {
 	xtesting.EqualText(t, formatVerdicts(all), formatVerdicts(fresh))
 }
 
-// TestCacheKeepsVerdicts: an exact hit gives back every verdict the cold
-// run gave, timeouts and build errors as well as kills and survivors,
-// without building anything.
 func TestCacheKeepsVerdicts(t *testing.T) {
 	t.Parallel()
 	r := killmatrix.Runner{Workers: min(4, runtime.NumCPU()), BaselineRuns: 1, TimeoutPad: 500 * time.Millisecond, Schemata: true, Select: true, FailFast: true, CacheDir: t.TempDir()}

@@ -30,7 +30,6 @@ const (
 	major
 )
 
-// level is how much c asks the version to move.
 func (c commit) level() int {
 	switch strings.ToLower(strings.TrimSpace(c.release)) {
 	case "major":
@@ -85,7 +84,6 @@ func next(last string, commits []commit) (string, bool) {
 	return fmt.Sprintf("v%d.%d.%d", v[0], v[1], v[2]), true
 }
 
-// run is git run in dir.
 type run func(args ...string) (string, error)
 
 func gitIn(dir string) run {
@@ -97,8 +95,6 @@ func gitIn(dir string) run {
 	}
 }
 
-// plan reads the repository git runs in: the commits since its last v*
-// tag, and the tag they call for.
 func plan(git run) (string, bool, error) {
 	// With no tag yet describe fails and prints nothing: last is "".
 	last, _ := git("describe", "--tags", "--abbrev=0", "--match", "v[0-9]*")

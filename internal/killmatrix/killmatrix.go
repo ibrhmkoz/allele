@@ -44,20 +44,19 @@ type Matrix struct {
 // Mutant is a mutant of one package. Compiled is false when the mutant did
 // not build; it then has no results.
 type Mutant struct {
-	ID       int             `json:"id"`
-	Pkg      string          `json:"pkg"`
-	File     string          `json:"file"`
-	Line     int             `json:"line"`
-	Col      int             `json:"col"`
-	Operator mutant.Operator `json:"operator"`
-	Node     string          `json:"node"`
-	Original string          `json:"original"`
-	Mutated  string          `json:"mutated"`
-	// Equivalent, Repaired and Arid are as in mutant.Mutant.
-	Equivalent string `json:"equivalent"`
-	Repaired   bool   `json:"repaired"`
-	Arid       string `json:"arid"`
-	Compiled   bool   `json:"compiled"`
+	ID         int             `json:"id"`
+	Pkg        string          `json:"pkg"`
+	File       string          `json:"file"`
+	Line       int             `json:"line"`
+	Col        int             `json:"col"`
+	Operator   mutant.Operator `json:"operator"`
+	Node       string          `json:"node"`
+	Original   string          `json:"original"`
+	Mutated    string          `json:"mutated"`
+	Equivalent string          `json:"equivalent"`
+	Repaired   bool            `json:"repaired"`
+	Arid       string          `json:"arid"`
+	Compiled   bool            `json:"compiled"`
 	// Schema is set when the mutant ran in its package's schema binary
 	// rather than in a build of its own; BuildMS is then its share of the
 	// schema build.
@@ -95,7 +94,6 @@ type Test struct {
 	State      TestState `json:"state"`
 }
 
-// Status is how a test did against a mutant.
 type Status string
 
 const (
@@ -104,16 +102,15 @@ const (
 	// Timeout is not a kill: a mutant that only slows a test down may
 	// still be equivalent.
 	Timeout Status = "timeout"
-	// FlakyKill, with Confirm, is a test that failed against the mutant
-	// but passed when run against it again, or passed against it, or
-	// failed against the original code, once run alone. It is not a kill.
+	// FlakyKill is a test that, with Confirm, failed against the mutant
+	// but passed when run against it again, or passed against it or
+	// failed against the original code once run alone. It is not a kill.
 	FlakyKill Status = "flaky"
 	// recheck marks a kill that Confirm could not tell from load, until
 	// the runner checks it alone.
 	recheck Status = "recheck"
 )
 
-// Verdict sums up how the tests did against one mutant.
 type Verdict string
 
 const (
@@ -174,8 +171,8 @@ type Runner struct {
 	// BaselineRuns is how often each test runs on the unmutated package to
 	// find flaky tests. Default 3.
 	BaselineRuns int
-	// A test run against a mutant times out after its baseline time times
-	// TimeoutFactor plus TimeoutPad. Defaults 3 and 1s.
+	// TimeoutFactor and TimeoutPad set the per-run timeout as
+	// baseline*TimeoutFactor + TimeoutPad. Defaults are 3 and 1s.
 	TimeoutFactor float64
 	TimeoutPad    time.Duration
 	// Workers is how many mutants build and run at once. Default 1, which
@@ -237,7 +234,6 @@ func (r Runner) acquire() { r.sem <- struct{}{} } //allele:ignore
 
 func (r Runner) release() { <-r.sem } //allele:ignore
 
-// Run computes the kill matrix of the packages that patterns match in dir.
 func (r Runner) Run(ctx context.Context, dir string, patterns ...string) (*Matrix, error) {
 	r = r.withDefaults()
 	// Cost-only skip when CacheDir is empty (loadCache/saveCache no-op on "").
@@ -351,7 +347,6 @@ func (r Runner) withDefaults() Runner {
 	return r
 }
 
-// source is a Go file of a package and the mutants Find returned for it.
 type source struct {
 	name    string
 	src     []byte
@@ -673,8 +668,6 @@ func picks(pick func([]Candidate) int, mutants []Mutant, ids []map[int]bool, rec
 	return kept
 }
 
-// keep drops from m the package's mutants, from firstMutant on, that ok
-// rejects, and returns those left.
 func keep(m *Matrix, firstMutant int, ok func(Mutant) bool) []Mutant {
 	left := slices.DeleteFunc(m.Mutants[firstMutant:], func(mu Mutant) bool { return !ok(mu) })
 	m.Mutants = m.Mutants[:firstMutant+len(left)]
@@ -847,7 +840,6 @@ type position struct {
 
 var compileError = regexp.MustCompile(`(?m)^(?:.*/)?([^/:\s]+\.go):(\d+):\d+: `)
 
-// compileErrors returns the files and lines go build reports errors at.
 func compileErrors(out []byte) []position {
 	var at []position
 	for _, m := range compileError.FindAllSubmatch(out, -1) {
@@ -996,7 +988,6 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 			continue
 		}
 
-		// Multi-test batch: all passed.
 		if rep.OK { //allele:ignore the failed-batch path below records the same survivors, test by test
 			for _, g := range batch {
 				for _, t := range g.leaves {
@@ -1040,7 +1031,6 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 			continue
 		}
 
-		// No explicit FAIL line: either a timeout or a crash/panic.
 		var startedUnfinished []topGroup
 		var rest []topGroup
 		for _, g := range unfinished {
@@ -1108,8 +1098,6 @@ func (r Runner) runTestsFailFast(ctx context.Context, dir, bin string, mu *Mutan
 	return results, nil
 }
 
-// limit is how long a run of tests whose baselines add up to baseMS may
-// take before it times out.
 func (r Runner) limit(baseMS float64) time.Duration {
 	return time.Duration(baseMS*r.TimeoutFactor*float64(time.Millisecond)) + r.TimeoutPad
 }
@@ -1235,9 +1223,6 @@ func (r Runner) baseline(ctx context.Context, dir, bin, pkg, top, reach string) 
 	return tests, ids
 }
 
-// states names the leaves of top that the baseline runs reported, each
-// with how it did across them: OK if it passed every run, Flaky if only
-// some, Failing if none.
 func states(top string, reports []gotest.Report) []Test {
 	var names []string
 	for _, rep := range reports {
@@ -1329,8 +1314,6 @@ func (r Runner) run(ctx context.Context, dir, bin, top string, limit time.Durati
 	return run(ctx, dir, bin, top, limit, id, reach)
 }
 
-// runBatch runs one or more top-level tests of bin in one process,
-// stopping at the first failing test when more than one is given.
 func (r Runner) runBatch(ctx context.Context, dir, bin string, tops []string, limit time.Duration, id int) gotest.Report {
 	r.acquire()
 	defer r.release()
@@ -1340,9 +1323,6 @@ func (r Runner) runBatch(ctx context.Context, dir, bin string, tops []string, li
 	return gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: tops, Limit: limit, Env: env, FailFast: len(tops) > 1}) //allele:ignore as above
 }
 
-// run runs one top-level test of bin in dir with mutant id switched on, if
-// bin is a schema binary, recording the sites it reaches into reach if
-// set. A limit of 0 means no limit.
 func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int, reach string) gotest.Report {
 	env := []string{fmt.Sprintf("%s=%d", mutant.EnvVar, id)}
 	if reach != "" {
@@ -1351,7 +1331,6 @@ func run(ctx context.Context, dir, bin, top string, limit time.Duration, id int,
 	return gotest.Run(ctx, bin, gotest.Options{Dir: dir, Tests: []string{top}, Limit: limit, Env: env})
 }
 
-// statusOf is how leaf did against a mutant: a failure kills it.
 func statusOf(rep gotest.Report, leaf string) Status {
 	switch rep.Outcome(leaf) {
 	case gotest.Pass:

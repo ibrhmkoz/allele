@@ -16,7 +16,6 @@ import (
 
 const cacheFormatVersion = "v1"
 
-// cacheEntry stores the last FailFast verdict snapshot of one package.
 type cacheEntry struct {
 	FullKey   string            `json:"full_key"`
 	ProdKey   string            `json:"prod_key"`
@@ -81,8 +80,6 @@ func saveCache(cacheDir, pkgPath string, e cacheEntry) {
 	_ = os.Rename(name, cachePath(cacheDir, pkgPath))
 }
 
-// snapshot keys a package's cache entry: its fingerprint and the runner
-// options that change verdicts, then its tests and the mutants chosen.
 func (r Runner) snapshot(p fingerprint.Print, mutants []Mutant) pkgSnapshot {
 	prod := sha256.New()
 	// Whether Pick runs changes which mutants a run keeps: with it the
@@ -117,8 +114,6 @@ func cachedResult(id int, v Verdict) (compiled bool, res []Result) {
 	}
 }
 
-// buildCacheEntry constructs the cacheEntry to persist after a package run
-// finishes, merging any Level-2 reused kills with freshly computed verdicts.
 func buildCacheEntry(snap pkgSnapshot, m *Matrix, reusedKillers map[int]string) cacheEntry {
 	byTestID := map[int]string{}
 	for _, t := range m.Tests {

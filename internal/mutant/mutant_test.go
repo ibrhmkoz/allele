@@ -45,7 +45,6 @@ func (c *cachedImporter) Import(path string) (*types.Package, error) {
 	return pkg, err
 }
 
-// find type-checks src as a file of its own package and returns its mutants.
 func find(t testing.TB, name, src string) []mutant.Mutant {
 	t.Helper()
 	return findInPkg(t, "p", name, src)
@@ -428,9 +427,6 @@ var loadStdlib = sync.OnceValues(func() ([]*packages.Package, error) {
 	return packages.Load(cfg, "cmp", "os", "strconv", "sort", "strings", "net/url", "encoding/csv", "text/tabwriter", "path", "bufio")
 })
 
-// TestApplyOnStdlib checks, over every mutant of a few standard library
-// packages, that a mutant replaces exactly its Original with its Mutated and
-// that the result still parses.
 func TestApplyOnStdlib(t *testing.T) {
 	t.Parallel()
 	pkgs, err := loadStdlib()
@@ -582,8 +578,6 @@ func report(logger any, n int) int {
 	if _, err := (&types.Config{Importer: stdImporter}).Check("p", fset, []*ast.File{f}, info); err != nil {
 		t.Fatal(err)
 	}
-	// A switch whose every case only logs is arid, and so is the if that
-	// guards it: its condition only decides whether to log.
 	xtesting.EqualText(t, listing(mutant.Find(fset, f, []byte(src), info)), `
 		p.go:8:5 COR logger != nil → true [arid: only arid statements]
 		p.go:8:5 COR logger != nil → false [arid: only arid statements]
@@ -665,8 +659,6 @@ func work(l Logger, w io.Writer, n int, debug bool) []int {
 	`)
 }
 
-// TestAridRules checks line-above allele:ignore, os.Stdout/Stderr detection,
-// arid poisoning on if/else and switch branches, and metrics/tracing/map rules.
 func TestAridRules(t *testing.T) {
 	src := `package p
 
@@ -752,9 +744,6 @@ func f(n int, flag bool, l myLogger, sp Span, st streams) int {
 	for _, line := range lines {
 		fmt.Fprintf(&b, "%d %s\n", line, byLine[line])
 	}
-	// Standalone //allele:ignore marks only the next line; os.Stdout/Stderr are
-	// logging while os.Stdin, io.Discard, and struct fields are not; a single
-	// non-arid statement in an else or switch case clears arid on the outer if.
 	xtesting.EqualText(t, b.String(), `
 		25 allele:ignore
 		27 -
@@ -811,9 +800,8 @@ func record(c Counter, n int) {
 	`)
 }
 
-// TestRepairPicksFirstUse: when a deleted statement holds several uses of
-// an import, the one that keeps it used is the first in the source, every
-// time: a mutant's text is part of its identity in caches and reports.
+// TestRepairPicksFirstUse checks that import repair is deterministic across
+// runs, because a mutant's text is part of its identity in caches and reports.
 func TestRepairPicksFirstUse(t *testing.T) {
 	src := `package p
 

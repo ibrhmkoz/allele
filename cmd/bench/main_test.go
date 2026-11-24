@@ -13,9 +13,6 @@ import (
 	"github.com/ibrhmkoz/allele/pkg/xtesting"
 )
 
-// fakeMutant writes a script that prints, as mutant -json would, the file
-// of its name in the directory it runs in, or fails with a message. It
-// appends its arguments to name.args beside itself.
 func fakeMutant(t *testing.T, name string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
@@ -44,10 +41,6 @@ func line(v verdict) string {
 	return string(b) + "\n"
 }
 
-// TestCLI runs two builds on a one-repository corpus, in turns, and
-// scores each against the reference and its rerun: the one that hides a
-// gap scores lower, and a mutant the two runs disagree on counts for
-// neither.
 func TestCLI(t *testing.T) {
 	corpus, ref, rerun := t.TempDir(), t.TempDir(), t.TempDir()
 	writeFile(t, filepath.Join(corpus, "m", "go.mod"), "module example.com/m\n\ngo 1.21\n")
@@ -115,7 +108,6 @@ func TestCLI(t *testing.T) {
 		t.Errorf("good %+v, hiding a gap %+v", good, hiding)
 	}
 
-	// Without -o nothing is written, and the table still prints.
 	code, out := cli("good=" + fakeMutant(t, "good"))
 	for _, says := range []string{"rep 1 m ", "bin    repo", "good   m ", "good   M = "} {
 		if code != 0 || !strings.Contains(out, says) {
@@ -150,7 +142,6 @@ func TestCLI(t *testing.T) {
 	if code, out := cli("-faults", trees, "-fault-detail", detail, "bad="+fakeMutant(t, "bad")); code != 1 || !strings.Contains(out, "oops") {
 		t.Errorf("a build failing on the corpus: exit %d: %s", code, out)
 	}
-	// A build that runs on the corpus but fails on a fault's tree.
 	emptyTrees := filepath.Join(t.TempDir(), "trees.txt")
 	writeFile(t, emptyTrees, "m . "+filepath.Join(t.TempDir(), "m-aaaaaaaaaaaa")+"\n")
 	if code, out := cli("-faults", emptyTrees, "-fault-detail", detail, "good="+fakeMutant(t, "good")); code != 1 || !strings.Contains(out, "on fault m-aaaaaaaaaaaa/.") {
