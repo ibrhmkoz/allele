@@ -133,7 +133,7 @@ def _(mo, totals):
     - **Score:** Share of dominator mutants killed (Kurtz et al., FSE 2016). Strategies are simulated on the matrix: add random tests until every kept mutant dies, then score on all mutants. Each strategy is paired with a random control of equal size (200 test sets × 30 seeds).
     - **Terms:**
       - **Schemata:** All mutants of a package compiled into one test binary, toggled at runtime via env var (Untch et al., ISSTA 1993).
-      - **Dominator:** A minimal mutant subset—killing them kills every other killable mutant (removes duplicate credit).
+      - **Dominator:** A minimal mutant subset. Killing them kills every other killable mutant (removes duplicate credit).
       - **Coupled:** A real bug linked to a mutant that only the fix's new tests kill.
       - **Arid:** Code nobody tests directly (logging, metrics, tracing, capacity hints, `//allele:ignore`).
     """)
@@ -420,7 +420,7 @@ def _(alt, db, dumbbell, mo, pd, summary, title):
             mo.md(rf"""
             - **Repair vs drop:** {int(summary.repaired.sum())} mutants needed repair. Dropping them loses dominators ({_gain_txt}) and loses to random (§2).
             - **Still failing:** Constant-overflow AOR (`TByte * 1000` → `-`), ERR returning `nil` for non-nilable types, and type/generic-only imports (type-only imports were fixed later with `(*pkg.T)(nil)`).
-            - **Equivalence rule** (non-negative value vs 0: `!=` → `>`, `==` → `<=`): {_eq[0]} tagged, {_eq[1]} killed or timed out. Catches {_eq[0]}/{_surv:,} survivors ({_eq[0] / _surv:.0%})—cheap, small win.
+            - **Equivalence rule** (non-negative value vs 0: `!=` → `>`, `==` → `<=`): {_eq[0]} tagged, {_eq[1]} killed or timed out. Catches {_eq[0]}/{_surv:,} survivors ({_eq[0] / _surv:.0%}). Cheap, small win.
             """),
         ]
     )
@@ -721,7 +721,7 @@ def _(alt, db, mo, pd, title):
             mo.md(rf"""
             - **Skipped:** {_k[1]:,} of {_k[0]:,} cells ({_k[1] / _k[0]:.0%}) where the test never reached the mutant's function in the baseline. {_k[2]} skipped cells differ ({_k[2] - _k[3]} also flip in naive reruns).
             - **Function-level, not site-level:** Site-level selection missed 6 real kills in `uuid`'s `getV7Time`, where a clock-collision branch never ran in baseline but did run under mutants.
-            - **Overall:** {_k[4]} diffs total; {_k[5]} non-timeout, non-noise diffs—all on §7's flaky lines or non-schema mutants.
+            - **Overall:** {_k[4]} diffs total; {_k[5]} non-timeout, non-noise diffs, all on §7's flaky lines or non-schema mutants.
             - **Fallback:** Mutants outside functions or not embedded run all tests.
             """),
         ]
@@ -794,7 +794,7 @@ def _(alt, db, dumbbell, mo, pd, title):
             mo.md(rf"""
             - **Protocol:** Pick fix/bug commits touching code and tests in one package. A revealing test passes on the fix and fails before it. A bug is coupled if a mutant on the fixed code is killed only by revealing tests (`adequacy.Matrix.Coupled`, Just et al. FSE 2014).
             - **Candidates:** {_funnel}. Fixes that change an API cannot run new tests on old code.
-            - **Why fix lines matter:** On any line, {_fix.loc['any line', 'random']:.0%} of random tests look coupled. On fix lines, random tests almost never do—that gap is the real signal.
+            - **Why fix lines matter:** On any line, {_fix.loc['any line', 'random']:.0%} of random tests look coupled. On fix lines, random tests almost never do. That gap is the real signal.
             - **Limits:** Small sample ({len(_ok)} bugs); API-changing fixes are excluded; two-package commits count twice.
             - **ERR operator** (`err != nil`, `return err`): {_ops.loc['ERR', 'with']} of {int((_ok.coupled > 0).sum())} coupled bugs include ERR, {_ops.loc['ERR', 'only']} by ERR alone (COR: {_ops.loc['COR', 'with']}/{_ops.loc['COR', 'only']}; ROR: {_ops.loc['ROR', 'with']}/{_ops.loc['ROR', 'only']}). Cheap and clear, though other operators cover the same bugs here.
             """),
@@ -1035,7 +1035,7 @@ def _(alt, db, mo, pd, title):
             - **Repos:** 3 service libraries with loggers: `go-retryablehttp`, `robfig/cron`, `hashicorp/yamux`. Slow suites (25–40 s), so we used schemata + selection + fail-fast.
             - **Arid rules (`Mutant.Arid`):** Logging calls (never Fatal/Panic), metrics, tracing, `if`/`switch` blocks doing only those, slice/map capacity hints, and `//allele:ignore`.
             - **Precision / recall:** 100% precision (both blind raters called every tagged survivor noise). {len(_miss)}/{len(_u)} untagged survivors were noise too ({", ".join(_miss.key)}).
-            - **Tested logs:** Some tests assert on log lines and kill those arid mutants. Skipping them loses nothing—killed mutants are never reported.
+            - **Tested logs:** Some tests assert on log lines and kill those arid mutants. Skipping them loses nothing, since killed mutants are never reported.
             - **Flake check:** Under `-j 8`, timing tests failed randomly and hid real gaps. Now a kill must fail twice on the mutant and pass on the original (`Runner.Confirm`). Last column counts rejected flaky runs.
             - **Decision:** Skip arid mutants by default (`-arid` includes them).
             """),
@@ -1097,7 +1097,7 @@ def _(alt, db, dumbbell, mo, title):
             _chart,
             mo.md(rf"""
             - **Idea:** Turn uncoupled §10 fixes into operators (Beller et al., ICSE SEIP 2021): LIT (string/regexp), CPY (copies), PNC (panic vs error).
-            - **Training set:** Coupled {len(_gained)} more bugs they were designed from—proves nothing.
+            - **Training set:** Coupled {len(_gained)} more bugs they were designed from. Proves nothing.
             - **Held-out set** (`blang/semver`, `cast`, `mapstructure`, `mux`, `strcase`): Coupled 0 new bugs. (`govalidator` timed out at 71 min.)
             - **Cost:** +770 mutants (+15%) on the 6 libraries.
             - **Decision:** Dropped (kept at tag `experiment/wild-caught`).

@@ -48,11 +48,11 @@ Prebuilt binaries for macOS, Linux, and Windows are on [Releases](https://github
 | `allele -j 4 -v ./...` | Run 4 mutants in parallel, log progress to stderr |
 
 **Verdicts:**
-- **killed** — a test failed (good)
-- **survived** — all tests passed (test gap)
-- **not covered** — no test reached the function
-- **timeout** — test ran longer than 3× normal time + 100 ms
-- **build error** — mutated code failed to compile
+- **killed:** a test failed (good)
+- **survived:** all tests passed (test gap)
+- **not covered:** no test reached the function
+- **timeout:** test ran longer than 3× normal time + 100 ms
+- **build error:** mutated code failed to compile
 
 Skip a line with `//allele:ignore` at the end of the line or on the line above.
 
@@ -105,7 +105,7 @@ Defaults come from measurements on 10 libraries and 3 services (`make measuremen
 
 - **Go version:** Requires Go 1.27+. Modules older than Go 1.21 get a `1.21` build tag on mutated files to keep old loop semantics.
 - **Single-build fallback:** Packages that `os` or `strconv` depend on, plus `const` and array-size mutants, build one mutant at a time.
-- **Cache:** Verdicts are cached in `os.UserCacheDir()/allele`. Keys include Go version/OS/arch, flags, package files, `//go:embed`, `testdata/`, tests, and non-stdlib deps. Env vars, external services (like databases), and files outside `testdata/` are not tracked—pass `-no-cache` when those matter.
+- **Cache:** Verdicts are cached in `os.UserCacheDir()/allele`. Keys include Go version/OS/arch, flags, package files, `//go:embed`, `testdata/`, tests, and non-stdlib deps. Env vars, external services (like databases), and files outside `testdata/` are not tracked. Pass `-no-cache` when those matter.
 
 ## License
 
