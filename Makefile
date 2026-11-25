@@ -33,7 +33,7 @@ mutate:
 	go run ./cmd/allele $(FLAGS) -strict -diff $(BASE) ./...
 
 measurements:
-	uv run marimo run docs/measurements.py
+	uv run --with marimo --with altair --with duckdb --with pandas marimo run docs/measurements.py
 
 # The tag the next release takes, or nothing; see internal/nextversion.
 next-version:
