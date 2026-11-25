@@ -11,22 +11,94 @@ def _():
     import marimo as mo
     import pandas as pd
 
+    @alt.theme.register("allele", enable=True)
+    def _allele_theme():
+        return {
+            "config": {
+                "font": "Inter, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif",
+                "view": {"stroke": None},
+                "title": {
+                    "anchor": "start",
+                    "fontSize": 15,
+                    "fontWeight": 600,
+                    "color": "#111827",
+                    "subtitleFontSize": 12,
+                    "subtitleColor": "#6b7280",
+                    "subtitlePadding": 4,
+                    "offset": 12,
+                },
+                "axis": {
+                    "labelFontSize": 11,
+                    "titleFontSize": 11,
+                    "titleFontWeight": 500,
+                    "labelColor": "#374151",
+                    "titleColor": "#374151",
+                    "gridColor": "#eceef2",
+                    "gridDash": [2, 2],
+                    "domainColor": "#d1d5db",
+                    "tickColor": "#d1d5db",
+                },
+                "axisY": {"domain": False, "ticks": False, "labelPadding": 8, "grid": False},
+                "axisX": {"labelPadding": 6, "tickSize": 4},
+                "legend": {
+                    "orient": "top",
+                    "title": None,
+                    "labelFontSize": 11,
+                    "labelColor": "#374151",
+                    "symbolSize": 75,
+                    "padding": 4,
+                    "offset": 6,
+                },
+                "bar": {"cornerRadiusEnd": 3},
+                "header": {"labelFontSize": 12, "labelFontWeight": 600, "labelColor": "#111827", "title": None},
+            }
+        }
+
     def title(text, subtitle=""):
-        return alt.TitleParams(text, subtitle=subtitle, anchor="start", fontSize=15, subtitleColor="gray")
+        return alt.TitleParams(text, subtitle=subtitle)
 
     def span(values, fmt="{:.0f}"):
         # "a–b" over values, or one value when they agree.
         lo, hi = fmt.format(min(values)), fmt.format(max(values))
         return lo if lo == hi else f"{lo}–{hi}"
 
+    def dumbbell(df, y, x0, x1, names, colors=("#94a3b8", "#2563eb"), x_title="", x_fmt=None, x_scale=None, sort=None, label=None, tooltip=None):
+        _d = df.copy()
+        _d["_hi"] = _d[[x0, x1]].max(axis=1)
+        _axis = alt.Axis(format=x_fmt) if x_fmt else alt.Axis()
+        _x_kw = {"title": x_title, "axis": _axis}
+        if x_scale is not None:
+            _x_kw["scale"] = x_scale
+        _y_enc = alt.Y(f"{y}:N", title=None, sort=sort)
+        _link = alt.Chart(_d).mark_rule(strokeWidth=2.5, color="#cbd5e1").encode(
+            x=alt.X(f"{x0}:Q", **_x_kw), x2=f"{x1}:Q", y=_y_enc
+        )
+        _long = pd.concat([
+            _d.assign(_series=names[0], _val=_d[x0]),
+            _d.assign(_series=names[1], _val=_d[x1]),
+        ])
+        _pts = alt.Chart(_long).mark_point(filled=True, size=95, opacity=1).encode(
+            x=alt.X("_val:Q", **_x_kw),
+            y=_y_enc,
+            color=alt.Color("_series:N", scale=alt.Scale(domain=list(names), range=list(colors)), title=None),
+            tooltip=tooltip or [y, "_series", alt.Tooltip("_val:Q", format=x_fmt or ".2f")],
+        )
+        _layers = _link + _pts
+        if label:
+            _txt = alt.Chart(_d).mark_text(align="left", dx=8, fontSize=11, color="#374151").encode(
+                x=alt.X("_hi:Q", **_x_kw), y=_y_enc, text=f"{label}:N"
+            )
+            _layers = _layers + _txt
+        return _layers
+
     REPOS = ["glob", "go-humanize", "go-version", "semver", "shlex", "uuid"]
     # Each repository keeps one hue in every chart. Gray marks the reference a chart compares against.
-    REPO = alt.Scale(domain=REPOS, range=["#4c78a8", "#f58518", "#54a24b", "#b279a2", "#9d755d", "#e45756"])
-    PART = alt.Scale(domain=["killable", "dominators"], range=["#bab0ac", "#4c78a8"])
-    PHASE = alt.Scale(domain=["build", "test runs"], range=["#72b7b2", "#bab0ac"])
-    FATE = alt.Scale(domain=["measured", "expected if independent"], range=["#4c78a8", "#9e9e9e"])
-    RUN = alt.Scale(domain=["before repair", "after repair"], range=["#bab0ac", "#e45756"])
-    return FATE, PART, PHASE, REPO, RUN, alt, duckdb, mo, pd, span, title
+    REPO = alt.Scale(domain=REPOS, range=["#2563eb", "#ea580c", "#16a34a", "#9333ea", "#92400e", "#dc2626"])
+    PART = alt.Scale(domain=["killable", "dominators"], range=["#94a3b8", "#2563eb"])
+    PHASE = alt.Scale(domain=["build", "test runs"], range=["#0d9488", "#94a3b8"])
+    FATE = alt.Scale(domain=["measured", "expected if independent"], range=["#2563eb", "#94a3b8"])
+    RUN = alt.Scale(domain=["before repair", "after repair"], range=["#94a3b8", "#2563eb"])
+    return FATE, PART, PHASE, REPO, RUN, alt, duckdb, dumbbell, mo, pd, span, title
 
 
 @app.cell
@@ -64,33 +136,27 @@ def _(mo, totals):
 
 
 @app.cell
-def _(PART, alt, mo, pd, span, summary, title):
-    _long = pd.concat(
-        [
-            summary.assign(part="killable", n=summary.killable),
-            summary.assign(part="dominators", n=summary.dominators),
-        ]
-    )
-    _long["label"] = _long.apply(lambda r: f"{r.n}" if r.part == "killable" else f"{r.n} ({r.n / r.killable:.0%})", axis=1)
-    _bars = (
-        alt.Chart(_long)
-        .mark_bar()
-        .encode(
-            x=alt.X("n:Q", title="mutants", scale=alt.Scale(type="log", domain=[1, 1200], nice=False)),
-            x2=alt.datum(1),
-            y=alt.Y("repo:N", title=None),
-            yOffset=alt.YOffset("part:N", sort=["killable", "dominators"]),
-            color=alt.Color("part:N", scale=PART, title=None, legend=alt.Legend(orient="top")),
-            tooltip=["repo", "part", "n", "mutants", "compiled", "tests", alt.Tooltip("raw_score:Q", format=".2f")],
-        )
-    )
-    _text = _bars.mark_text(align="left", dx=4, fontSize=11).encode(text="label:N", color=alt.value("black"))
-    _chart = (_bars + _text).properties(
-        width=560,
-        height=300,
+def _(alt, dumbbell, mo, span, summary, title):
+    _d = summary.sort_values("killable", ascending=False).copy()
+    _d["label"] = _d.apply(lambda r: f"{r.killable} → {r.dominators} ({r.dominators / r.killable:.0%})", axis=1)
+    _chart = dumbbell(
+        _d,
+        y="repo",
+        x0="killable",
+        x1="dominators",
+        names=("killable", "dominators"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="mutants (log scale)",
+        x_scale=alt.Scale(type="log", domain=[1, 2000], nice=False),
+        sort=_d.repo.tolist(),
+        label="label",
+        tooltip=["repo", "_series", alt.Tooltip("_val:Q", format=".0f"), "mutants", "compiled", "tests", alt.Tooltip("raw_score:Q", format=".2f")],
+    ).properties(
+        width=540,
+        height=230,
         title=title(
             f"{span(summary.killable)} killable mutants reduce to {span(summary.dominators)} dominators",
-            f"Killing the dominators kills all killable mutants. Log scale. Raw scores ({span(summary.raw_score, '{:.2f}')}) double-count the rest.",
+            f"Killing the dominators kills all killable mutants. Log scale (dots, not bars, avoid log-length distortion). Raw scores: {span(summary.raw_score, '{:.2f}')}.",
         ),
     )
     mo.vstack(
@@ -156,17 +222,19 @@ def _(REPO, alt, mo, pd, strategies, summary, title):
             ],
         )
     )
-    _zero = alt.Chart(pd.DataFrame({"x": [0]})).mark_rule(color="gray").encode(x="x:Q")
+    _shade = alt.Chart(pd.DataFrame({"x0": [0], "x1": [0.25]})).mark_rect(color="#eff6ff", opacity=0.7).encode(x="x0:Q", x2="x1:Q")
+    _zero = alt.Chart(pd.DataFrame({"x": [0]})).mark_rule(color="#64748b", strokeDash=[3, 3]).encode(x="x:Q")
+    _cue = alt.Chart(pd.DataFrame({"x": [0.01], "t": ["beats random →"]})).mark_text(align="left", y=-8, fontSize=10, color="#2563eb").encode(x="x:Q", text="t:N")
     _opl = _d[_d.strategy == "one per line"]
     _cor = _d[_d.strategy == "COR only"]
     _opl_wins = int((_opl.lo > 0).sum())
     _cor_wins = int((_cor.lo > 0).sum())
-    _chart = (_zero + _rules + _pts).properties(
+    _chart = (_shade + _zero + _cue + _rules + _pts).properties(
         width=560,
-        height=620,
+        height=600,
         title=title(
             f"One per line beats random in {_opl_wins}/6 repos; COR alone in {_cor_wins}/6",
-            "Dot: 30-seed mean; bar: 95% range. Right of 0 beats random. Legend shows dominator count.",
+            "Dot: 30-seed mean; bar: 95% range. Shaded right beats random. Legend shows dominator count.",
         ),
     )
     _ties = ", ".join(f"{r.repo} ({r.dominators} dominators, {r.lo:+.3f} to {r.hi:+.3f})" for r in _opl[_opl.lo <= 0].itertuples())
@@ -194,14 +262,18 @@ def _(alt, mo, strategies, title):
     _s = _s[~_s.strategy.str.startswith("all but") | (_s.strategy == "all but ROR")]
     _s["picked"] = _s.strategy.isin(["one per line", "COR only"])
     _base = alt.Chart(_s).encode(x=alt.X("cost:Q", title="mean share of the full run's build and test time", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])))
-    _color = alt.condition("datum.picked", alt.value("#4c78a8"), alt.value("#9e9e9e"))
-    _range = _base.mark_rule(strokeWidth=2, opacity=0.5).encode(y=alt.Y("lo:Q", title="dominator score", scale=alt.Scale(domain=[0, 1])), y2="hi:Q", color=_color)
-    _pts = _base.mark_point(filled=True, size=70).encode(
+    _color = alt.condition("datum.picked", alt.value("#2563eb"), alt.value("#94a3b8"))
+    _range = _base.mark_rule(strokeWidth=2, opacity=0.45).encode(y=alt.Y("lo:Q", title="dominator score", scale=alt.Scale(domain=[0, 1])), y2="hi:Q", color=_color)
+    _pts = _base.mark_point(filled=True, size=85, opacity=1).encode(
         y="score:Q",
         color=_color,
         tooltip=["strategy", alt.Tooltip("cost:Q", format=".0%"), alt.Tooltip("score:Q", format=".2f"), alt.Tooltip("lo:Q", format=".2f"), alt.Tooltip("hi:Q", format=".2f")],
     )
-    _labels = _base.mark_text(align="left", dx=7, dy=-7, fontSize=11).encode(y="score:Q", text="strategy:N", color=_color)
+    _labels = _base.mark_text(align="left", dx=8, dy=-6, fontSize=11).encode(
+        y="score:Q",
+        text="strategy:N",
+        color=_color,
+    )
     _opl = _s[_s.strategy == "one per line"].iloc[0]
     _chart = (_range + _pts + _labels).properties(
         width=560,
@@ -216,7 +288,7 @@ def _(alt, mo, strategies, title):
 
 
 @app.cell
-def _(FATE, alt, db, mo, pd, span, title):
+def _(alt, db, dumbbell, mo, pd, span, title):
     # k: per compiled mutant, whether the suite killed it, killed it or timed out, and its kill vector.
     _ = db.sql("""
         create or replace temp table k as
@@ -242,30 +314,28 @@ def _(FATE, alt, db, mo, pd, span, title):
         select repo, avg((v = 1)::int) same_vector
         from (select repo, pkg, file, line, count(distinct vec) v from k group by all having count(*) >= 2) group by repo order by repo
     """).df()
-    _main = _fate[_fate["def"] == "all share the fate"]
-    _long = pd.concat(
-        [
-            _main.assign(kind="measured", share=_main.measured),
-            _main.assign(kind="expected if independent", share=_main.expected),
-        ]
+    _main = _fate[_fate["def"] == "all share the fate"].sort_values("measured", ascending=False).copy()
+    _main["label"] = _main.apply(lambda r: f"{r.measured:.0%} (chance {r.expected:.0%})", axis=1)
+    _db = dumbbell(
+        _main,
+        y="repo",
+        x0="expected",
+        x1="measured",
+        names=("expected if independent", "measured"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="lines whose mutants all die or all survive",
+        x_fmt="%",
+        x_scale=alt.Scale(domain=[0, 1.05]),
+        sort=_main.repo.tolist(),
+        label="label",
+        tooltip=["repo", "_series", "lines", alt.Tooltip("_val:Q", format=".1%")],
     )
-    _pts = (
-        alt.Chart(_long)
-        .mark_point(filled=True, size=90)
-        .encode(
-            x=alt.X("share:Q", title="lines whose mutants all die or all survive", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
-            y=alt.Y("repo:N", title=None),
-            color=alt.Color("kind:N", scale=FATE, title=None, legend=alt.Legend(orient="top")),
-            tooltip=["repo", "kind", "lines", alt.Tooltip("share:Q", format=".1%")],
-        )
-    )
-    _link = alt.Chart(_main).mark_rule(color="#bab0ac").encode(x="expected:Q", x2="measured:Q", y="repo:N")
-    _ref = alt.Chart(pd.DataFrame({"x": [0.9], "t": ["Google: > 90%"]}))
-    _rule = _ref.mark_rule(strokeDash=[4, 4], color="gray").encode(x="x:Q")
-    _rule_text = _ref.mark_text(align="right", dx=-4, y=-8, color="gray").encode(x="x:Q", text="t:N")
-    _chart = (_link + _pts + _rule + _rule_text).properties(
-        width=560,
-        height=240,
+    _ref = alt.Chart(pd.DataFrame({"x": [0.9], "t": ["Google > 90%"]}))
+    _rule = _ref.mark_rule(strokeDash=[4, 4], color="#64748b").encode(x="x:Q")
+    _rule_text = _ref.mark_text(align="right", dx=-4, y=-8, fontSize=10, color="#64748b").encode(x="x:Q", text="t:N")
+    _chart = (_db + _rule + _rule_text).properties(
+        width=540,
+        height=220,
         title=title(
             f"{span(_main.measured * 100)}% of lines share one fate; {span(_main.expected * 100)}% would by chance",
             "Lines with ≥ 2 compiled mutants. Expected: pⁿ + (1 − p)ⁿ using each repo's kill rate p.",
@@ -295,30 +365,32 @@ def _(FATE, alt, db, mo, pd, span, title):
 
 
 @app.cell
-def _(RUN, alt, db, mo, pd, summary, title):
+def _(alt, db, dumbbell, mo, pd, summary, title):
     # Before repair: the first corpus run (commit 8cb5706), the same mutants without repairs, built with vet.
     _before = pd.DataFrame(
         [("COR", 1131, 0.135), ("SDL", 674, 0.111), ("AOR", 801, 0.022), ("ERR", 242, 0.012), ("ROR", 2041, 0.0)],
-        columns=["operator", "n", "failed"],
-    ).assign(run="before repair")
-    _after = db.sql("select operator, count(*) n, avg((not compiled)::int) failed from mutants group by operator").df().assign(run="after repair")
-    _ops = pd.concat([_before, _after])
-    _ops["label"] = _ops.apply(lambda r: f"{r.failed:.1%}", axis=1)
-    _bars = (
-        alt.Chart(_ops)
-        .mark_bar()
-        .encode(
-            x=alt.X("failed:Q", title="mutants that do not compile", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 0.16])),
-            y=alt.Y("operator:N", sort=["COR", "SDL", "AOR", "ERR", "ROR"], title=None),
-            yOffset=alt.YOffset("run:N", sort=["before repair", "after repair"]),
-            color=alt.Color("run:N", scale=RUN, title=None, legend=alt.Legend(orient="top")),
-            tooltip=["operator", "run", "n", alt.Tooltip("failed:Q", format=".1%")],
-        )
+        columns=["operator", "n", "before"],
     )
+    _after = db.sql("select operator, avg((not compiled)::int) after from mutants group by operator").df()
+    _ops = _before.merge(_after, on="operator").sort_values("before", ascending=False)
+    _ops["label"] = _ops.apply(lambda r: f"{r.before:.1%} → {r.after:.1%}", axis=1)
     _failed_after = int(db.sql("select count(*) from mutants where not compiled").fetchall()[0][0])
-    _op_chart = (_bars + _bars.mark_text(align="left", dx=4, fontSize=10).encode(text="label:N", color=alt.value("black"))).properties(
-        width=560,
-        height=240,
+    _op_chart = dumbbell(
+        _ops,
+        y="operator",
+        x0="before",
+        x1="after",
+        names=("before repair", "after repair"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="mutants that fail to compile",
+        x_fmt="%",
+        x_scale=alt.Scale(domain=[0, 0.17]),
+        sort=_ops.operator.tolist(),
+        label="label",
+        tooltip=["operator", "_series", "n", alt.Tooltip("_val:Q", format=".1%")],
+    ).properties(
+        width=540,
+        height=200,
         title=title(
             f"Build repair cuts compile errors from 249 to {_failed_after} (of 4,889 mutants)",
             "Adds _ = x for unused vars and _ = pkg.Name for imports in COR, SDL, ERR. Builds also skip vet.",
@@ -351,7 +423,7 @@ def _(RUN, alt, db, mo, pd, summary, title):
 
 
 @app.cell
-def _(PHASE, alt, db, mo, pd, span, title):
+def _(PHASE, alt, db, dumbbell, mo, pd, span, title):
     _cost = db.sql("""
         with runs as (
             select 'j8' jobs, r.repo, r.mutant_id, split_part(t.name, '/', 1) top, any_value(r.ms) ms, bool_or(r.status = 'timeout') tmo
@@ -367,45 +439,55 @@ def _(PHASE, alt, db, mo, pd, span, title):
         select jobs, repo, any_value(b) / 1000 build_s, sum(ms) / 1000 run_s, sum(ms) filter (where tmo) / sum(ms) timeout_share
         from runs join builds using (jobs, repo) group by all
     """).df()
-    _cost["build_share"] = _cost.build_s / (_cost.build_s + _cost.run_s)
-    _j8 = _cost[_cost.jobs == "j8"]
+    _cost["total_s"] = _cost.build_s + _cost.run_s
+    _cost["build_share"] = _cost.build_s / _cost.total_s
+    _j8 = _cost[_cost.jobs == "j8"].sort_values("total_s", ascending=False).copy()
+    _j8["label"] = _j8.apply(lambda r: f"{r.total_s:.0f}s ({r.build_share:.0%} build)", axis=1)
+    _order6 = _j8.repo.tolist()
     _long = pd.concat([_j8.assign(phase="build", s=_j8.build_s), _j8.assign(phase="test runs", s=_j8.run_s)])
     _bars = (
         alt.Chart(_long)
         .mark_bar()
         .encode(
             x=alt.X("s:Q", title="seconds, summed over mutants (8 at once)"),
-            y=alt.Y("repo:N", title=None),
-            color=alt.Color("phase:N", scale=PHASE, title=None, legend=alt.Legend(orient="top")),
+            y=alt.Y("repo:N", sort=_order6, title=None),
+            color=alt.Color("phase:N", scale=PHASE, title=None),
             order=alt.Order("phase:N"),
             tooltip=["repo", "phase", alt.Tooltip("s:Q", format=".0f")],
         )
     )
-    _time_chart = _bars.properties(
-        width=560,
+    _tot_lbl = alt.Chart(_j8).mark_text(align="left", dx=6, fontSize=11, color="#374151").encode(
+        x="total_s:Q", y=alt.Y("repo:N", sort=_order6), text="label:N"
+    )
+    _time_chart = (_bars + _tot_lbl).properties(
+        width=520,
         height=200,
         title=title(
             f"Builds take {span(_j8.build_share * 100)}% of naive runner time at -j 8",
             "One go test -c per mutant; one process per top-level test per mutant.",
         ),
     )
-    _both = _cost[_cost.repo.isin(_cost[_cost.jobs == "j1"].repo)]
-    _both = _both.assign(setting=_both.jobs.map({"j1": "-j 1", "j8": "-j 8"}))
-    _jb = (
-        alt.Chart(_both)
-        .mark_bar()
-        .encode(
-            x=alt.X("build_share:Q", title="build share of time", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
-            y=alt.Y("repo:N", title=None),
-            yOffset=alt.YOffset("setting:N", sort=["-j 1", "-j 8"]),
-            color=alt.Color("setting:N", scale=alt.Scale(domain=["-j 1", "-j 8"], range=["#72b7b2", "#bab0ac"]), title=None, legend=alt.Legend(orient="top")),
-            tooltip=["repo", "setting", alt.Tooltip("build_s:Q", format=".0f"), alt.Tooltip("run_s:Q", format=".0f"), alt.Tooltip("build_share:Q", format=".0%")],
-        )
-    )
     _j1 = _cost[_cost.jobs == "j1"]
-    _j_chart = (_jb + _jb.mark_text(align="left", dx=4, fontSize=10).encode(text=alt.Text("build_share:Q", format=".0%"), color=alt.value("black"))).properties(
-        width=560,
-        height=120,
+    _both_w = (
+        _cost[_cost.repo.isin(_j1.repo)]
+        .pivot(index="repo", columns="jobs", values="build_share")
+        .reset_index()
+    )
+    _both_w["label"] = _both_w.apply(lambda r: f"{r.j8:.0%} → {r.j1:.0%}", axis=1)
+    _j_chart = dumbbell(
+        _both_w,
+        y="repo",
+        x0="j8",
+        x1="j1",
+        names=("-j 8", "-j 1"),
+        colors=("#94a3b8", "#0d9488"),
+        x_title="build share of total time",
+        x_fmt="%",
+        x_scale=alt.Scale(domain=[0, 1]),
+        label="label",
+    ).properties(
+        width=520,
+        height=100,
         title=title(
             f"Without contention, builds are {span(_j1.build_share * 100)}% of time",
             "go-version and shlex rerun with -j 1.",
@@ -466,7 +548,7 @@ def _(db, mo):
 
 
 @app.cell
-def _(PHASE, alt, db, mo, pd, title):
+def _(alt, db, dumbbell, mo, pd, title):
     _cells = """
         select r.repo, r.mutant_id, r.test_id, r.status from {p}results r
     """
@@ -509,27 +591,35 @@ def _(PHASE, alt, db, mo, pd, title):
         select setup, repo, any_value(b) / 1000 build_s, sum(ms) / 1000 run_s from runs join builds using (setup, repo) group by all
     """).df()
     _tot = _cost.groupby("setup")[["build_s", "run_s"]].sum()
-    _long = pd.concat([_cost.assign(phase="build", s=_cost.build_s), _cost.assign(phase="test runs", s=_cost.run_s)])
-    _bars = (
-        alt.Chart(_long)
-        .mark_bar()
-        .encode(
-            x=alt.X("s:Q", title="seconds, summed over mutants (8 at once)"),
-            y=alt.Y("repo:N", title=None),
-            yOffset=alt.YOffset("setup:N", sort=["build per mutant", "schemata"]),
-            color=alt.Color("phase:N", scale=PHASE, title=None, legend=alt.Legend(orient="top")),
-            opacity=alt.Opacity("setup:N", scale=alt.Scale(domain=["build per mutant", "schemata"], range=[0.45, 1.0]), title=None),
-            order=alt.Order("phase:N"),
-            tooltip=["repo", "setup", "phase", alt.Tooltip("s:Q", format=".0f")],
-        )
-    )
+    _w = _cost.pivot(index="repo", columns="setup", values=["build_s", "run_s"])
+    _b_df = pd.DataFrame({
+        "repo": _w.index,
+        "naive": _w["build_s"]["build per mutant"].values,
+        "schemata": _w["build_s"]["schemata"].values,
+    }).sort_values("naive", ascending=False)
+    _order8 = _b_df.repo.tolist()
+    _r_df = pd.DataFrame({
+        "repo": _w.index,
+        "naive": _w["run_s"]["build per mutant"].values,
+        "schemata": _w["run_s"]["schemata"].values,
+    })
+    _b_df["label"] = _b_df.apply(lambda r: f"{r.naive:.0f}s → {r.schemata:.0f}s", axis=1)
+    _r_df["label"] = _r_df.apply(lambda r: f"{r.naive:.0f}s → {r.schemata:.0f}s", axis=1)
+    _b_panel = dumbbell(
+        _b_df, y="repo", x0="naive", x1="schemata",
+        names=("build per mutant", "schemata"), colors=("#94a3b8", "#0d9488"),
+        x_title="build seconds", sort=_order8, label="label",
+    ).properties(width=250, height=210, title="Build time")
+    _r_panel = dumbbell(
+        _r_df, y="repo", x0="naive", x1="schemata",
+        names=("build per mutant", "schemata"), colors=("#94a3b8", "#2563eb"),
+        x_title="test-run seconds", sort=_order8, label="label",
+    ).properties(width=250, height=210, title="Test-run time")
     _b, _s = _tot.loc["build per mutant"], _tot.loc["schemata"]
-    _chart = _bars.properties(
-        width=560,
-        height=300,
+    _chart = alt.hconcat(_b_panel, _r_panel, spacing=28).properties(
         title=title(
             f"Schemata cuts build time {_b.build_s / _s.build_s:.0f}× ({_b.build_s / 60:.0f} → {_s.build_s / 60:.1f} min)",
-            f"Faded: build per mutant; solid: schemata. {_emb:.1%} embedded. Test runs: {_b.run_s / 60:.0f} vs {_s.run_s / 60:.0f} min.",
+            f"Gray: build per mutant; color: schemata. {_emb:.1%} embedded. Test runs: {_b.run_s / 60:.0f} → {_s.run_s / 60:.0f} min.",
         ),
     )
     _md = "| repo | where | operator | mutant | build per mutant | schemata | cells |\n|---|---|---|---|---|---|---:|\n" + "".join(
@@ -595,17 +685,21 @@ def _(alt, db, mo, pd, title):
     _order = ["build per mutant", "schemata", "schemata + selection"]
     _bars = (
         alt.Chart(_runs)
-        .mark_bar(color="#4c78a8")
+        .mark_bar()
         .encode(
-            x=alt.X("wall_min:Q", title="minutes for the whole corpus, -j 8"),
+            x=alt.X("wall_min:Q", title="minutes for the whole corpus, -j 8", scale=alt.Scale(domain=[0, 17])),
             y=alt.Y("setup:N", sort=_order, title=None),
-            color=alt.condition("datum.setup == 'build per mutant'", alt.value("#9e9e9e"), alt.value("#4c78a8")),
+            color=alt.Color("setup:N", scale=alt.Scale(domain=_order, range=["#cbd5e1", "#60a5fa", "#2563eb"]), legend=None),
             tooltip=["setup", alt.Tooltip("wall_min:Q", format=".1f"), "processes", alt.Tooltip("run_min:Q", format=".0f", title="test-run minutes"), alt.Tooltip("build_min:Q", format=".1f", title="build minutes")],
         )
     )
     _base = _wall["build per mutant"]
     _runs["label"] = _runs.apply(lambda r: f"{r.wall_min:.1f} min" + ("" if r.setup == "build per mutant" else f" ({_base / r.wall_min:.1f}× faster)"), axis=1)
-    _text = alt.Chart(_runs).mark_text(align="left", dx=4, fontSize=11).encode(x="wall_min:Q", y=alt.Y("setup:N", sort=_order), text="label:N")
+    _text = alt.Chart(_runs).mark_text(align="left", dx=6, fontSize=11, color="#111827").encode(
+        x="wall_min:Q",
+        y=alt.Y("setup:N", sort=_order),
+        text="label:N",
+    )
     _proc = dict(zip(_runs.setup, _runs.processes))
     _chart = (_bars + _text).properties(
         width=520,
@@ -631,43 +725,42 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
-def _(alt, db, mo, pd, title):
+def _(alt, db, dumbbell, mo, pd, title):
     _dir = mo.notebook_dir() / "data-faults"
     _f = db.sql(f"select * from read_json_auto('{_dir}/*.ndjson', union_by_name=true)").df()
     _ok = _f[_f.status == "ok"].copy()
     _ctl = _ok[_ok.chance >= 0]
     _rows = pd.DataFrame(
         [
-            ("any line", "fix's revealing tests", (_ok.coupled > 0).mean(), len(_ok)),
-            ("any line", "as many random tests", _ctl.chance.mean(), len(_ctl)),
-            ("the fix's lines", "fix's revealing tests", (_ok.coupled_on_fix > 0).mean(), len(_ok)),
-            ("the fix's lines", "as many random tests", _ctl.chance_on_fix.mean(), len(_ctl)),
+            ("the fix's lines", _ctl.chance_on_fix.mean(), (_ok.coupled_on_fix > 0).mean(), len(_ok)),
+            ("any line", _ctl.chance.mean(), (_ok.coupled > 0).mean(), len(_ok)),
         ],
-        columns=["where", "tests", "share", "faults"],
+        columns=["where", "random", "revealing", "faults"],
     )
-    _rows["label"] = _rows.share.map(lambda x: f"{x:.0%}")
-    _y = alt.Y("where:N", title="coupled to a mutant on", sort=["the fix's lines", "any line"])
-    _bars = (
-        alt.Chart(_rows)
-        .mark_bar()
-        .encode(
-            x=alt.X("share:Q", title="faults that look coupled", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
-            y=_y,
-            yOffset=alt.YOffset("tests:N", sort=["fix's revealing tests", "as many random tests"]),
-            color=alt.Color("tests:N", scale=alt.Scale(domain=["fix's revealing tests", "as many random tests"], range=["#4c78a8", "#9e9e9e"]), title=None, legend=alt.Legend(orient="top")),
-            tooltip=["where", "tests", alt.Tooltip("share:Q", format=".1%"), "faults"],
-        )
+    _rows["label"] = _rows.apply(lambda r: f"{r.random:.0%} → {r.revealing:.0%}", axis=1)
+    _db = dumbbell(
+        _rows,
+        y="where",
+        x0="random",
+        x1="revealing",
+        names=("as many random tests", "fix's revealing tests"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="bugs coupled to a mutant",
+        x_fmt="%",
+        x_scale=alt.Scale(domain=[0, 1.05]),
+        sort=["the fix's lines", "any line"],
+        label="label",
+        tooltip=["where", "_series", alt.Tooltip("_val:Q", format=".1%"), "faults"],
     )
-    _text = _bars.mark_text(align="left", dx=4, fontSize=11).encode(text="label:N", color=alt.value("black"))
     _ref = alt.Chart(pd.DataFrame({"x": [0.70], "t": ["Google 70%, Just et al. 73%"]}))
-    _rule = _ref.mark_rule(strokeDash=[4, 4], color="gray").encode(x="x:Q")
-    _rule_text = _ref.mark_text(align="left", dx=4, y=-8, color="gray").encode(x="x:Q", text="t:N")
-    _m = _rows.set_index(["where", "tests"]).share
-    _chart = (_bars + _text + _rule + _rule_text).properties(
+    _rule = _ref.mark_rule(strokeDash=[4, 4], color="#64748b").encode(x="x:Q")
+    _rule_text = _ref.mark_text(align="left", dx=4, y=-8, fontSize=10, color="#64748b").encode(x="x:Q", text="t:N")
+    _fix = _rows.set_index("where")
+    _chart = (_db + _rule + _rule_text).properties(
         width=540,
-        height=170,
+        height=130,
         title=title(
-            f"{_m['the fix' + chr(39) + 's lines', 'fix' + chr(39) + 's revealing tests']:.0%} of real bugs link to a mutant on fix lines (random tests: {_m['the fix' + chr(39) + 's lines', 'as many random tests']:.0%})",
+            f"{_fix.loc['the fix' + chr(39) + 's lines', 'revealing']:.0%} of real bugs link to a mutant on fix lines (random tests: {_fix.loc['the fix' + chr(39) + 's lines', 'random']:.0%})",
             f"{len(_ok)} bugs from {_f.commit.nunique()} commits in 6 repos. Random: 200 equal-sized non-revealing test sets.",
         ),
     )
@@ -696,7 +789,7 @@ def _(alt, db, mo, pd, title):
             mo.md(rf"""
             - **Protocol:** Pick fix/bug commits touching code and tests in one package. A revealing test passes on the fix and fails before it. A bug is coupled if a mutant on the fixed code is killed only by revealing tests (`adequacy.Matrix.Coupled`, Just et al. FSE 2014).
             - **Candidates:** {_funnel}. Fixes that change an API cannot run new tests on old code.
-            - **Why fix lines matter:** On any line, {_m['any line', 'as many random tests']:.0%} of random tests look coupled. On fix lines, random tests almost never do—that gap is the real signal.
+            - **Why fix lines matter:** On any line, {_fix.loc['any line', 'random']:.0%} of random tests look coupled. On fix lines, random tests almost never do—that gap is the real signal.
             - **Limits:** Small sample ({len(_ok)} bugs); API-changing fixes are excluded; two-package commits count twice.
             - **ERR operator** (`err != nil`, `return err`): {_ops.loc['ERR', 'with']} of {int((_ok.coupled > 0).sum())} coupled bugs include ERR, {_ops.loc['ERR', 'only']} by ERR alone (COR: {_ops.loc['COR', 'with']}/{_ops.loc['COR', 'only']}; ROR: {_ops.loc['ROR', 'with']}/{_ops.loc['ROR', 'only']}). Cheap and clear, though other operators cover the same bugs here.
             """),
@@ -726,21 +819,37 @@ def _(alt, db, mo, pd, title):
     )
     _counts = _long.groupby(["rater", "label"], as_index=False).size()
     _counts["share"] = _counts["size"] / _n
+    _counts["ord"] = _counts.label.map({"useful": 0, "equivalent": 1, "unproductive": 2})
+    _counts = _counts.sort_values(["rater", "ord"])
+    _counts["x1"] = _counts.groupby("rater")["share"].cumsum()
+    _counts["x0"] = _counts["x1"] - _counts["share"]
+    _counts["mid"] = (_counts["x0"] + _counts["x1"]) / 2
+    _counts["pct"] = _counts.share.map(lambda s: f"{s:.0%}" if s >= 0.08 else "")
     _bars = (
         alt.Chart(_counts)
-        .mark_bar()
+        .mark_bar(cornerRadiusEnd=0)
         .encode(
-            x=alt.X("share:Q", title="share of 50 surviving mutants", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
-            y=alt.Y("rater:N", sort=["Claude", "Gemini 4 Neon", "adjudicated"], title=None),
-            color=alt.Color("label:N", scale=alt.Scale(domain=_cats, range=["#4c78a8", "#bab0ac", "#f58518"]), title=None, legend=alt.Legend(orient="top")),
-            order=alt.Order("label:N", sort="descending"),
+            x=alt.X("x0:Q", title="share of 50 surviving mutants", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+            x2="x1:Q",
+            y=alt.Y("rater:N", sort=["adjudicated", "Gemini 4 Neon", "Claude"], title=None),
+            color=alt.Color("label:N", scale=alt.Scale(domain=_cats, range=["#2563eb", "#cbd5e1", "#f59e0b"]), title=None),
             tooltip=["rater", "label", "size", alt.Tooltip("share:Q", format=".0%")],
         )
     )
+    _lbls = (
+        alt.Chart(_counts)
+        .mark_text(fontSize=11, fontWeight=600)
+        .encode(
+            x="mid:Q",
+            y=alt.Y("rater:N", sort=["adjudicated", "Gemini 4 Neon", "Claude"]),
+            text="pct:N",
+            color=alt.condition("datum.label == 'useful'", alt.value("white"), alt.value("#111827")),
+        )
+    )
     _final = _l.final.value_counts()
-    _chart = _bars.properties(
+    _chart = (_bars + _lbls).properties(
         width=540,
-        height=130,
+        height=120,
         title=title(
             f"{_final.get('useful', 0) / _n:.0%} of survivors are real test gaps; {_final.get('equivalent', 0) / _n:.0%} are equivalent",
             f"50 survivors (5 from shlex, 9 per other repo). Two blind raters agreed on {_po:.0%} (κ = {_kappa:.2f}); diffs settled by running.",
@@ -808,15 +917,15 @@ def _(alt, db, mo, title):
     _order = ["body removal fails a test", "pseudo-tested function", "no test reaches the function", "body removal timed out or did not build", "outside any function"]
     _bars = (
         alt.Chart(_k)
-        .mark_bar(color="#4c78a8")
+        .mark_bar()
         .encode(
-            x=alt.X("survived:Q", title="surviving fine-grained mutants"),
-            y=alt.Y("kind:N", sort=_order, title="the function they are in"),
-            color=alt.condition("datum.kind == 'body removal fails a test'", alt.value("#4c78a8"), alt.value("#bab0ac")),
+            x=alt.X("survived:Q", title="surviving fine-grained mutants", scale=alt.Scale(domain=[0, int(_k.survived.max() * 1.35)])),
+            y=alt.Y("kind:N", sort=_order, title=None),
+            color=alt.condition("datum.kind == 'body removal fails a test'", alt.value("#2563eb"), alt.value("#cbd5e1")),
             tooltip=["kind", "mutants", "killed", "survived", alt.Tooltip("share:Q", format=".0%")],
         )
     )
-    _text = _bars.mark_text(align="left", dx=4, fontSize=11).encode(text="label:N", color=alt.value("black"))
+    _text = _bars.mark_text(align="left", dx=6, fontSize=11, color="#374151").encode(text="label:N")
     _p = _k.set_index("kind")
     _pt = _p.loc["pseudo-tested function"]
     _alive = (~_fn.killed & ~_fn.timeout & _fn.compiled)
@@ -859,22 +968,38 @@ def _(alt, db, mo, pd, title):
     _pe = sum((_l.claude == c).mean() * (_l.gemini == c).mean() for c in _cats)
     _counts = _l.groupby(["group", "final"], as_index=False).size()
     _counts["share"] = _counts["size"] / _counts.groupby("group")["size"].transform("sum")
+    _counts["ord"] = _counts.final.map({"useful": 0, "equivalent": 1, "unproductive": 2})
+    _counts = _counts.sort_values(["group", "ord"])
+    _counts["x1"] = _counts.groupby("group")["share"].cumsum()
+    _counts["x0"] = _counts["x1"] - _counts["share"]
+    _counts["mid"] = (_counts["x0"] + _counts["x1"]) / 2
+    _counts["pct"] = _counts.share.map(lambda s: f"{s:.0%}" if s >= 0.08 else "")
     _bars = (
         alt.Chart(_counts)
-        .mark_bar()
+        .mark_bar(cornerRadiusEnd=0)
         .encode(
-            x=alt.X("share:Q", title="share of the sampled surviving mutants", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+            x=alt.X("x0:Q", title="share of sampled surviving mutants", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+            x2="x1:Q",
             y=alt.Y("group:N", sort=["tagged arid", "not tagged"], title=None),
-            color=alt.Color("final:N", scale=alt.Scale(domain=_cats, range=["#4c78a8", "#bab0ac", "#f58518"]), title=None, legend=alt.Legend(orient="top")),
-            order=alt.Order("final:N", sort="descending"),
+            color=alt.Color("final:N", scale=alt.Scale(domain=_cats, range=["#2563eb", "#cbd5e1", "#f59e0b"]), title=None),
             tooltip=["group", "final", "size", alt.Tooltip("share:Q", format=".0%")],
+        )
+    )
+    _lbls = (
+        alt.Chart(_counts)
+        .mark_text(fontSize=11, fontWeight=600)
+        .encode(
+            x="mid:Q",
+            y=alt.Y("group:N", sort=["tagged arid", "not tagged"]),
+            text="pct:N",
+            color=alt.condition("datum.final == 'useful'", alt.value("white"), alt.value("#111827")),
         )
     )
     _t = _l[_l.group == "tagged arid"]
     _u = _l[_l.group == "not tagged"]
-    _chart = _bars.properties(
+    _chart = (_bars + _lbls).properties(
         width=520,
-        height=110,
+        height=95,
         title=title(
             f"All {int((_t.final == 'unproductive').sum())}/{len(_t)} arid-tagged survivors are noise; {(_u.final == 'useful').mean():.0%} of untagged are useful",
             f"go-retryablehttp and robfig/cron. Two blind raters agreed on {_po:.0%} (κ = {(_po - _pe) / (1 - _pe):.2f}).",
@@ -915,7 +1040,7 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
-def _(alt, db, mo, pd, title):
+def _(alt, db, dumbbell, mo, title):
     _docs = mo.notebook_dir()
     _wild = "coalesce((to_json(coupled_on_fix_operators)->>'LIT')::int, 0) + coalesce((to_json(coupled_on_fix_operators)->>'CPY')::int, 0) + coalesce((to_json(coupled_on_fix_operators)->>'PNC')::int, 0)"
     _f = db.sql(f"""
@@ -935,29 +1060,26 @@ def _(alt, db, mo, pd, title):
         from read_json_auto('{_docs}/data-faults-wild/*.ndjson', union_by_name=true)
         where status = 'ok' and coupled_on_fix > 0 and coupled_on_fix = {_wild}
     """).df()
-    _long = pd.concat(
-        [
-            _f.assign(ops="old operators", share=_f.old_ops / _f.faults),
-            _f.assign(ops="with LIT, CPY, PNC", share=_f.with_wild / _f.faults),
-        ]
-    )
-    _long["label"] = _long.share.map(lambda x: f"{x:.0%}")
-    _bars = (
-        alt.Chart(_long)
-        .mark_bar()
-        .encode(
-            x=alt.X("share:Q", title="real faults coupled to a mutant on the fix's lines", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
-            y=alt.Y("grp:N", title=None, sort=["corpus (operators derived here)", "held out (five other repositories)"]),
-            yOffset=alt.YOffset("ops:N", sort=["old operators", "with LIT, CPY, PNC"]),
-            color=alt.Color("ops:N", scale=alt.Scale(domain=["old operators", "with LIT, CPY, PNC"], range=["#9e9e9e", "#4c78a8"]), title=None, legend=alt.Legend(orient="top")),
-            tooltip=["grp", "ops", "faults", alt.Tooltip("share:Q", format=".1%")],
-        )
-    )
-    _text = _bars.mark_text(align="left", dx=4, fontSize=11).encode(text="label:N", color=alt.value("black"))
+    _f["old_share"] = _f.old_ops / _f.faults
+    _f["new_share"] = _f.with_wild / _f.faults
+    _f["label"] = _f.apply(lambda r: f"{r.old_share:.0%} → {r.new_share:.0%}" if r.old_ops != r.with_wild else f"{r.old_share:.0%} (no gain)", axis=1)
     _h = _f.set_index("grp").loc["held out (five other repositories)"]
-    _chart = (_bars + _text).properties(
+    _chart = dumbbell(
+        _f,
+        y="grp",
+        x0="old_share",
+        x1="new_share",
+        names=("old operators", "with LIT, CPY, PNC"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="real bugs coupled to a mutant on fix lines",
+        x_fmt="%",
+        x_scale=alt.Scale(domain=[0, 1.05]),
+        sort=["corpus (operators derived here)", "held out (five other repositories)"],
+        label="label",
+        tooltip=["grp", "_series", "faults", alt.Tooltip("_val:Q", format=".1%")],
+    ).properties(
         width=520,
-        height=150,
+        height=115,
         title=title(
             f"Fix-derived operators add 0 held-out bugs ({int(_h.old_ops)}/{int(_h.faults)} either way)",
             "LIT (string/regexp literals), CPY (defensive copies), PNC (panic instead of returning error).",
@@ -982,7 +1104,7 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
-def _(alt, db, mo, pd, title):
+def _(alt, db, dumbbell, mo, title):
     _dir = mo.notebook_dir() / "data-fast-failfast"
     _t = db.sql(f"select * from read_json_auto('{_dir}/timings.ndjson')").df()
     _agg = _t.groupby(["cmd", "repo", "mode"], as_index=False).agg(
@@ -991,42 +1113,29 @@ def _(alt, db, mo, pd, title):
         hi=("wall_s", "max"),
     )
     _all = _agg[_agg.cmd == "killmatrix_all"].copy()
-    _order = _all[_all["mode"] == "before"].sort_values("med", ascending=False).repo.tolist()
-    _bars = (
-        alt.Chart(_all)
-        .mark_bar()
-        .encode(
-            x=alt.X("med:Q", title="median wall seconds over 3 interleaved runs (-j 8)"),
-            y=alt.Y("repo:N", sort=_order, title=None),
-            yOffset=alt.YOffset("mode:N", sort=["before", "after"]),
-            color=alt.Color(
-                "mode:N",
-                scale=alt.Scale(domain=["before", "after"], range=["#bab0ac", "#4c78a8"]),
-                title=None,
-                legend=alt.Legend(orient="top"),
-            ),
-            tooltip=["repo", "mode", alt.Tooltip("med:Q", format=".2f"), alt.Tooltip("lo:Q", format=".2f"), alt.Tooltip("hi:Q", format=".2f")],
-        )
-    )
-    _err = (
-        alt.Chart(_all)
-        .mark_rule(color="black", strokeWidth=1.5)
-        .encode(
-            x="lo:Q",
-            x2="hi:Q",
-            y=alt.Y("repo:N", sort=_order),
-            yOffset=alt.YOffset("mode:N", sort=["before", "after"]),
-        )
-    )
+    _w = _all.pivot(index="repo", columns="mode", values="med").reset_index().sort_values("before", ascending=False)
+    _w["label"] = _w.apply(lambda r: f"{r.before:.1f}s → {r.after:.1f}s ({r.before / r.after:.1f}×)", axis=1)
     _tot = _all.groupby("mode").med.sum()
     _def = _agg[_agg.cmd == "mutant_default"].groupby("mode").med.sum()
     _sem = _all[_all.repo == "semver"].set_index("mode").med
-    _chart = (_bars + _err).properties(
+    _chart = dumbbell(
+        _w,
+        y="repo",
+        x0="before",
+        x1="after",
+        names=("before", "after"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="median wall seconds over 3 interleaved runs (-j 8)",
+        x_scale=alt.Scale(domain=[0, float(_w.before.max() * 1.3)]),
+        sort=_w.repo.tolist(),
+        label="label",
+        tooltip=["repo", "_series", alt.Tooltip("_val:Q", format=".2f")],
+    ).properties(
         width=540,
-        height=240,
+        height=210,
         title=title(
             f"Batching + p/t ordering cuts FailFast {_tot['before']:.0f} → {_tot['after']:.0f} s ({_tot['before'] / _tot['after']:.2f}×); semver {_sem['before']:.1f} → {_sem['after']:.1f} s ({_sem['before'] / _sem['after']:.1f}×)",
-            "All mutants (-schemata -select -failfast -j 8), 3 rounds (whiskers: min–max). go-version and glob are bound by timeouts.",
+            "All mutants (-schemata -select -failfast -j 8), 3 rounds. go-version and glob are bound by timeouts.",
         ),
     )
     _v = db.sql(f"""
@@ -1071,7 +1180,7 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
-def _(alt, db, mo, pd, title):
+def _(alt, db, dumbbell, mo, title):
     _dir = mo.notebook_dir() / "data-speed"
     _t = db.sql(f"select * from read_json_auto('{_dir}/timings.ndjson')").df()
     _agg = _t.groupby(["cmd", "repo", "mode"], as_index=False).agg(
@@ -1080,39 +1189,26 @@ def _(alt, db, mo, pd, title):
         hi=("wall_s", "max"),
     )
     _all = _agg[_agg.cmd == "killmatrix_all"].copy()
-    _order = _all[_all["mode"] == "before"].sort_values("med", ascending=False).repo.tolist()
-    _bars = (
-        alt.Chart(_all)
-        .mark_bar()
-        .encode(
-            x=alt.X("med:Q", title="median wall seconds over 3 interleaved runs (-j 8)"),
-            y=alt.Y("repo:N", sort=_order, title=None),
-            yOffset=alt.YOffset("mode:N", sort=["before", "after"]),
-            color=alt.Color(
-                "mode:N",
-                scale=alt.Scale(domain=["before", "after"], range=["#bab0ac", "#4c78a8"]),
-                title=None,
-                legend=alt.Legend(orient="top"),
-            ),
-            tooltip=["repo", "mode", alt.Tooltip("med:Q", format=".2f"), alt.Tooltip("lo:Q", format=".2f"), alt.Tooltip("hi:Q", format=".2f")],
-        )
-    )
-    _err = (
-        alt.Chart(_all)
-        .mark_rule(color="black", strokeWidth=1.5)
-        .encode(
-            x="lo:Q",
-            x2="hi:Q",
-            y=alt.Y("repo:N", sort=_order),
-            yOffset=alt.YOffset("mode:N", sort=["before", "after"]),
-        )
-    )
+    _w = _all.pivot(index="repo", columns="mode", values="med").reset_index().sort_values("before", ascending=False)
+    _w["label"] = _w.apply(lambda r: f"{r.before:.1f}s → {r.after:.1f}s ({r.before / r.after:.1f}×)", axis=1)
     _tot = _all.groupby("mode").med.sum()
     _def = _agg[_agg.cmd == "mutant_default"].groupby("mode").med.sum()
     _gv = _all[_all.repo == "go-version"].set_index("mode").med
-    _chart = (_bars + _err).properties(
+    _chart = dumbbell(
+        _w,
+        y="repo",
+        x0="before",
+        x1="after",
+        names=("before", "after"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="median wall seconds over 3 interleaved runs (-j 8)",
+        x_scale=alt.Scale(domain=[0, float(_w.before.max() * 1.3)]),
+        sort=_w.repo.tolist(),
+        label="label",
+        tooltip=["repo", "_series", alt.Tooltip("_val:Q", format=".2f")],
+    ).properties(
         width=540,
-        height=240,
+        height=210,
         title=title(
             f"Parallel baseline + stop-on-timeout cuts wall time {_tot['before']:.0f} → {_tot['after']:.0f} s ({_tot['before'] / _tot['after']:.2f}×); go-version {_gv['before']:.1f} → {_gv['after']:.1f} s ({_gv['before'] / _gv['after']:.0f}×)",
             "All mutants (-j 8, 3 rounds). 18/4,889 shift killed→timeout; 0 false timeouts; 0 flaky baseline tests.",
@@ -1196,28 +1292,30 @@ def _(alt, db, mo, pd, title):
             _sim.assign(what="flaky-only mutants called killed (gaps hidden)", share=_sim.wrong / _sim.flaky_mutants),
         ]
     )
-    _chart = (
+    _scale17 = alt.Scale(domain=["kills still confirmed (cost)", "flaky-only mutants called killed (gaps hidden)"], range=["#2563eb", "#dc2626"])
+    _lines = (
         alt.Chart(_long)
-        .mark_line(point=True)
+        .mark_line(strokeWidth=2.5, point=alt.OverlayMarkDef(size=55))
         .encode(
-            x=alt.X("n:O", title="trust a test after this many clean confirmations in a row", axis=alt.Axis(labelAngle=0)),
+            x=alt.X("n:O", title="trust a test after N clean confirmations in a row", axis=alt.Axis(labelAngle=0)),
             y=alt.Y("share:Q", title=None, axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
-            color=alt.Color(
-                "what:N",
-                title=None,
-                legend=alt.Legend(orient="top", labelLimit=400),
-                scale=alt.Scale(domain=["kills still confirmed (cost)", "flaky-only mutants called killed (gaps hidden)"], range=["#4c78a8", "#e45756"]),
-            ),
+            color=alt.Color("what:N", legend=None, scale=_scale17),
             tooltip=["n", "what", alt.Tooltip("share:Q", format=".1%")],
         )
-        .properties(
-            width=520,
-            height=220,
-            title=title(
-                "Skipping confirmation for reliable tests hides gaps before it saves time",
-                "Simulated on 3 services' confirmed verdicts (§13).",
-            ),
-        )
+    )
+    _end = _long[_long.n == _long.n.max()].copy()
+    _end["tag"] = _end.apply(lambda r: f"{r.share:.0%} {r.what}", axis=1)
+    _end_lbl = alt.Chart(_end).mark_text(align="left", dx=8, fontSize=11, fontWeight=600).encode(
+        x="n:O", y="share:Q", text="tag:N", color=alt.Color("what:N", legend=None, scale=_scale17)
+    )
+    _n10 = alt.Chart(pd.DataFrame({"n": [10]})).mark_rule(strokeDash=[3, 3], color="#94a3b8").encode(x="n:O")
+    _chart = (_n10 + _lines + _end_lbl).properties(
+        width=400,
+        height=220,
+        title=title(
+            "Skipping confirmation for reliable tests hides gaps before it saves time",
+            "Simulated on 3 services' confirmed verdicts (§13). Dashed line: N = 10.",
+        ),
     )
     _10 = _sim.set_index("n").loc[10]
     mo.vstack(
@@ -1235,7 +1333,7 @@ def _(alt, db, mo, pd, title):
 
 
 @app.cell
-def _(alt, db, mo, title):
+def _(alt, db, mo, pd, title):
     _docs = mo.notebook_dir()
     # One row per build and run of cmd/bench: M, and the errors behind F.
     _m = db.sql(f"""
@@ -1247,23 +1345,26 @@ def _(alt, db, mo, title):
     """).df()
     _lib = _m[~_m.run.isin(["pad-services", "pad-final"])]
     _fin = _m[_m.run == "pad-final"].set_index("bin")
-    _chart = (
+    _lines = (
         alt.Chart(_lib)
-        .mark_line(point=True)
+        .mark_line(strokeWidth=2.2, point=alt.OverlayMarkDef(size=55))
         .encode(
             x=alt.X("pad_ms:Q", title="timeout pad over 3× a test's baseline (ms, log)", scale=alt.Scale(type="log", domain=[1, 1000])),
             y=alt.Y("m:Q", title="M", scale=alt.Scale(domain=[1.5, 1.8])),
-            color=alt.Color("run:N", title=None, legend=alt.Legend(orient="top")),
+            color=alt.Color("run:N", title=None, scale=alt.Scale(range=["#2563eb", "#0d9488", "#ea580c"])),
             tooltip=["run", "bin", alt.Tooltip("m:Q", format=".3f"), alt.Tooltip("t:Q", format=".1f", title="T (s)"), "hidden", "timeout"],
         )
-        .properties(
-            width=520,
-            height=240,
-            title=title(
-                "100 ms timeout pad scores best: half the time, 0 hidden gaps",
-                "6 libraries, -j 8, worst of 3 reps. pad-stress ran beside 4 busy loops. 1 ms causes false timeouts.",
-            ),
-        )
+    )
+    _pick = alt.Chart(pd.DataFrame({"x": [100], "t": ["chosen: 100 ms"]}))
+    _pick_rule = _pick.mark_rule(strokeDash=[4, 4], color="#2563eb").encode(x="x:Q")
+    _pick_lbl = _pick.mark_text(align="left", dx=5, y=10, fontSize=10, fontWeight=600, color="#2563eb").encode(x="x:Q", text="t:N")
+    _chart = (_pick_rule + _pick_lbl + _lines).properties(
+        width=520,
+        height=230,
+        title=title(
+            "100 ms timeout pad scores best: half the time, 0 hidden gaps",
+            "6 libraries, -j 8, worst of 3 reps. pad-stress ran beside 4 busy loops. 1 ms causes false timeouts.",
+        ),
     )
     _svc = _m[_m.run == "pad-services"].set_index("bin")
     _q = _lib[_lib.run == "pad-quiet-2"].set_index("bin")
@@ -1286,31 +1387,34 @@ def _(alt, db, mo, title):
 
 
 @app.cell
-def _(alt, db, mo, title):
+def _(alt, db, dumbbell, mo, title):
     _docs = mo.notebook_dir()
     _r = db.sql(f"""
         select bin, repo, median(wall_s) t from read_json_auto('{_docs}/data-bench/infect.ndjson', union_by_name=true)
         where wall_s is not null group by all
     """).df()
+    _w = _r.pivot(index="repo", columns="bin", values="t").reset_index().sort_values("main", ascending=False)
+    _w["label"] = _w.apply(lambda r: f"{r.main:.1f}s → {r.infect:.1f}s", axis=1)
     _m = db.sql(f"select bin, m, t, f from read_json_auto('{_docs}/data-bench/infect.ndjson', union_by_name=true) where m is not null").df().set_index("bin")
-    _chart = (
-        alt.Chart(_r)
-        .mark_bar()
-        .encode(
-            x=alt.X("t:Q", title="median wall time over 5 reps (s)"),
-            y=alt.Y("repo:N", title=None),
-            yOffset=alt.YOffset("bin:N"),
-            color=alt.Color("bin:N", title=None, legend=alt.Legend(orient="top")),
-            tooltip=["bin", "repo", alt.Tooltip("t:Q", format=".2f")],
-        )
-        .properties(
-            width=520,
-            height=220,
-            title=title(
-                f"Skipping non-infecting tests: M {_m.loc['main'].m:.3f} → {_m.loc['infect'].m:.3f}",
-                "6 libraries, -j 8, 5 reps. Main win is uuid, where survivors skip a 1 s test.",
-            ),
-        )
+    _chart = dumbbell(
+        _w,
+        y="repo",
+        x0="main",
+        x1="infect",
+        names=("main", "infect"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="median wall time over 5 reps (s)",
+        x_scale=alt.Scale(domain=[0, float(_w.main.max() * 1.25)]),
+        sort=_w.repo.tolist(),
+        label="label",
+        tooltip=["repo", "_series", alt.Tooltip("_val:Q", format=".2f")],
+    ).properties(
+        width=520,
+        height=200,
+        title=title(
+            f"Skipping non-infecting tests: M {_m.loc['main'].m:.3f} → {_m.loc['infect'].m:.3f}",
+            "6 libraries, -j 8, 5 reps. Main win is uuid, where survivors skip a 1 s test.",
+        ),
     )
     mo.vstack(
         [
@@ -1328,31 +1432,34 @@ def _(alt, db, mo, title):
 
 
 @app.cell
-def _(alt, db, mo, title):
+def _(alt, db, dumbbell, mo, title):
     _docs = mo.notebook_dir()
     _r = db.sql(f"""
         select bin, repo, median(wall_s) t from read_json_auto('{_docs}/data-bench/v2-clone.ndjson', union_by_name=true)
         where wall_s is not null group by all
     """).df()
+    _w = _r.pivot(index="repo", columns="bin", values="t").reset_index().sort_values("main", ascending=False)
+    _w["label"] = _w.apply(lambda r: f"{r.main:.1f}s → {r.clone:.1f}s", axis=1)
     _m = db.sql(f"select bin, m, t, f from read_json_auto('{_docs}/data-bench/v2-clone.ndjson', union_by_name=true) where m is not null").df().set_index("bin")
-    _chart = (
-        alt.Chart(_r)
-        .mark_bar()
-        .encode(
-            x=alt.X("t:Q", title="median wall time over 3 reps (s)"),
-            y=alt.Y("repo:N", title=None, sort="-x"),
-            yOffset=alt.YOffset("bin:N"),
-            color=alt.Color("bin:N", title=None, legend=alt.Legend(orient="top")),
-            tooltip=["bin", "repo", alt.Tooltip("t:Q", format=".2f")],
-        )
-        .properties(
-            width=520,
-            height=300,
-            title=title(
-                f"Running unmutated functions as written: M v2 {_m.loc['main'].m:.3f} → {_m.loc['clone'].m:.3f}",
-                "10 libraries (M v2), -j 8, 3 reps. Hot loops in sjson and decimal benefit most.",
-            ),
-        )
+    _chart = dumbbell(
+        _w,
+        y="repo",
+        x0="main",
+        x1="clone",
+        names=("main", "clone"),
+        colors=("#94a3b8", "#2563eb"),
+        x_title="median wall time over 3 reps (s)",
+        x_scale=alt.Scale(domain=[0, float(_w.main.max() * 1.25)]),
+        sort=_w.repo.tolist(),
+        label="label",
+        tooltip=["repo", "_series", alt.Tooltip("_val:Q", format=".2f")],
+    ).properties(
+        width=520,
+        height=270,
+        title=title(
+            f"Running unmutated functions as written: M v2 {_m.loc['main'].m:.3f} → {_m.loc['clone'].m:.3f}",
+            "10 libraries (M v2), -j 8, 3 reps. Hot loops in sjson and decimal benefit most.",
+        ),
     )
     mo.vstack(
         [
@@ -1370,7 +1477,7 @@ def _(alt, db, mo, title):
 
 
 @app.cell
-def _(alt, db, mo, title):
+def _(alt, db, mo, pd, title):
     _docs = mo.notebook_dir()
     _j = db.sql(f"""
         select s.split, s.rule, s.j, s.dj, s.dj_se, s.r5, s.reached_line_hit, d.d, d.corpus_survivors
@@ -1378,14 +1485,18 @@ def _(alt, db, mo, title):
         left join read_json_auto('{_docs}/data-selection/selection-d.ndjson') d using (rule)
     """).df()
     _sp = _j[_j.split != "all"].assign(lo=lambda x: x.dj - 2 * x.dj_se, hi=lambda x: x.dj + 2 * x.dj_se)
+    _xhi = max(0.15, float(_sp.hi.max()) + 0.02)
     _base = alt.Chart(_sp).encode(
         y=alt.Y("rule:N", title=None, sort=["R2b", "hash", "uninfected first", "fewest infected (>0)", "tiered", "most infected"]),
         yOffset=alt.YOffset("split:N"),
-        color=alt.Color("split:N", title=None, legend=alt.Legend(orient="top")),
+        color=alt.Color("split:N", title=None, scale=alt.Scale(range=["#2563eb", "#ea580c"])),
     )
+    _shade = alt.Chart(pd.DataFrame({"x0": [0], "x1": [_xhi]})).mark_rect(color="#eff6ff", opacity=0.7).encode(x="x0:Q", x2="x1:Q")
+    _zero = alt.Chart(pd.DataFrame({"x": [0]})).mark_rule(color="#64748b", strokeDash=[3, 3]).encode(x="x:Q")
+    _cue = alt.Chart(pd.DataFrame({"x": [0.005], "t": ["beats hash →"]})).mark_text(align="left", y=-8, fontSize=10, color="#2563eb").encode(x="x:Q", text="t:N")
     _chart = (
-        (_base.mark_rule().encode(x=alt.X("lo:Q", title="ΔJ against hash, ± 2 SE (paired over faults)"), x2="hi:Q") + _base.mark_point(filled=True).encode(x="dj:Q", tooltip=["split", "rule", alt.Tooltip("dj:Q", format="+.3f"), alt.Tooltip("dj_se:Q", format=".3f")]))
-        .properties(width=520, height=260, title=title(
+        (_shade + _zero + _cue + _base.mark_rule(strokeWidth=2).encode(x=alt.X("lo:Q", title="ΔJ against hash, ± 2 SE (paired over faults)"), x2="hi:Q") + _base.mark_point(filled=True, size=65).encode(x="dj:Q", tooltip=["split", "rule", alt.Tooltip("dj:Q", format="+.3f"), alt.Tooltip("dj_se:Q", format=".3f")]))
+        .properties(width=520, height=240, title=title(
             "Only R2b gains J on both tuning and held-out bugs",
             "79 real bugs (44 tuning, 35 held-out), one mutant per line, tested with pre-fix suites.",
         ))
