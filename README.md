@@ -5,20 +5,20 @@ Mutation testing for Go. `allele` makes small changes to your code (`>` to `>=`,
 Output shows each gap as a diff, not a score:
 
 ```
-$ allele ./...
-survived  xtesting.go:73  SDL
-  -	EqualText(t, v.String(), want)
-  +	(deleted)
+$ allele ./pkg/xtesting ./pkg/unidiff ./pkg/adequacy ./pkg/ndjson
+survived  pkg/xtesting/xtesting.go:112  ROR
+  -		if strings.TrimSpace(l) == "" {
+  +		if strings.TrimSpace(l) < "" {
 
-survived  version.go:183  ROR
-  -	if len(v) > MaxVersionLen {
-  +	if len(v) >= MaxVersionLen {
+survived  pkg/xtesting/xtesting.go:113  SDL
+  -			lines[i] = ""
+  +			(deleted)
 
-381 mutants: 295 killed, 86 survived, 0 not covered, 0 timed out, 0 did not build
-in 4.2s
+114 mutants: 105 killed, 5 survived, 0 not covered, 4 timed out, 0 did not build
+in 8.7s
 ```
 
-In the first gap above, deleting the check in `xtesting.Prints` passed every test. No test checked that `Prints` fails on a mismatch.
+In the gap above, deleting `lines[i] = ""` in `dedent` passed every test. No test passes a whitespace-only blank line to `dedent`.
 
 ## Install
 
