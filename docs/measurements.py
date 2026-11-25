@@ -131,6 +131,11 @@ def _(mo, totals):
     - **Corpus:** 6 pinned repos (`corpus.sh`): glob, go-humanize, go-version, semver, shlex, uuid. {totals.mutants:,} mutants ({totals.compiled:,} compile, {totals.repaired} repaired), {totals.leaves} leaf tests ({totals.excluded} flaky/failing), {totals.results:,} results.
     - **Kill matrix:** Each mutant builds alone (`go test -c -vet=off -overlay`) and runs each top-level test alone. Columns are leaf subtests (`-test.v=test2json`). Timeout = 3× baseline + 1 s ({totals.timeouts:,} timeouts, not counted as kills). Build errors are excluded from scores.
     - **Score:** Share of dominator mutants killed (Kurtz et al., FSE 2016). Strategies are simulated on the matrix: add random tests until every kept mutant dies, then score on all mutants. Each strategy is paired with a random control of equal size (200 test sets × 30 seeds).
+    - **Terms:**
+      - **Schemata:** All mutants of a package compiled into one test binary, toggled at runtime via env var (Untch et al., ISSTA 1993).
+      - **Dominator:** A minimal mutant subset—killing them kills every other killable mutant (removes duplicate credit).
+      - **Coupled:** A real bug linked to a mutant that only the fix's new tests kill.
+      - **Arid:** Code nobody tests directly (logging, metrics, tracing, capacity hints, `//allele:ignore`).
     """)
     return
 
